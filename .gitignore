@@ -12,3 +12,6 @@ Screenshot/
 
 # runtime-generated player ID cache (contains user-specific player name -> ID mappings)
 PlayerIDCache.json
+
+# runtime-generated player data cache (player IDs + stats, no names)
+PlayerDataCache.json

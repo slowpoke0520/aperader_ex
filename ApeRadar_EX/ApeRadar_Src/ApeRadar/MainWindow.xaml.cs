@@ -381,6 +381,7 @@ namespace ApeRadar
                     }
 
                     ApplyBattlefieldToUI(battlefield);
+                    PlayerDataCache.Save();
 
                     //refresh stale cached players in background without blocking the UI
                     List<Player> stalePlayers = playerList.Where(p => p.IsDataStale).ToList();
@@ -513,6 +514,7 @@ namespace ApeRadar
                     List<Player> combinedPlayerList = currentBattlefield.Allies.Concat(currentBattlefield.Enemies).ToList();
                     Battlefield battlefield = new(currentBattlefield.BattleType, currentBattlefield.BattleStartTime, combinedPlayerList);
                     ApplyBattlefieldToUI(battlefield);
+                    PlayerDataCache.Save();
                     NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageBackgroundUpdateComplete") as string);
                 }
             }

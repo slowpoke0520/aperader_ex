@@ -200,22 +200,109 @@ namespace ApeRadar.Utils
     static internal class PlayerDataCache
     {
         public static readonly TimeSpan CacheTtl = TimeSpan.FromHours(24);
+        private const string FILENAME = @".\PlayerDataCache.json";
 
         private static readonly Dictionary<(Server, string, string), PlayerDataSnapshot> cache = new();
+        private static bool loaded = false;
+
+        private class CacheEntry
+        {
+            public string Server { get; set; } = "";
+            public string PlayerID { get; set; } = "";
+            public string ShipID { get; set; } = "";
+            public PlayerDataSnapshot? Snapshot { get; set; }
+        }
+
+        private class PlayerDataCacheFile
+        {
+            public List<CacheEntry> Entries { get; set; } = new();
+        }
+
+        private static void EnsureLoaded()
+        {
+            if (loaded)
+            {
+                return;
+            }
+            loaded = true;
+            try
+            {
+                if (File.Exists(FILENAME))
+                {
+                    PlayerDataCacheFile? file = JsonConvert.DeserializeObject<PlayerDataCacheFile>(File.ReadAllText(FILENAME));
+                    if (file?.Entries != null)
+                    {
+                        foreach (CacheEntry entry in file.Entries)
+                        {
+                            if (entry.Snapshot == null)
+                            {
+                                continue;
+                            }
+                            cache[(ServerExt.GetServerByName(entry.Server), entry.PlayerID, entry.ShipID)] = entry.Snapshot;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogUtils.WriteError("Failed to load PlayerDataCache", ex);
+                cache.Clear();
+            }
+        }
+
+        public static void Save()
+        {
+            EnsureLoaded();
+            try
+            {
+                PlayerDataCacheFile file = new();
+                foreach (KeyValuePair<(Server, string, string), PlayerDataSnapshot> kv in cache)
+                {
+                    file.Entries.Add(new CacheEntry
+                    {
+                        Server = ServerExt.GetNameByServer(kv.Key.Item1),
+                        PlayerID = kv.Key.Item2,
+                        ShipID = kv.Key.Item3,
+                        Snapshot = kv.Value
+                    });
+                }
+                using FileStream fs = new(FILENAME, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+                using StreamWriter sw = new(fs);
+                sw.WriteLine(JsonConvert.SerializeObject(file, Formatting.Indented));
+            }
+            catch (Exception ex)
+            {
+                LogUtils.WriteError("Failed to save PlayerDataCache", ex);
+            }
+        }
 
         public static bool TryGet(Server server, string playerID, string shipID, out PlayerDataSnapshot? snapshot)
         {
+            EnsureLoaded();
             return cache.TryGetValue((server, playerID, shipID), out snapshot);
         }
 
         public static void Set(Server server, string playerID, string shipID, PlayerDataSnapshot snapshot)
         {
+            EnsureLoaded();
             cache[(server, playerID, shipID)] = snapshot;
         }
 
         public static void Clear()
         {
+            EnsureLoaded();
             cache.Clear();
+            try
+            {
+                if (File.Exists(FILENAME))
+                {
+                    File.Delete(FILENAME);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogUtils.WriteError("Failed to delete PlayerDataCache file", ex);
+            }
         }
 
         public static int Count => cache.Count;
