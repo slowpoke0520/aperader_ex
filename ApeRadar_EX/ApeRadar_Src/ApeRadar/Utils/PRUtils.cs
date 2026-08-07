@@ -128,5 +128,19 @@ namespace ApeRadar.Utils
 
             return CalculatePR(actualDmg, expectedDmg, actualWins, expectedWins, actualFrags, expectedFrags);
         }
+
+        //PR of a single ship, based on that ship's own battle record and expected values
+        public static double CalculateShipPR(string shipId, double battles, double damageDealt, double frags, double wins)
+        {
+            if (battles <= 0)
+            {
+                return -1;
+            }
+            if (!TryGetExpectedValues(shipId, out double expectedDmg, out double expectedFrags, out double expectedWinratePercent))
+            {
+                return -1;
+            }
+            return CalculatePR(damageDealt, expectedDmg * battles, wins, expectedWinratePercent / 100.0 * battles, frags, expectedFrags * battles);
+        }
     }
 }

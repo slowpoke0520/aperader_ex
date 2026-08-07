@@ -38,6 +38,7 @@ namespace ApeRadar.Utils
         public bool IsHidden { get; set; }
         public double Karma { get; set; }
         public double PR { get; set; }
+        public double ShipPR { get; set; }
 
         //current ship data
         public double ShipWins { get; set; }
@@ -105,6 +106,7 @@ namespace ApeRadar.Utils
                 IsHidden = p.IsHidden,
                 Karma = p.Karma,
                 PR = p.PR,
+                ShipPR = p.ShipPR,
                 ShipWins = p.ShipWins,
                 ShipWins_Solo = p.ShipWins_Solo,
                 ShipWins_Div2 = p.ShipWins_Div2,
@@ -164,6 +166,7 @@ namespace ApeRadar.Utils
             p.IsHidden = IsHidden;
             p.Karma = Karma;
             p.PR = PR;
+            p.ShipPR = ShipPR;
             p.ShipWins = ShipWins;
             p.ShipWins_Solo = ShipWins_Solo;
             p.ShipWins_Div2 = ShipWins_Div2;

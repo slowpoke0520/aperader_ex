@@ -318,6 +318,8 @@ namespace ApeRadar.Utils
                             p.ShipWins = JTokenCurrentShip!["pvp"]!["wins"]!.Value<double>();
                             p.ShipBattles = JTokenCurrentShip!["pvp"]!["battles"]!.Value<double>();
                             p.ShipTotalDmg = JTokenCurrentShip!["pvp"]!["damage_dealt"]!.Value<double>();
+                            double currentShipFrags = JTokenCurrentShip!["pvp"]!["frags"]!.Value<double>();
+                            p.ShipPR = PRUtils.CalculateShipPR(p.ShipID, p.ShipBattles, p.ShipTotalDmg, currentShipFrags, p.ShipWins);
                             if (p.ShipBattles == 0)
                             {
                                 p.ShipWinrate = 0;
@@ -694,6 +696,8 @@ namespace ApeRadar.Utils
                             p.ShipBattles = JTokenCurrentShipPvp!["battles_count"]!.Value<double>();
                             p.ShipTotalDmg = JTokenCurrentShipPvp!["damage_dealt"]!.Value<double>();
                             p.ShipTotalExp = JTokenCurrentShipPvp!["original_exp"]!.Value<double>();
+                            double currentShipFrags = JTokenCurrentShipPvp!["frags"]!.Value<double>();
+                            p.ShipPR = PRUtils.CalculateShipPR(p.ShipID, p.ShipBattles, p.ShipTotalDmg, currentShipFrags, p.ShipWins);
                             if (p.ShipBattles == 0)
                             {
                                 p.ShipWinrate = 0;

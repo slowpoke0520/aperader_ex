@@ -27,6 +27,8 @@
     <system:String x:Key="DataGridToolTipSolo">Solo</system:String>
     <system:String x:Key="DataGridToolTipDiv2">Div 2</system:String>
     <system:String x:Key="DataGridToolTipDiv3">Div 3</system:String>
+    <system:String x:Key="DataGridToolTipAccountPR">Account PR</system:String>
+    <system:String x:Key="DataGridToolTipShipPR">Ship PR</system:String>
     
     <system:String x:Key="BtnSave">Save</system:String>
     <system:String x:Key="BtnCancel">Cancel</system:String>
@@ -86,6 +88,7 @@
     <system:String x:Key="LabelAverageAccountWinrate">Account</system:String>
     <system:String x:Key="LabelAverageWeightedWinrate">Weighted</system:String>
     <system:String x:Key="LabelAverageBattleCount">Battles</system:String>
+    <system:String x:Key="LabelAveragePR">PR</system:String>
     <system:String x:Key="LabelGamePathIsSet">Game Path is Set</system:String>
     <system:String x:Key="LabelGamePathIsNotSet">Game Path is NOT Set</system:String>
     <system:String x:Key="LabelChartType">Chart Type:</system:String>
@@ -323,6 +326,8 @@
     <system:String x:Key="ListItemEnemyAvgAccountWinrate">Enemy Avg. Account Winrate</system:String>
     <system:String x:Key="ListItemEnemyAvgWeightedWinrate">Enemy Avg. Weighted Winrate</system:String>
     <system:String x:Key="ListItemEnemyAvgBattles">Enemy Avg. Battles</system:String>
+    <system:String x:Key="ListItemAllyAvgPR">Ally Average PR</system:String>
+    <system:String x:Key="ListItemEnemyAvgPR">Enemy Average PR</system:String>
     <system:String x:Key="ListItemAllyApeList">Ally Ape List</system:String>
     <system:String x:Key="ListItemAllyUnicumList">Ally Unicum List</system:String>
     <system:String x:Key="ListItemAllyHiddenList">Ally Hidden List</system:String>

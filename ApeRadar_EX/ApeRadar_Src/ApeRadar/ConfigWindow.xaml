@@ -9,7 +9,7 @@
         xmlns:p="clr-namespace:ApeRadar.Properties"
         xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
         mc:Ignorable="d"
-        Title="{DynamicResource WindowTitleConfig}" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" SizeToContent="WidthAndHeight" Closing="ConfigWindow_Closing">
+        Title="{DynamicResource WindowTitleConfig}" ResizeMode="CanResize" WindowStartupLocation="CenterOwner" Width="1100" Height="700" MinWidth="900" MinHeight="560" Closing="ConfigWindow_Closing">
     <Window.Resources>
         <cvt:ComboBoxSecondaryServerVisibilityConverter x:Key="CvtSecondaryServer"/>
         <cvt:ContextMenuItemCheckOnWoWSNumbersIsEnabledConverter x:Key="CvtContextMenuItemWoWSNumbersIsEnabled"/>
@@ -71,7 +71,7 @@
             <Setter Property="ContextMenu" Value="{StaticResource RowMenu}"/>
         </Style>
     </Window.Resources>
-    <Viewbox StretchDirection="DownOnly">
+    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="50"/>
@@ -610,6 +610,8 @@
                                         <model:ListItem Content="{DynamicResource ListItemEnemyAvgAccountWinrate}" Value="EnemyAvgAccountWinrate"/>
                                         <model:ListItem Content="{DynamicResource ListItemEnemyAvgWeightedWinrate}" Value="EnemyAvgWeightedWinrate"/>
                                         <model:ListItem Content="{DynamicResource ListItemEnemyAvgBattles}" Value="EnemyAvgBattles"/>
+                                        <model:ListItem Content="{DynamicResource ListItemAllyAvgPR}" Value="AllyAvgPR"/>
+                                        <model:ListItem Content="{DynamicResource ListItemEnemyAvgPR}" Value="EnemyAvgPR"/>
                                         <model:ListItem Content="{DynamicResource ListItemAllyApeList}" Value="AllyApeList"/>
                                         <model:ListItem Content="{DynamicResource ListItemAllyUnicumList}" Value="AllyUnicumList"/>
                                         <model:ListItem Content="{DynamicResource ListItemAllyHiddenList}" Value="AllyHiddenList"/>
@@ -858,5 +860,5 @@
                 </StackPanel>
             </Grid>
         </Grid>
-    </Viewbox>
+    </ScrollViewer>
 </Window>

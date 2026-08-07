@@ -78,7 +78,8 @@
                 </Grid>
                 <Grid Grid.Row="0" Grid.Column="3">
                     <StackPanel Orientation="Vertical" Width="90" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
-                        <TextBlock Text="{DynamicResource DataGridToolTipPR}" HorizontalAlignment="Center" FontSize="15" Margin="5"/>
+                        <TextBlock Text="{DynamicResource DataGridToolTipAccountPR}" HorizontalAlignment="Center" FontSize="15" Margin="5"/>
+                        <TextBlock Text="{DynamicResource DataGridToolTipShipPR}" HorizontalAlignment="Center" FontSize="15" Margin="5,0,5,5"/>
                     </StackPanel>
                 </Grid>
             </Grid>
@@ -121,7 +122,8 @@
                 </Grid>
                 <Grid Grid.Row="0" Grid.Column="3">
                     <StackPanel Orientation="Vertical" Width="90" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
-                        <TextBlock Text="{DynamicResource DataGridToolTipPR}" HorizontalAlignment="Center" FontSize="15" Margin="5"/>
+                        <TextBlock Text="{DynamicResource DataGridToolTipAccountPR}" HorizontalAlignment="Center" FontSize="15" Margin="5"/>
+                        <TextBlock Text="{DynamicResource DataGridToolTipShipPR}" HorizontalAlignment="Center" FontSize="15" Margin="5,0,5,5"/>
                     </StackPanel>
                 </Grid>
             </Grid>
@@ -205,6 +207,7 @@
                 <Grid Grid.Row="0" Grid.Column="3">
                     <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{Binding PR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding PR, Converter={StaticResource CvtPRColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
+                        <TextBlock Text="{Binding ShipPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding ShipPR, Converter={StaticResource CvtPRColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
                     </StackPanel>
                 </Grid>
             </Grid>
@@ -301,6 +304,7 @@
                 <Grid Grid.Row="0" Grid.Column="3">
                     <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{Binding PR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding PR, Converter={StaticResource CvtPRColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
+                        <TextBlock Text="{Binding ShipPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding ShipPR, Converter={StaticResource CvtPRColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
                     </StackPanel>
                 </Grid>
             </Grid>
@@ -368,7 +372,7 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock Margin="5,0,5,5" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}" Foreground="{Binding PR, Converter={StaticResource CvtPRColor}}">
-                        <Run Text="{DynamicResource DataGridToolTipPR}"/> <Run Text="{Binding PR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}"/>
+                        <Run Text="{DynamicResource DataGridToolTipAccountPR}"/> <Run Text="{Binding PR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}"/> <Run Text="  "/><Run Text="{DynamicResource DataGridToolTipShipPR}"/> <Run Text="{Binding ShipPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}"/>
                     </TextBlock>
                     <TextBlock Margin="20,0,5,5" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}" Visibility="{Binding Note, Converter={StaticResource CvtNoteVisibility}}">
                         <Run Text="{DynamicResource LabelNote}"/> <Run Text="{Binding Note}"/>
@@ -484,6 +488,10 @@
                             <Label Content="{DynamicResource LabelAverageBattleCount}" HorizontalAlignment="Center" FontSize="14"/>
                             <Label Content="{Binding AllyAvgBattleCount}" ContentStringFormat="f1" HorizontalAlignment="Center" FontSize="14"/>
                         </StackPanel>
+                        <StackPanel Orientation="Vertical" Margin="10,5,0,0">
+                            <Label Content="{DynamicResource LabelAveragePR}" HorizontalAlignment="Center" FontSize="14"/>
+                            <Label Content="{Binding AllyAvgPR}" ContentStringFormat="f0" HorizontalAlignment="Center" FontSize="14"/>
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Column="1">
@@ -503,6 +511,10 @@
                         <StackPanel Orientation="Vertical" Margin="0,5,0,0">
                             <Label Content="{DynamicResource LabelAverageBattleCount}" HorizontalAlignment="Center" FontSize="14"/>
                             <Label Content="{Binding EnemyAvgBattleCount}" ContentStringFormat="f1" HorizontalAlignment="Center" FontSize="14"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Vertical" Margin="10,5,0,0">
+                            <Label Content="{DynamicResource LabelAveragePR}" HorizontalAlignment="Center" FontSize="14"/>
+                            <Label Content="{Binding EnemyAvgPR}" ContentStringFormat="f0" HorizontalAlignment="Center" FontSize="14"/>
                         </StackPanel>
                     </StackPanel>
                 </Grid>

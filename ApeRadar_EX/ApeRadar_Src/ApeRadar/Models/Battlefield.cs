@@ -15,6 +15,8 @@ namespace ApeRadar.Models
         public double EnemyAvgWeightedWinrate { get; set; }
         public double AllyAvgBattleCount { get; set; }
         public double EnemyAvgBattleCount { get; set; }
+        public double AllyAvgPR { get; set; }
+        public double EnemyAvgPR { get; set; }
 
         public List<Player> Allies { get; set; }
         public List<Player> Enemies { get; set; }
@@ -290,6 +292,7 @@ namespace ApeRadar.Models
             AllyAvgAccountWinrate = 0;
             AllyAvgWeightedWinrate = 0;
             AllyAvgBattleCount = 0;
+            AllyAvgPR = 0;
 
             foreach (Player p in playerList)
             {
@@ -317,6 +320,7 @@ namespace ApeRadar.Models
 
             maxTeamPlayersCount = Allies.Count > Enemies.Count ? Allies.Count : Enemies.Count;
 
+            int allyPlayersWithValidPR = 0;
             for (int i = 0; i < Allies.Count; i++)
             {
                 if (Allies[i].AccountWinrate >= 0)
@@ -325,15 +329,26 @@ namespace ApeRadar.Models
                     AllyAvgWeightedWinrate += Allies[i].WeightedWinrate;
                     AllyAvgBattleCount += Allies[i].Battles;
                 }
+                if (Allies[i].PR >= 0)
+                {
+                    AllyAvgPR += Allies[i].PR;
+                    allyPlayersWithValidPR++;
+                }
             }
             AllyAvgAccountWinrate /= allyPlayersWithValidWinrate;
             AllyAvgWeightedWinrate /= allyPlayersWithValidWinrate;
             AllyAvgBattleCount /= allyPlayersWithValidWinrate;
+            if (allyPlayersWithValidPR > 0)
+            {
+                AllyAvgPR /= allyPlayersWithValidPR;
+            }
 
             EnemyAvgAccountWinrate = 0;
             EnemyAvgWeightedWinrate = 0;
             EnemyAvgBattleCount = 0;
+            EnemyAvgPR = 0;
 
+            int enemyPlayersWithValidPR = 0;
             for (int i = 0; i < Enemies.Count; i++)
             {
                 if (Enemies[i].AccountWinrate >= 0)
@@ -342,11 +357,20 @@ namespace ApeRadar.Models
                     EnemyAvgWeightedWinrate += Enemies[i].WeightedWinrate;
                     EnemyAvgBattleCount += Enemies[i].Battles;
                 }
+                if (Enemies[i].PR >= 0)
+                {
+                    EnemyAvgPR += Enemies[i].PR;
+                    enemyPlayersWithValidPR++;
+                }
             }
 
             EnemyAvgAccountWinrate /= enemyPlayersWithValidWinrate;
             EnemyAvgWeightedWinrate /= enemyPlayersWithValidWinrate;
             EnemyAvgBattleCount /= enemyPlayersWithValidWinrate;
+            if (enemyPlayersWithValidPR > 0)
+            {
+                EnemyAvgPR /= enemyPlayersWithValidPR;
+            }
 
             Allies.Sort(SortPlayersByShipTypeAndShipTierAndWinrateDescending);
             Enemies.Sort(SortPlayersByShipTypeAndShipTierAndWinrateDescending);

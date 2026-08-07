@@ -72,6 +72,7 @@ namespace ApeRadar.Models
         public double WeightedWinrate { get; set; }
         public double Karma { get; set; }
         public double PR { get; set; }
+        public double ShipPR { get; set; }
         public string Note { get; set; }
         public bool IsDataStale { get; set; }
 
@@ -153,6 +154,7 @@ namespace ApeRadar.Models
             WeightedWinrate = -1;
             Karma = -1;
             PR = -1;
+            ShipPR = -1;
             Note = "";
             WatchStatus = WatchStatus.NONE;
             PlotXPosition = -1;
@@ -222,6 +224,7 @@ namespace ApeRadar.Models
             WeightedWinrate = -1;
             Karma = -1;
             PR = -1;
+            ShipPR = -1;
             Note = "";
             this.WatchStatus = WatchStatus;
             PlotXPosition = -1;
@@ -260,6 +263,7 @@ namespace ApeRadar.Models
             IsHidden = other.IsHidden;
             Karma = other.Karma;
             PR = other.PR;
+            ShipPR = other.ShipPR;
             ShipWins = other.ShipWins;
             ShipWins_Solo = other.ShipWins_Solo;
             ShipWins_Div2 = other.ShipWins_Div2;

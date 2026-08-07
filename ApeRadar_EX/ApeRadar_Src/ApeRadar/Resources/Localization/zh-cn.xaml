@@ -27,6 +27,8 @@
     <system:String x:Key="DataGridToolTipSolo">单排</system:String>
     <system:String x:Key="DataGridToolTipDiv2">双排</system:String>
     <system:String x:Key="DataGridToolTipDiv3">三排</system:String>
+    <system:String x:Key="DataGridToolTipAccountPR">账号PR</system:String>
+    <system:String x:Key="DataGridToolTipShipPR">单船PR</system:String>
 
     <system:String x:Key="BtnSave">保存</system:String>
     <system:String x:Key="BtnCancel">取消</system:String>
@@ -86,6 +88,7 @@
     <system:String x:Key="LabelAverageAccountWinrate">账号</system:String>
     <system:String x:Key="LabelAverageWeightedWinrate">加权</system:String>
     <system:String x:Key="LabelAverageBattleCount">场次</system:String>
+    <system:String x:Key="LabelAveragePR">PR</system:String>
     <system:String x:Key="LabelGamePathIsSet">游戏路径已设置</system:String>
     <system:String x:Key="LabelGamePathIsNotSet">游戏路径未设置</system:String>
     <system:String x:Key="LabelChartType">统计图类型：</system:String>
@@ -323,6 +326,8 @@
     <system:String x:Key="ListItemEnemyAvgAccountWinrate">敌方平均账号胜率</system:String>
     <system:String x:Key="ListItemEnemyAvgWeightedWinrate">敌方平均加权胜率</system:String>
     <system:String x:Key="ListItemEnemyAvgBattles">敌方平均场次</system:String>
+    <system:String x:Key="ListItemAllyAvgPR">友方平均PR</system:String>
+    <system:String x:Key="ListItemEnemyAvgPR">敌方平均PR</system:String>
     <system:String x:Key="ListItemAllyApeList">友方海猴名单</system:String>
     <system:String x:Key="ListItemAllyUnicumList">友方大佬名单</system:String>
     <system:String x:Key="ListItemAllyHiddenList">友方隐藏战绩名单</system:String>

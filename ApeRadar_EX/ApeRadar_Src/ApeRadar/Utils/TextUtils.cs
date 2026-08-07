@@ -263,6 +263,8 @@ namespace ApeRadar.Utils
             outputText = outputText.Replace("{EnemyAvgWeightedWinrate}", battlefield.EnemyAvgWeightedWinrate.ToString("p2"));
             outputText = outputText.Replace("{AllyAvgBattles}", battlefield.AllyAvgBattleCount.ToString("f1"));
             outputText = outputText.Replace("{EnemyAvgBattles}", battlefield.EnemyAvgBattleCount.ToString("f1"));
+            outputText = outputText.Replace("{AllyAvgPR}", battlefield.AllyAvgPR.ToString("f0"));
+            outputText = outputText.Replace("{EnemyAvgPR}", battlefield.EnemyAvgPR.ToString("f0"));
 
             //split text every 140 char
             for (int i = outputText.Length / 140; i > 0; i--)
