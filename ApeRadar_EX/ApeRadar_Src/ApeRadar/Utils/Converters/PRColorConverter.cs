@@ -7,7 +7,7 @@ namespace ApeRadar.Utils.Converters
 {
     internal class PRColorConverter : IValueConverter
     {
-        //color bands follow WoWS Numbers rating scale
+        //color bands follow the WoWS Numbers 8-color scale (same palette as the winrate tag colors)
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is not double pr || pr < 0)
@@ -19,10 +19,11 @@ namespace ApeRadar.Utils.Converters
                 < 750 => "#607D8B",
                 < 1100 => "#FE0E00",
                 < 1350 => "#FE7903",
-                < 1550 => "#F5C84C",
-                < 1750 => "#67AF34",
-                < 2100 => "#4A7D23",
-                < 2450 => "#60C6B3",
+                < 1550 => "#FFC71F",
+                < 1750 => "#44B300",
+                < 2100 => "#318000",
+                < 2450 => "#02C9B3",
+                < 2800 => "#D042F3",
                 _ => "#A00DC5",
             };
             return new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));

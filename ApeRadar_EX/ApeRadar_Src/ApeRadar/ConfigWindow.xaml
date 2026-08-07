@@ -71,7 +71,7 @@
             <Setter Property="ContextMenu" Value="{StaticResource RowMenu}"/>
         </Style>
     </Window.Resources>
-    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+    <Viewbox Stretch="Uniform">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="50"/>
@@ -860,5 +860,5 @@
                 </StackPanel>
             </Grid>
         </Grid>
-    </ScrollViewer>
+    </Viewbox>
 </Window>
