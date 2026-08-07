@@ -1,0 +1,11 @@
+# Build outputs
+bin/
+obj/
+
+# Runtime logs and screenshots
+Log/
+Screenshot/
+
+# Visual Studio local settings
+.vs/
+*.user

@@ -1,0 +1,13 @@
+<Window x:Class="ApeRadar.NoteEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource NoteEditWindowTitle}" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" SizeToContent="WidthAndHeight" ShowInTaskbar="False">
+    <StackPanel Margin="20">
+        <TextBlock x:Name="TxtNotePlayerName" FontSize="14" Margin="0,0,0,10"/>
+        <TextBox x:Name="TxtNote" Width="400" Height="100" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <Button Content="{DynamicResource BtnOK}" Width="90" Height="32" Margin="0,0,10,0" IsDefault="True" Click="BtnOK_Click"/>
+            <Button Content="{DynamicResource BtnCancel}" Width="90" Height="32" IsCancel="True" Click="BtnCancel_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>
