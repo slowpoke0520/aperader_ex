@@ -9,3 +9,6 @@ Screenshot/
 # Visual Studio local settings
 .vs/
 *.user
+
+# runtime-generated player ID cache (contains user-specific player name -> ID mappings)
+PlayerIDCache.json

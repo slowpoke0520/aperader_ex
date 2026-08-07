@@ -11,7 +11,19 @@ namespace ApeRadar.Utils
 {
     static internal class NetworkUtils
     {
-        static readonly HttpClient hc = new()
+        public const int MaxConcurrentHttpRequests = 10;
+        public static long TotalHttpGetCount = 0;
+
+        static readonly SemaphoreSlim HttpSemaphore = new(MaxConcurrentHttpRequests);
+
+        static readonly HttpClientHandler handler = new()
+        {
+            AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+            MaxConnectionsPerServer = 16,
+            UseCookies = false,
+        };
+
+        static readonly HttpClient hc = new(handler)
         {
             Timeout = TimeSpan.FromMilliseconds(20000)
         };
@@ -25,8 +37,17 @@ namespace ApeRadar.Utils
         {
             try
             {
-                using HttpResponseMessage response = await hc.GetAsync(url);
-                return await response.Content.ReadAsStringAsync();
+                await HttpSemaphore.WaitAsync();
+                try
+                {
+                    TotalHttpGetCount++;
+                    using HttpResponseMessage response = await hc.GetAsync(url);
+                    return await response.Content.ReadAsStringAsync();
+                }
+                finally
+                {
+                    HttpSemaphore.Release();
+                }
             }
             catch (Exception ex)
             {
@@ -38,8 +59,16 @@ namespace ApeRadar.Utils
         {
             try
             {
-                using HttpResponseMessage response = await hc.PostAsync(url, new StringContent(content, Encoding.UTF8, mediaType));
-                return await response.Content.ReadAsStringAsync();
+                await HttpSemaphore.WaitAsync();
+                try
+                {
+                    using HttpResponseMessage response = await hc.PostAsync(url, new StringContent(content, Encoding.UTF8, mediaType));
+                    return await response.Content.ReadAsStringAsync();
+                }
+                finally
+                {
+                    HttpSemaphore.Release();
+                }
             }
             catch (Exception ex)
             {
@@ -51,10 +80,18 @@ namespace ApeRadar.Utils
         {
             try
             {
-                using HttpResponseMessage response = await hc.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-                using FileStream fs = new(filename, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
-                await response.Content.CopyToAsync(fs);
-                return filename;
+                await HttpSemaphore.WaitAsync();
+                try
+                {
+                    using HttpResponseMessage response = await hc.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+                    using FileStream fs = new(filename, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+                    await response.Content.CopyToAsync(fs);
+                    return filename;
+                }
+                finally
+                {
+                    HttpSemaphore.Release();
+                }
             }
             catch (Exception ex)
             {

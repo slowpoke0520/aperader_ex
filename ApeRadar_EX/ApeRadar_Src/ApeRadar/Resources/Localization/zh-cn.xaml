@@ -429,5 +429,9 @@
 
     <system:String x:Key="StringNone">无</system:String>
     <system:String x:Key="StringUnknownShip">未知舰艇</system:String>
+    <system:String x:Key="NotificationMessageDataUsingCache">名玩家使用缓存数据，正在后台更新…</system:String>
+    <system:String x:Key="NotificationMessageBackgroundUpdateComplete">后台数据更新完成。</system:String>
+    <system:String x:Key="NotificationMessageCacheCleared">缓存已清空。</system:String>
+    <system:String x:Key="BtnClearCache">清空缓存</system:String>
 
 </ResourceDictionary>

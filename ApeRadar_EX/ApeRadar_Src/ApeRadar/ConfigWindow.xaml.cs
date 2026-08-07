@@ -420,5 +420,12 @@ namespace ApeRadar
             }
             BtnUpdatePRData.IsEnabled = true;
         }
+
+        private void BtnClearCache_Click(object sender, RoutedEventArgs e)
+        {
+            PlayerDataCache.Clear();
+            PlayerIDCache.Clear();
+            NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageCacheCleared") as string);
+        }
     }
 }

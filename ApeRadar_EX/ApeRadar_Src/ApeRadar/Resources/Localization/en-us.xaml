@@ -429,5 +429,9 @@
 
     <system:String x:Key="StringNone">None</system:String>
     <system:String x:Key="StringUnknownShip">Unknown Ship</system:String>
+    <system:String x:Key="NotificationMessageDataUsingCache"> player(s) using cached data, updating in background...</system:String>
+    <system:String x:Key="NotificationMessageBackgroundUpdateComplete">Background data update complete.</system:String>
+    <system:String x:Key="NotificationMessageCacheCleared">Cache cleared.</system:String>
+    <system:String x:Key="BtnClearCache">Clear Cache</system:String>
 
 </ResourceDictionary>
