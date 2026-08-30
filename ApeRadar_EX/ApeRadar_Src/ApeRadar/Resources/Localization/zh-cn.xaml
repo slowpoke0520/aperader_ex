@@ -38,6 +38,7 @@
     <system:String x:Key="BtnBrowse">浏览</system:String>
     <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">检查更新</TextBlock>
     <system:String x:Key="BtnRefresh">刷新</system:String>
+    <system:String x:Key="BtnSoftwareUpdate">软件更新</system:String>
     <system:String x:Key="BtnOpen">打开Replay</system:String>
     <system:String x:Key="BtnConfig">设置</system:String>
     <system:String x:Key="BtnScreenshot">截图</system:String>
@@ -409,6 +410,7 @@
     <system:String x:Key="MsgBoxSoftwareUpdateFound">已找到软件的更新版本。</system:String>
     <system:String x:Key="MsgBoxShiplistUpdateFound">已找到船名列表的更新版本。</system:String>
     <system:String x:Key="MsgBoxUpdatesNotFound">软件和船名列表已是最新版本。</system:String>
+    <system:String x:Key="MsgBoxSoftwareUpdateNotFound">软件已是最新版本。</system:String>
     <system:String x:Key="MsgBoxCurrentVersion">当前版本：</system:String>
     <system:String x:Key="MsgBoxLatestVersion">最新版本：</system:String>
     <system:String x:Key="MsgBoxUpdateComfirm">是否更新？</system:String>
@@ -420,6 +422,8 @@
     <system:String x:Key="BtnUpdatePRData">更新PR数据</system:String>
 
     <system:String x:Key="ContextMenuCopyPlayerStatistics">复制玩家战绩</system:String>
+    <system:String x:Key="ContextMenuRefreshPlayer">更新此玩家数据</system:String>
+    <system:String x:Key="ContextMenuFixedTeammate">固定队友（不标记近期遇到）</system:String>
     <system:String x:Key="ContextMenuCheckOnWoWSOfficialSite">在战舰世界官方网站上查看详细信息</system:String>
     <system:String x:Key="ContextMenuCheckOnWoWSNumbers">在WoWS Numbers上查看详细信息</system:String>
     <system:String x:Key="ContextMenuAddToWatchListPositive">添加到特别关注名单（正面）</system:String>

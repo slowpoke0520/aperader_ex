@@ -28,7 +28,7 @@ namespace ApeRadar.Utils
         static string[] ignoredFileList = { @".\placement.config", @".\WatchList.json" };
         static string[] occupiedFileList = { @".\ApeRadar.exe", @".\libSkiaSharp.dll" };
 
-        public static async Task<bool> CheckForUpdates()
+        public static async Task<bool> CheckForUpdates(bool includeShipList = true)
         {
             try
             {
@@ -58,7 +58,7 @@ namespace ApeRadar.Utils
                 shiplistLatestFileName = shiplistLatestUrl.Substring(shiplistLatestUrl.LastIndexOf('/') + 1);
                 shiplistLasestSHA256 = JObjectUpdateInfo["shiplist_latest_sha256"]!.Value<string>()!;
 
-                if (Convert.ToInt32(softwareLatestDate) <= Convert.ToInt32(Properties.Settings.Default.SoftwareDate) && Convert.ToInt32(shiplistLatestDate) <= Convert.ToInt32(ShipInfoUtils.GetShipInfoDate()))
+                if (Convert.ToInt32(softwareLatestDate) <= Convert.ToInt32(Properties.Settings.Default.SoftwareDate) && (!includeShipList || Convert.ToInt32(shiplistLatestDate) <= Convert.ToInt32(ShipInfoUtils.GetShipInfoDate())))
                 {
                     return false;
                 }
@@ -115,7 +115,7 @@ namespace ApeRadar.Utils
                         return true;
                     }
                 }
-                if (Convert.ToInt32(shiplistLatestDate) > Convert.ToInt32(ShipInfoUtils.GetShipInfoDate()))
+                if (includeShipList && Convert.ToInt32(shiplistLatestDate) > Convert.ToInt32(ShipInfoUtils.GetShipInfoDate()))
                 {
                     if (MessageBox.Show($"{Application.Current.FindResource("MsgBoxShiplistUpdateFound") as string}\n{Application.Current.FindResource("MsgBoxCurrentVersion") as string} {ShipInfoUtils.GetShipInfoVersion()} ({ShipInfoUtils.GetShipInfoDate()})\n{Application.Current.FindResource("MsgBoxLatestVersion") as string} {shiplistLatestVersion} ({shiplistLatestDate})\n{Application.Current.FindResource("MsgBoxUpdateComfirm") as string}", Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
                     {

@@ -19,7 +19,7 @@ namespace ApeRadar.Utils
             return accountWeightedWinrate * (1 - shipWeight) + shipWinrate * shipWeight;
         }
 
-        public async static Task<List<Player>> WgPublicApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool useYuyukoProxy)
+        public async static Task<List<Player>> WgPublicApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool useYuyukoProxy, bool forceRefresh = false, string? forceRefreshPlayerID = null)
         {
             const string WG_PUBLIC_API_APPLICATION_ID = "447ec579e994976e39dec0e7d0bac644";
             const string YUYUKO_PROXY_URL = "dev-proxy.wows.shinoaki.com:7700/dev";
@@ -103,9 +103,10 @@ namespace ApeRadar.Utils
             HashSet<string> playersToFetch = new();
             foreach (Player p in playerList)
             {
-                if (p.ID != "-1" && PlayerDataCache.TryGet(server, p.ID, p.ShipID, out PlayerDataSnapshot? snapshot))
+                if (!forceRefresh && p.ID != forceRefreshPlayerID && p.ID != "-1" && PlayerDataCache.TryGet(server, p.ID, p.ShipID, out PlayerDataSnapshot? snapshot))
                 {
                     snapshot!.ApplyTo(p);
+                    LogUtils.WriteInfo($"PlayerDataCache hit: Name={p.Name}, ID={p.ID}, Server={ServerExt.GetNameByServer(server)}, ShipID={p.ShipID}, FetchedAt={snapshot.FetchedAt:O}, Expired={snapshot.IsExpired()}");
                     if (snapshot.IsExpired())
                     {
                         p.IsDataStale = true;
@@ -441,7 +442,7 @@ namespace ApeRadar.Utils
             return playerList;
         }
 
-        public async static Task<List<Player>> VortexApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server)
+        public async static Task<List<Player>> VortexApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool forceRefresh = false, string? forceRefreshPlayerID = null)
         {
             LogUtils.WriteInfo("Vortex API");
             string serverUrlString = ServerExt.GetFullUrlStringByServer(server);
@@ -508,9 +509,10 @@ namespace ApeRadar.Utils
             HashSet<string> playersToFetch = new();
             foreach (Player p in playerList)
             {
-                if (p.ID != "-1" && PlayerDataCache.TryGet(server, p.ID, p.ShipID, out PlayerDataSnapshot? snapshot))
+                if (!forceRefresh && p.ID != forceRefreshPlayerID && p.ID != "-1" && PlayerDataCache.TryGet(server, p.ID, p.ShipID, out PlayerDataSnapshot? snapshot))
                 {
                     snapshot!.ApplyTo(p);
+                    LogUtils.WriteInfo($"PlayerDataCache hit: Name={p.Name}, ID={p.ID}, Server={ServerExt.GetNameByServer(server)}, ShipID={p.ShipID}, FetchedAt={snapshot.FetchedAt:O}, Expired={snapshot.IsExpired()}");
                     if (snapshot.IsExpired())
                     {
                         p.IsDataStale = true;
@@ -577,14 +579,23 @@ namespace ApeRadar.Utils
                     JObject JObjectVortexApiPlayerShipsDiv3Data = JsonUtils.Parse(taskListVortexApiGetPlayersShipsDiv3Data[0].Result);
                     taskListVortexApiGetPlayersShipsDiv3Data.RemoveAt(0);
 
-                    if (JObjectVortexApiPlayerAccountData["status"]!.Value<string>() == "ok" && JObjectVortexApiPlayerAccountData["data"]![p.ID]!.HasValues && JObjectVortexApiPlayerAccountData["data"]![p.ID]!.SelectToken("hidden_profile") == null && JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!.HasValues)
+                    JToken? accountData = JObjectVortexApiPlayerAccountData["data"]?[p.ID];
+                    JToken? accountStatistics = accountData?["statistics"];
+                    if (JObjectVortexApiPlayerAccountData["status"]?.Value<string>() == "ok" && accountData?.HasValues == true && accountData?["hidden_profile"] == null && accountStatistics?.HasValues == true)
                     {
-                        p.Karma = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["basic"]!["karma"]!.Value<double>();
-                        if (JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp"]!.HasValues)
+                        JToken? karma = accountStatistics["basic"]?["karma"];
+                        p.Karma = karma?.Value<double>() ?? 0;
+                        if (karma == null)
                         {
-                            p.Wins = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp"]!["wins"]!.Value<double>();
-                            p.Battles = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp"]!["battles_count"]!.Value<double>();
-                            p.TotalExp = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp"]!["original_exp"]!.Value<double>();
+                            LogUtils.WriteInfo($"Vortex API response has no statistics.basic.karma; using 0. Name={p.Name}, ID={p.ID}, Server={ServerExt.GetNameByServer(server)}");
+                        }
+
+                        JToken? pvp = accountStatistics["pvp"];
+                        if (pvp?.HasValues == true)
+                        {
+                            p.Wins = pvp["wins"]?.Value<double>() ?? 0;
+                            p.Battles = pvp["battles_count"]?.Value<double>() ?? 0;
+                            p.TotalExp = pvp["original_exp"]?.Value<double>() ?? 0;
                             if (p.Battles == 0)
                             {
                                 p.AccountWinrate = 0;
@@ -604,11 +615,12 @@ namespace ApeRadar.Utils
                             p.TotalExp = 0;
                             p.AvgExpPerBattle = 0;
                         }
-                        if (JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_solo"]!.HasValues)
+                        JToken? pvpSolo = accountStatistics["pvp_solo"];
+                        if (pvpSolo?.HasValues == true)
                         {
-                            p.Wins_Solo = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_solo"]!["wins"]!.Value<double>();
-                            p.Battles_Solo = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_solo"]!["battles_count"]!.Value<double>();
-                            p.TotalExp_Solo = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_solo"]!["original_exp"]!.Value<double>();
+                            p.Wins_Solo = pvpSolo["wins"]?.Value<double>() ?? 0;
+                            p.Battles_Solo = pvpSolo["battles_count"]?.Value<double>() ?? 0;
+                            p.TotalExp_Solo = pvpSolo["original_exp"]?.Value<double>() ?? 0;
                             if (p.Battles_Solo == 0)
                             {
                                 p.AccountWinrate_Solo = 0;
@@ -628,11 +640,12 @@ namespace ApeRadar.Utils
                             p.TotalExp_Solo = 0;
                             p.AvgExpPerBattle_Solo = 0;
                         }
-                        if (JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_div2"]!.HasValues)
+                        JToken? pvpDiv2 = accountStatistics["pvp_div2"];
+                        if (pvpDiv2?.HasValues == true)
                         {
-                            p.Wins_Div2 = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_div2"]!["wins"]!.Value<double>();
-                            p.Battles_Div2 = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_div2"]!["battles_count"]!.Value<double>();
-                            p.TotalExp_Div2 = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_div2"]!["original_exp"]!.Value<double>();
+                            p.Wins_Div2 = pvpDiv2["wins"]?.Value<double>() ?? 0;
+                            p.Battles_Div2 = pvpDiv2["battles_count"]?.Value<double>() ?? 0;
+                            p.TotalExp_Div2 = pvpDiv2["original_exp"]?.Value<double>() ?? 0;
                             if (p.Battles_Div2 == 0)
                             {
                                 p.AccountWinrate_Div2 = 0;
@@ -652,11 +665,12 @@ namespace ApeRadar.Utils
                             p.TotalExp_Div2 = 0;
                             p.AvgExpPerBattle_Div2 = 0;
                         }
-                        if (JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_div3"]!.HasValues)
+                        JToken? pvpDiv3 = accountStatistics["pvp_div3"];
+                        if (pvpDiv3?.HasValues == true)
                         {
-                            p.Wins_Div3 = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_div3"]!["wins"]!.Value<double>();
-                            p.Battles_Div3 = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_div3"]!["battles_count"]!.Value<double>();
-                            p.TotalExp_Div3 = JObjectVortexApiPlayerAccountData["data"]![p.ID]!["statistics"]!["pvp_div3"]!["original_exp"]!.Value<double>();
+                            p.Wins_Div3 = pvpDiv3["wins"]?.Value<double>() ?? 0;
+                            p.Battles_Div3 = pvpDiv3["battles_count"]?.Value<double>() ?? 0;
+                            p.TotalExp_Div3 = pvpDiv3["original_exp"]?.Value<double>() ?? 0;
                             if (p.Battles_Div3 == 0)
                             {
                                 p.AccountWinrate_Div3 = 0;

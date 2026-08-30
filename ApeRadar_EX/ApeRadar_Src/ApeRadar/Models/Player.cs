@@ -76,6 +76,35 @@ namespace ApeRadar.Models
         public string Note { get; set; }
         public bool IsDataStale { get; set; }
 
+        private int recentEncounterCount;
+        public int RecentEncounterCount
+        {
+            get => recentEncounterCount;
+            set
+            {
+                recentEncounterCount = value;
+                NotifyPropertyChanged();
+                NotifyPropertyChanged(nameof(RecentEncounterIcon));
+            }
+        }
+
+        private bool isFixedTeammate;
+        public bool IsFixedTeammate
+        {
+            get => isFixedTeammate;
+            set
+            {
+                isFixedTeammate = value;
+                NotifyPropertyChanged();
+                NotifyPropertyChanged(nameof(RecentEncounterIcon));
+                NotifyPropertyChanged(nameof(CanBeFixedTeammate));
+            }
+        }
+
+        public string RecentEncounterIcon => !IsFixedTeammate && RecentEncounterCount > 0 ? $" 🔁{RecentEncounterCount}" : "";
+        public bool CanRefreshData => ID != "-1";
+        public bool CanBeFixedTeammate => ID != "-1" && (Relation == "1" || IsFixedTeammate);
+
         private WatchStatus watchStatus;
         public WatchStatus WatchStatus { 
             get 
@@ -156,6 +185,8 @@ namespace ApeRadar.Models
             PR = -1;
             ShipPR = -1;
             Note = "";
+            RecentEncounterCount = 0;
+            IsFixedTeammate = false;
             WatchStatus = WatchStatus.NONE;
             PlotXPosition = -1;
         }
@@ -226,6 +257,8 @@ namespace ApeRadar.Models
             PR = -1;
             ShipPR = -1;
             Note = "";
+            RecentEncounterCount = 0;
+            IsFixedTeammate = false;
             this.WatchStatus = WatchStatus;
             PlotXPosition = -1;
         }

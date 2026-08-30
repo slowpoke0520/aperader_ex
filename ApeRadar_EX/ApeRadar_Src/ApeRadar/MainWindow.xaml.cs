@@ -26,6 +26,9 @@ namespace ApeRadar
 {
     partial class MainWindow : Window
     {
+        private string currentBattleFilename = "";
+        private string currentBattleID = "";
+        private DateTimeOffset currentBattleStartTime = DateTimeOffset.MinValue;
 
         private void SwitchLanguage(Language language)
         {
@@ -271,7 +274,7 @@ namespace ApeRadar
             }
         }
 
-        private async void ReadPlayersListAndGetDataFromServer(string filename)
+        private async void ReadPlayersListAndGetDataFromServer(string filename, bool forceRefresh = false, string? forceRefreshPlayerID = null, Server? forceRefreshPlayerServer = null)
         {
             LogUtils.WriteInfo("Reading Players List");
             LogUtils.WriteInfo($"gamePath={Properties.Settings.Default.GamePath}");
@@ -299,6 +302,8 @@ namespace ApeRadar
                     //secondary server: enemy players come from different server, for cross-server CW only
                     Server secondaryServer = ServerExt.GetServerByName(Properties.Settings.Default.SecondaryServer);
                     LogUtils.WriteInfo($"secondaryServer={ServerExt.GetNameByServer(secondaryServer)}");
+                    string? primaryForceRefreshPlayerID = forceRefreshPlayerServer == server ? forceRefreshPlayerID : null;
+                    string? secondaryForceRefreshPlayerID = forceRefreshPlayerServer == secondaryServer ? forceRefreshPlayerID : null;
 
                     JObject JObjectWatchList = WatchListUtils.ReadWatchList(@".\WatchList.json");
                     JObject JObjectTempArenaInfo = FileUtils.ReadTempArenaInfoFile(filename);
@@ -323,24 +328,24 @@ namespace ApeRadar
                         //if secondary server is enabled, get results from two servers separately and merge them
                         if (Properties.Settings.Default.SecondaryServerEnabled)
                         {
-                            taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY));
-                            taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY));
+                            taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, forceRefresh, primaryForceRefreshPlayerID));
+                            taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, forceRefresh, secondaryForceRefreshPlayerID));
                         }
                         else
                         {
-                            taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY));
+                            taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, forceRefresh, primaryForceRefreshPlayerID));
                         }
                     }
                     else
                     {
                         if (Properties.Settings.Default.SecondaryServerEnabled)
                         {
-                            taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server));
-                            taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer));
+                            taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server, forceRefresh, primaryForceRefreshPlayerID));
+                            taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer, forceRefresh, secondaryForceRefreshPlayerID));
                         }
                         else
                         {
-                            taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server));
+                            taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server, forceRefresh, primaryForceRefreshPlayerID));
                         }
                     }
 
@@ -362,6 +367,9 @@ namespace ApeRadar
                         }
                     }
 
+                    string battleID = $"{battleStartTime:O}|{JObjectTempArenaInfo["mapName"]?.Value<string>()}|{JObjectTempArenaInfo["playerName"]?.Value<string>()}";
+                    EncounterHistoryUtils.ApplyRecentEncounterMarkers(playerList, battleID, battleStartTime);
+
                     //battlefield is the main model containing ally and enemy player list
                     Battlefield battlefield = new(battleType, battleStartTime, playerList);
 
@@ -382,6 +390,10 @@ namespace ApeRadar
 
                     ApplyBattlefieldToUI(battlefield);
                     PlayerDataCache.Save();
+                    EncounterHistoryUtils.RecordBattle(playerList, battleID, battleStartTime);
+                    currentBattleFilename = filename;
+                    currentBattleID = battleID;
+                    currentBattleStartTime = battleStartTime;
 
                     //refresh stale cached players in background without blocking the UI
                     List<Player> stalePlayers = playerList.Where(p => p.IsDataStale).ToList();
@@ -462,24 +474,24 @@ namespace ApeRadar
                 {
                     if (Properties.Settings.Default.SecondaryServerEnabled)
                     {
-                        taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY));
-                        taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY));
+                        taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, true));
+                        taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, true));
                     }
                     else
                     {
-                        taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY));
+                        taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, true));
                     }
                 }
                 else
                 {
                     if (Properties.Settings.Default.SecondaryServerEnabled)
                     {
-                        taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server));
-                        taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer));
+                        taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server, true));
+                        taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer, true));
                     }
                     else
                     {
-                        taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server));
+                        taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server, true));
                     }
                 }
 
@@ -539,6 +551,22 @@ namespace ApeRadar
             ForceUpdateDataGridColumnWidth();
         }
 
+        private async void BtnSoftwareUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            BtnSoftwareUpdate.IsEnabled = false;
+            try
+            {
+                if (await SoftwareUpdateUtils.CheckForUpdates(false) == false)
+                {
+                    System.Windows.MessageBox.Show(FindResource("MsgBoxSoftwareUpdateNotFound") as string, FindResource("MsgBoxUpdate") as string, MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            finally
+            {
+                BtnSoftwareUpdate.IsEnabled = true;
+            }
+        }
+
         private void ComboBoxLanguage_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             Properties.Settings.Default.Language = ComboBoxLanguage.SelectedValue.ToString()!;
@@ -548,12 +576,11 @@ namespace ApeRadar
 
         private void BtnRefresh_Click(object sender, RoutedEventArgs e)
         {
-            //manual refresh always fetches the latest data, bypassing the cache
-            PlayerDataCache.Clear();
             string latestFileName = FileUtils.GetLatestTempArenaInfoFile(false);
             if (latestFileName != "")
             {
-                ReadPlayersListAndGetDataFromServer(latestFileName);
+                //manual refresh fetches the current battle again without deleting other cached battles
+                ReadPlayersListAndGetDataFromServer(latestFileName, true);
             }
         }
 
@@ -628,6 +655,34 @@ namespace ApeRadar
             MenuItem? menu = sender as MenuItem;
             Player? p = menu!.DataContext as Player;
             Clipboard.SetDataObject(TextUtils.GenerateParticularPlayerStatisticsOutputText(p!));
+        }
+
+        private void ContextMenuRefreshPlayer_Click(object sender, RoutedEventArgs e)
+        {
+            Player? p = (sender as MenuItem)?.DataContext as Player;
+            if (p == null || !p.CanRefreshData || currentBattleFilename == "" || !BtnRefresh.IsEnabled)
+            {
+                return;
+            }
+
+            LogUtils.WriteInfo($"Manual player data refresh: Name={p.Name}, ID={p.ID}, Server={ServerExt.GetNameByServer(p.Server)}");
+            ReadPlayersListAndGetDataFromServer(currentBattleFilename, false, p.ID, p.Server);
+        }
+
+        private void ContextMenuFixedTeammate_Click(object sender, RoutedEventArgs e)
+        {
+            Player? p = (sender as MenuItem)?.DataContext as Player;
+            if (p == null || !p.CanBeFixedTeammate)
+            {
+                return;
+            }
+
+            EncounterHistoryUtils.ToggleFixedTeammate(p);
+            if (DataContext is Battlefield battlefield && currentBattleID != "")
+            {
+                EncounterHistoryUtils.ApplyRecentEncounterMarkers(battlefield.Allies.Concat(battlefield.Enemies), currentBattleID, currentBattleStartTime);
+                RefreshPlayerList();
+            }
         }
 
         private void ContextMenuAddToWatchListPositive_Click(object sender, RoutedEventArgs e)

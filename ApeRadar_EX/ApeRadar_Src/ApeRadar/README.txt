@@ -30,6 +30,15 @@ QQ群：1012624096（1群） 272868560（2群）
    数据存放在Resources\Json\expected_values.json中，可在设置 -> 通用 -> 更新PR数据
    中手动更新。
 
+3.手动更新软件：单击主界面右下角的“软件更新”按钮，可立即检查并安装新版本。
+
+4.更新单个玩家：右键点击玩家并选择“更新此玩家数据”，可忽略该玩家的缓存并重新
+   获取最新战绩，其他玩家仍使用缓存。
+
+5.近期遇到标记：若一名玩家在此前5局中出现过，其名称后会显示橙色🔁和遇到次数。
+   固定队友可通过玩家右键菜单进行勾选；勾选后不会显示近期遇到标记。记录保存在
+   EncounterHistory.json中。
+
 
 
 Disclaimer
@@ -65,3 +74,13 @@ New Features
    (https://wows-numbers.com/personal/rating). The per-ship expected values are stored in
    Resources\Json\expected_values.json and can be updated manually via Config -> General ->
    Update PR Data.
+
+3. Manual software update: click "Update app" in the bottom-right corner of the main window to check
+   for and install a new version immediately.
+
+4. Update one player: right-click a player and choose "Update This Player" to bypass only that
+   player's cache and retrieve the latest statistics. Other players can still use cached data.
+
+5. Recent encounters: a player seen in the previous five battles is marked with an orange 🔁 and the
+   encounter count. Regular teammates can be checked in the player context menu and are excluded from
+   this marker. The records are stored in EncounterHistory.json.

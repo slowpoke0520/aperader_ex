@@ -138,7 +138,7 @@
         <DataTemplate x:Key="NameTemplate">
             <StackPanel Orientation="Vertical" VerticalAlignment="Center" >
                 <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,-5,0,0" Foreground="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusColor}}">
-                    <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run BaselineAlignment="Superscript" FontSize="12" Text="{Binding Karma, Converter={StaticResource CvtBattleData}}"/><Run Text="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusIcon}}"/><Run Text="{Binding Note, Converter={StaticResource CvtNoteIcon}}"/>
+                    <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run BaselineAlignment="Superscript" FontSize="12" Text="{Binding Karma, Converter={StaticResource CvtBattleData}}"/><Run Text="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusIcon}}"/><Run Text="{Binding Note, Converter={StaticResource CvtNoteIcon}}"/><Run Foreground="#FF8C00" Text="{Binding RecentEncounterIcon, Mode=OneWay}"/>
                 </TextBlock>
                 <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,0,0,-5" Foreground="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusColor}}">
                     <Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/>
@@ -235,7 +235,7 @@
         <DataTemplate x:Key="NameTemplateMirrored">
             <StackPanel Orientation="Vertical" VerticalAlignment="Center">
                 <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,-5,0,0" HorizontalAlignment="Right">
-                    <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run BaselineAlignment="Superscript" FontSize="12" Text="{Binding Karma, Converter={StaticResource CvtBattleData}}"/><Run Text="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusIcon}}"/><Run Text="{Binding Note, Converter={StaticResource CvtNoteIcon}}"/>
+                    <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run BaselineAlignment="Superscript" FontSize="12" Text="{Binding Karma, Converter={StaticResource CvtBattleData}}"/><Run Text="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusIcon}}"/><Run Text="{Binding Note, Converter={StaticResource CvtNoteIcon}}"/><Run Foreground="#FF8C00" Text="{Binding RecentEncounterIcon, Mode=OneWay}"/>
                 </TextBlock>
                 <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,0,0,-5" HorizontalAlignment="Right">
                     <Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/>
@@ -340,6 +340,8 @@
 
         <ContextMenu x:Key="RowMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
             <MenuItem x:Name="ContextMenuCopyPlayerStatistics" Header="{DynamicResource ContextMenuCopyPlayerStatistics}" Click="ContextMenuCopyPlayerStatistics_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemCopyPlayerStatisticsIsEnabled}}"/>
+            <MenuItem x:Name="ContextMenuRefreshPlayer" Header="{DynamicResource ContextMenuRefreshPlayer}" Click="ContextMenuRefreshPlayer_Click" IsEnabled="{Binding CanRefreshData}"/>
+            <MenuItem x:Name="ContextMenuFixedTeammate" Header="{DynamicResource ContextMenuFixedTeammate}" Click="ContextMenuFixedTeammate_Click" IsCheckable="True" IsChecked="{Binding IsFixedTeammate, Mode=OneWay}" IsEnabled="{Binding CanBeFixedTeammate}"/>
             <Separator/>
             <MenuItem x:Name="ContextMenuAddToWatchListPositive" Header="{DynamicResource ContextMenuAddToWatchListPositive}" Click="ContextMenuAddToWatchListPositive_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemAddToWatchListPositiveIsEnabled}}"/>
             <MenuItem x:Name="ContextMenuAddToWatchListNegtive" Header="{DynamicResource ContextMenuAddToWatchListNegtive}" Click="ContextMenuAddToWatchListNegtive_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemAddToWatchListNegtiveIsEnabled}}"/>
@@ -607,6 +609,7 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button x:Name="BtnRefresh" Content="{DynamicResource BtnRefresh}" HorizontalAlignment="Left" Height="40" Margin="10,5,5,5" VerticalAlignment="Center" Width="80" Click="BtnRefresh_Click"/>
                 <Button x:Name="BtnOpen" Content="{DynamicResource BtnOpen}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnOpen_Click"/>
+                <Button x:Name="BtnSoftwareUpdate" Content="{DynamicResource BtnSoftwareUpdate}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnSoftwareUpdate_Click"/>
                 <Button x:Name="BtnConfig" Content="{DynamicResource BtnConfig}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnConfig_Click"/>
                 <Button x:Name="BtnScreenshot" Content="{DynamicResource BtnScreenshot}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnScreenshot_Click"/>
             </StackPanel>

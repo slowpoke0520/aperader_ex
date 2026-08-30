@@ -38,6 +38,7 @@
     <system:String x:Key="BtnBrowse">Browse</system:String>
     <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">Check<LineBreak/>for Updates</TextBlock>
     <system:String x:Key="BtnRefresh">Refresh</system:String>
+    <system:String x:Key="BtnSoftwareUpdate">Update app</system:String>
     <system:String x:Key="BtnOpen">Open Replay</system:String>
     <system:String x:Key="BtnConfig">Config</system:String>
     <system:String x:Key="BtnScreenshot">Screenshot</system:String>
@@ -409,6 +410,7 @@
     <system:String x:Key="MsgBoxSoftwareUpdateFound">Software update found.</system:String>
     <system:String x:Key="MsgBoxShiplistUpdateFound">Shiplist update found.</system:String>
     <system:String x:Key="MsgBoxUpdatesNotFound">Software and shiplist are up to date.</system:String>
+    <system:String x:Key="MsgBoxSoftwareUpdateNotFound">Software is up to date.</system:String>
     <system:String xml:space="preserve" x:Key="MsgBoxCurrentVersion">Current version: </system:String>
     <system:String xml:space="preserve" x:Key="MsgBoxLatestVersion">Latest version: </system:String>
     <system:String x:Key="MsgBoxUpdateComfirm">Update?</system:String>
@@ -420,6 +422,8 @@
     <system:String x:Key="BtnUpdatePRData">Update PR Data</system:String>
 
     <system:String x:Key="ContextMenuCopyPlayerStatistics">Copy Player Statistics</system:String>
+    <system:String x:Key="ContextMenuRefreshPlayer">Update This Player</system:String>
+    <system:String x:Key="ContextMenuFixedTeammate">Regular Teammate (exclude recent marker)</system:String>
     <system:String x:Key="ContextMenuCheckOnWoWSOfficialSite">Check Details on WoWS Official Site</system:String>
     <system:String x:Key="ContextMenuCheckOnWoWSNumbers">Check Details on WoWS Numbers</system:String>
     <system:String x:Key="ContextMenuAddToWatchListPositive">Add to Watch List (Positive)</system:String>
