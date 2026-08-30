@@ -9,10 +9,8 @@ namespace ApeRadar.Utils
     {
         public static void CreateNewWatchList(string filename)
         {
-            using FileStream fs = new(filename, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
-            using StreamWriter sw = new(fs);
             JObject JObjectWatchList = JsonUtils.Parse("{\"RU\":{},\"EU\":{},\"NA\":{},\"ASIA\":{},\"CN\":{}}");
-            sw.WriteLine(JsonConvert.SerializeObject(JObjectWatchList, Formatting.Indented));
+            WriteWatchList(filename, JObjectWatchList);
         }
 
         public static JObject ReadWatchList(string filename)
@@ -55,7 +53,11 @@ namespace ApeRadar.Utils
             {
                 if (p.WatchStatus != WatchStatus.NONE || !string.IsNullOrEmpty(p.Note))
                 {
-                    JObject JObjectPlayer = JsonUtils.Parse($"{{\"name\": \"{p.Name}\",\"status\": \"{WatchStatusExt.GetNameByStatus(p.WatchStatus)}\"}}");
+                    JObject JObjectPlayer = new()
+                    {
+                        ["name"] = p.Name,
+                        ["status"] = WatchStatusExt.GetNameByStatus(p.WatchStatus)
+                    };
                     if (!string.IsNullOrEmpty(p.Note))
                     {
                         JObjectPlayer["note"] = p.Note;
@@ -64,9 +66,7 @@ namespace ApeRadar.Utils
                     JObjectToUpdate!.Add(p.ID, JObjectPlayer);
                 }
             }
-            using FileStream fs = new(filename, FileMode.Truncate, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
-            using StreamWriter sw = new(fs);
-            sw.WriteLine(JsonConvert.SerializeObject(JObjectWatchList, Formatting.Indented));
+            WriteWatchList(filename, JObjectWatchList);
         }
 
         public static void SaveWatchListNote(Player p, string filename)
@@ -94,15 +94,17 @@ namespace ApeRadar.Utils
                 }
                 else
                 {
-                    JObject JObjectNewPlayer = JsonUtils.Parse($"{{\"name\": \"{p.Name}\",\"status\": \"{WatchStatusExt.GetNameByStatus(WatchStatus.NONE)}\"}}");
+                    JObject JObjectNewPlayer = new()
+                    {
+                        ["name"] = p.Name,
+                        ["status"] = WatchStatusExt.GetNameByStatus(WatchStatus.NONE)
+                    };
                     JObjectNewPlayer["note"] = p.Note;
                     JObjectServer.Add(p.ID, JObjectNewPlayer);
                 }
             }
 
-            using FileStream fs = new(filename, FileMode.Truncate, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
-            using StreamWriter sw = new(fs);
-            sw.WriteLine(JsonConvert.SerializeObject(JObjectWatchList, Formatting.Indented));
+            WriteWatchList(filename, JObjectWatchList);
         }
 
         public static string GetPlayerNote(JObject JObjectWatchList, Server server, string playerID)
@@ -113,6 +115,11 @@ namespace ApeRadar.Utils
                 return "";
             }
             return JObjectPlayer["note"]?.Value<string>() ?? "";
+        }
+
+        private static void WriteWatchList(string filename, JObject watchList)
+        {
+            AtomicFileUtils.WriteAllText(filename, JsonConvert.SerializeObject(watchList, Formatting.Indented));
         }
     }
 }

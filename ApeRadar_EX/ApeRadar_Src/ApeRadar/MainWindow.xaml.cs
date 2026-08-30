@@ -265,16 +265,16 @@ namespace ApeRadar
             LogUtils.WriteInfo("Timer Start");
         }
 
-        private void Timer_Tick(object? sender, EventArgs e)
+        private async void Timer_Tick(object? sender, EventArgs e)
         {
             string latestFileName = FileUtils.GetLatestTempArenaInfoFile(true);
             if (latestFileName != "")
             {
-                ReadPlayersListAndGetDataFromServer(latestFileName);
+                await ReadPlayersListAndGetDataFromServer(latestFileName);
             }
         }
 
-        private async void ReadPlayersListAndGetDataFromServer(string filename, bool forceRefresh = false, string? forceRefreshPlayerID = null, Server? forceRefreshPlayerServer = null)
+        private async Task ReadPlayersListAndGetDataFromServer(string filename, bool forceRefresh = false, string? forceRefreshPlayerID = null, Server? forceRefreshPlayerServer = null)
         {
             LogUtils.WriteInfo("Reading Players List");
             LogUtils.WriteInfo($"gamePath={Properties.Settings.Default.GamePath}");
@@ -349,13 +349,8 @@ namespace ApeRadar
                         }
                     }
 
-                    await Task.WhenAll(taskList);
-
-                    playerList = taskList[0].Result;
-                    if (Properties.Settings.Default.SecondaryServerEnabled)
-                    {
-                        playerList = playerList.Concat(taskList[1].Result).ToList();
-                    }
+                    List<Player>[] results = await Task.WhenAll(taskList);
+                    playerList = results.SelectMany(result => result).ToList();
 
                     //check if player is on the watchlist
                     foreach (Player p in playerList)
@@ -400,7 +395,7 @@ namespace ApeRadar
                     if (stalePlayers.Count > 0)
                     {
                         NotificationMessageUtils.CreateMessage(MessageType.INFO, $"{stalePlayers.Count}{FindResource("NotificationMessageDataUsingCache") as string}");
-                        RefreshStalePlayersInBackground(JObjectTempArenaInfo, playerCount, server, secondaryServer, apiType, battlefield);
+                        _ = RefreshStalePlayersInBackground(JObjectTempArenaInfo, playerCount, server, secondaryServer, apiType, battlefield);
                     }
 
                     NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageDataRetrieved") as string);
@@ -460,7 +455,7 @@ namespace ApeRadar
         }
 
         //re-fetch expired cached players in the background, then update the UI in place
-        private async void RefreshStalePlayersInBackground(JObject JObjectTempArenaInfo, int playerCount, Server server, Server secondaryServer, APIType apiType, Battlefield currentBattlefield)
+        private async Task RefreshStalePlayersInBackground(JObject JObjectTempArenaInfo, int playerCount, Server server, Server secondaryServer, APIType apiType, Battlefield currentBattlefield)
         {
             if (isBackgroundRefreshing)
             {
@@ -495,13 +490,8 @@ namespace ApeRadar
                     }
                 }
 
-                await Task.WhenAll(taskList);
-
-                List<Player> refreshedList = taskList[0].Result;
-                if (Properties.Settings.Default.SecondaryServerEnabled)
-                {
-                    refreshedList = refreshedList.Concat(taskList[1].Result).ToList();
-                }
+                List<Player>[] results = await Task.WhenAll(taskList);
+                List<Player> refreshedList = results.SelectMany(result => result).ToList();
 
                 //only apply the result if the user is still viewing the same battle
                 if (!ReferenceEquals(this.DataContext, currentBattlefield))
@@ -574,23 +564,23 @@ namespace ApeRadar
             SwitchLanguage(LanguageExt.GetLanguageByName(Properties.Settings.Default.Language));
         }
 
-        private void BtnRefresh_Click(object sender, RoutedEventArgs e)
+        private async void BtnRefresh_Click(object sender, RoutedEventArgs e)
         {
             string latestFileName = FileUtils.GetLatestTempArenaInfoFile(false);
             if (latestFileName != "")
             {
                 //manual refresh fetches the current battle again without deleting other cached battles
-                ReadPlayersListAndGetDataFromServer(latestFileName, true);
+                await ReadPlayersListAndGetDataFromServer(latestFileName, true);
             }
         }
 
-        private void BtnOpen_Click(object sender, RoutedEventArgs e)
+        private async void BtnOpen_Click(object sender, RoutedEventArgs e)
         {
             System.Windows.Forms.OpenFileDialog dialog = new();
             dialog.Filter = "*.json, *.wowsreplay|*.json;*.wowsreplay";
             if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                ReadPlayersListAndGetDataFromServer(dialog.FileName);
+                await ReadPlayersListAndGetDataFromServer(dialog.FileName);
             }
         }
 
@@ -635,7 +625,7 @@ namespace ApeRadar
         }
 
         //drag and drop a replay file on the window to open it
-        private void Window_Drop(object sender, DragEventArgs e)
+        private async void Window_Drop(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
@@ -644,7 +634,7 @@ namespace ApeRadar
                 {
                     if ((files as string[])!.Length == 1)
                     {
-                        ReadPlayersListAndGetDataFromServer((files as string[])![0]);
+                        await ReadPlayersListAndGetDataFromServer((files as string[])![0]);
                     }
                 }
             }
@@ -657,7 +647,7 @@ namespace ApeRadar
             Clipboard.SetDataObject(TextUtils.GenerateParticularPlayerStatisticsOutputText(p!));
         }
 
-        private void ContextMenuRefreshPlayer_Click(object sender, RoutedEventArgs e)
+        private async void ContextMenuRefreshPlayer_Click(object sender, RoutedEventArgs e)
         {
             Player? p = (sender as MenuItem)?.DataContext as Player;
             if (p == null || !p.CanRefreshData || currentBattleFilename == "" || !BtnRefresh.IsEnabled)
@@ -666,7 +656,7 @@ namespace ApeRadar
             }
 
             LogUtils.WriteInfo($"Manual player data refresh: Name={p.Name}, ID={p.ID}, Server={ServerExt.GetNameByServer(p.Server)}");
-            ReadPlayersListAndGetDataFromServer(currentBattleFilename, false, p.ID, p.Server);
+            await ReadPlayersListAndGetDataFromServer(currentBattleFilename, false, p.ID, p.Server);
         }
 
         private void ContextMenuFixedTeammate_Click(object sender, RoutedEventArgs e)

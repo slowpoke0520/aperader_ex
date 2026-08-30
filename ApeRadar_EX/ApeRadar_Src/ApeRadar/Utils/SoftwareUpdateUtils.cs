@@ -7,136 +7,78 @@ using System.Windows;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using ApeRadar.Models;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace ApeRadar.Utils
 {
     static internal class SoftwareUpdateUtils
     {
+        private const string LatestReleaseApiUrl = "https://api.github.com/repos/slowpoke0520/aperader_ex/releases/latest";
+        private const string ReleaseAssetName = "ApeRadar-win-x64.zip";
         static string softwareLatestVersion = "";
         static string softwareLatestDate = "";
         static string softwareLatestUrl = "";
         static string softwareLatestFileName = "";
         static string softwareLasestSHA256 = "";
-        static string shiplistLatestVersion = "";
-        static string shiplistLatestDate = "";
-        static string shiplistLatestUrl = "";
-        static string shiplistLatestFileName = "";
-        static string shiplistLasestSHA256 = "";
-
-        static string downloadDirectory = @".\Download";
-        static string[] ignoredDirectoryList = { @".\Log", @".\Screenshot" };
-        static string[] ignoredFileList = { @".\placement.config", @".\WatchList.json" };
-        static string[] occupiedFileList = { @".\ApeRadar.exe", @".\libSkiaSharp.dll" };
+        static readonly string downloadDirectory = @".\Download";
+        static readonly string[] occupiedFileList = { @".\ApeRadar.exe", @".\libSkiaSharp.dll" };
+        private static bool updateInstallerStarted;
 
         public static async Task<bool> CheckForUpdates(bool includeShipList = true)
         {
             try
             {
-                JObject JObjectUpdateInfo = JsonUtils.Parse(await NetworkUtils.HttpGet("http://lxdev.org/aperadar/updateinfo/"));
+                JObject release = JsonUtils.Parse(await NetworkUtils.HttpGet(LatestReleaseApiUrl));
+                string tagName = release["tag_name"]?.Value<string>() ?? throw new FileFormatException("FileFormatIncorrect");
+                softwareLatestVersion = tagName.TrimStart('v', 'V');
+                (Version latestVersion, int latestExRevision) = ParseReleaseVersion(softwareLatestVersion);
+                (Version currentVersion, int currentExRevision) = ParseReleaseVersion(Properties.Settings.Default.SoftwareVersion);
 
-                if (!JObjectUpdateInfo["update_server_enabled"]!.Value<bool>())
+                JObject? softwareAsset = release["assets"]?
+                    .OfType<JObject>()
+                    .FirstOrDefault(asset => asset["name"]?.Value<string>() == ReleaseAssetName);
+                if (softwareAsset == null)
+                {
+                    throw new FileFormatException("FileFormatIncorrect");
+                }
+                softwareLatestUrl = GetSecureDownloadUrl(softwareAsset, "browser_download_url");
+                softwareLatestFileName = ReleaseAssetName;
+                string digest = softwareAsset["digest"]?.Value<string>() ?? "";
+                softwareLasestSHA256 = digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
+                    ? digest[7..]
+                    : "";
+                softwareLatestDate = release["published_at"]?.Value<DateTimeOffset>().ToString("yyyyMMdd") ?? "";
+
+                int versionComparison = latestVersion.CompareTo(currentVersion);
+                if (versionComparison < 0 || versionComparison == 0 && latestExRevision <= currentExRevision)
                 {
                     return false;
                 }
 
-                downloadDirectory = JObjectUpdateInfo["download_directory"]!.Value<string>()!;
-
-                softwareLatestVersion = JObjectUpdateInfo["software_latest_version"]!.Value<string>()!;
-                softwareLatestDate = JObjectUpdateInfo["software_latest_date"]!.Value<string>()!;
-                softwareLatestUrl = JObjectUpdateInfo["software_latest_url"]!.Value<string>()!;
-                softwareLatestFileName = softwareLatestUrl.Substring(softwareLatestUrl.LastIndexOf('/') + 1);
-                softwareLasestSHA256 = JObjectUpdateInfo["software_latest_sha256"]!.Value<string>()!;
-
-
-                ignoredDirectoryList = JObjectUpdateInfo["software_update_ignored_directory_list"]!.ToObject<string[]>()!;
-                ignoredFileList = JObjectUpdateInfo["software_update_ignored_file_list"]!.ToObject<string[]>()!;
-                occupiedFileList = JObjectUpdateInfo["software_update_occupied_file_list"]!.ToObject<string[]>()!;
-
-                shiplistLatestVersion = JObjectUpdateInfo["shiplist_latest_version"]!.Value<string>()!;
-                shiplistLatestDate = JObjectUpdateInfo["shiplist_latest_date"]!.Value<string>()!;
-                shiplistLatestUrl = JObjectUpdateInfo["shiplist_latest_url"]!.Value<string>()!;
-                shiplistLatestFileName = shiplistLatestUrl.Substring(shiplistLatestUrl.LastIndexOf('/') + 1);
-                shiplistLasestSHA256 = JObjectUpdateInfo["shiplist_latest_sha256"]!.Value<string>()!;
-
-                if (Convert.ToInt32(softwareLatestDate) <= Convert.ToInt32(Properties.Settings.Default.SoftwareDate) && (!includeShipList || Convert.ToInt32(shiplistLatestDate) <= Convert.ToInt32(ShipInfoUtils.GetShipInfoDate())))
+                if (MessageBox.Show($"{Application.Current.FindResource("MsgBoxSoftwareUpdateFound") as string}\n{Application.Current.FindResource("MsgBoxCurrentVersion") as string} {Properties.Settings.Default.SoftwareVersion}\n{Application.Current.FindResource("MsgBoxLatestVersion") as string} {softwareLatestVersion} ({softwareLatestDate})\n{Application.Current.FindResource("MsgBoxUpdateComfirm") as string}", Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
                 {
-                    return false;
-                }
-
-                if (Convert.ToInt32(softwareLatestDate) > Convert.ToInt32(Properties.Settings.Default.SoftwareDate))
-                {
-                    if (MessageBox.Show($"{Application.Current.FindResource("MsgBoxSoftwareUpdateFound") as string}\n{Application.Current.FindResource("MsgBoxCurrentVersion") as string} {Properties.Settings.Default.SoftwareVersion} ({Properties.Settings.Default.SoftwareDate})\n{Application.Current.FindResource("MsgBoxLatestVersion") as string} {softwareLatestVersion} ({softwareLatestDate})\n{Application.Current.FindResource("MsgBoxUpdateComfirm") as string}", Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+                    NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageSoftwareUpdateDownloading") as string);
+                    Directory.CreateDirectory(downloadDirectory);
+                    string softwareArchive = Path.GetFullPath(Path.Combine(downloadDirectory, softwareLatestFileName));
+                    await NetworkUtils.HttpDownloadFile(softwareLatestUrl, softwareArchive);
+                    if (string.IsNullOrWhiteSpace(softwareLasestSHA256))
                     {
-                        NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageSoftwareUpdateDownloading") as string);
-                        Directory.CreateDirectory(downloadDirectory);
-                        await NetworkUtils.HttpDownloadFile(softwareLatestUrl, $@"{downloadDirectory}\{softwareLatestFileName}");
-                        if (JObjectUpdateInfo["software_hash_validate_enabled"]!.Value<bool>())
-                        {
-                            using SHA256 sha = SHA256.Create();
-                            using FileStream fs = new($@"{downloadDirectory}\{softwareLatestFileName}", FileMode.Open);
-                            fs.Position = 0;
-                            if (BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "") != softwareLasestSHA256)
-                            {
-                                throw new FileFormatException("FileHashInvalid");
-                            }
-                        }
-                        ZipFile.ExtractToDirectory($@"{downloadDirectory}\{softwareLatestFileName}", $@"{downloadDirectory}\", true);
-
-                        foreach (string directoryname in Directory.GetDirectories($@"{downloadDirectory}\ApeRadar\"))
-                        {
-                            string directoryDest = $".{directoryname.Substring(directoryname.LastIndexOf('\\'))}";
-                            if (!ignoredDirectoryList.Contains(directoryDest))
-                            {
-                                Directory.Delete(directoryDest, true);
-                                Directory.Move(directoryname, directoryDest);
-                            }
-                        }
-
-                        foreach (string filename in occupiedFileList)
-                        {
-                            if (File.Exists(filename))
-                            {
-                                File.Move(filename, $"{filename}.bak", true);
-                            }
-                        }
-
-                        foreach (string filename in Directory.GetFiles($@"{downloadDirectory}\ApeRadar\"))
-                        {
-                            string fileDest = $".{filename.Substring(filename.LastIndexOf('\\'))}";
-                            if (!ignoredFileList.Contains(fileDest))
-                            {
-                                LogUtils.WriteInfo($"filename:{filename}, filedest:{fileDest}");
-                                File.Move(filename, fileDest, true);
-                            }
-                        }
-                        NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageSoftwareUpdateComplete") as string);
-                        MessageBox.Show(Application.Current.FindResource("MsgBoxSoftwareUpdateComplete") as string, Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.OK, MessageBoxImage.Information);
-                        Application.Current.Shutdown();
-                        return true;
+                        throw new FileFormatException("FileHashInvalid");
                     }
-                }
-                if (includeShipList && Convert.ToInt32(shiplistLatestDate) > Convert.ToInt32(ShipInfoUtils.GetShipInfoDate()))
-                {
-                    if (MessageBox.Show($"{Application.Current.FindResource("MsgBoxShiplistUpdateFound") as string}\n{Application.Current.FindResource("MsgBoxCurrentVersion") as string} {ShipInfoUtils.GetShipInfoVersion()} ({ShipInfoUtils.GetShipInfoDate()})\n{Application.Current.FindResource("MsgBoxLatestVersion") as string} {shiplistLatestVersion} ({shiplistLatestDate})\n{Application.Current.FindResource("MsgBoxUpdateComfirm") as string}", Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+                    using (SHA256 sha = SHA256.Create())
+                    using (FileStream fs = File.OpenRead(softwareArchive))
                     {
-                        NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageShiplistUpdateDownloading") as string);
-                        Directory.CreateDirectory(downloadDirectory);
-                        await NetworkUtils.HttpDownloadFile(shiplistLatestUrl, $@"{downloadDirectory}\{shiplistLatestFileName}");
-                        if (JObjectUpdateInfo["shiplist_hash_validate_enabled"]!.Value<bool>())
+                        string actualHash = Convert.ToHexString(sha.ComputeHash(fs));
+                        if (!actualHash.Equals(softwareLasestSHA256, StringComparison.OrdinalIgnoreCase))
                         {
-                            using SHA256 sha = SHA256.Create();
-                            using FileStream fs = new($@"{downloadDirectory}\{shiplistLatestFileName}", FileMode.Open);
-                            fs.Position = 0;
-                            if (BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "") != shiplistLasestSHA256)
-                            {
-                                throw new FileFormatException("FileHashInvalid");
-                            }
+                            throw new FileFormatException("FileHashInvalid");
                         }
-                        ZipFile.ExtractToDirectory($@"{downloadDirectory}\{shiplistLatestFileName}", @".\Resources\Json\", true);
-                        ShipInfoUtils.ReadShipInfoFile(@".\Resources\Json\ships.json");
-                        NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageShiplistUpdateComplete") as string);
-                        MessageBox.Show(Application.Current.FindResource("MsgBoxShiplistUpdateComplete") as string, Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.OK, MessageBoxImage.Information);
                     }
+
+                    UpdateInstaller.Start(softwareArchive);
+                    updateInstallerStarted = true;
+                    Application.Current.Shutdown();
                 }
                 return true;
             }
@@ -153,9 +95,9 @@ namespace ApeRadar.Utils
             }
             finally
             {
-                if (Directory.Exists($"{downloadDirectory}"))
+                if (!updateInstallerStarted && Directory.Exists(downloadDirectory))
                 {
-                    Directory.Delete($"{downloadDirectory}", true);
+                    Directory.Delete(downloadDirectory, true);
                 }
             }
         }
@@ -170,5 +112,29 @@ namespace ApeRadar.Utils
                 }
             }
         }
+
+        private static string GetSecureDownloadUrl(JObject updateInfo, string propertyName)
+        {
+            string value = updateInfo[propertyName]?.Value<string>() ?? throw new FileFormatException("FileFormatIncorrect");
+            if (!Uri.TryCreate(value, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps)
+            {
+                throw new FileFormatException("FileFormatIncorrect");
+            }
+            return uri.AbsoluteUri;
+        }
+
+        private static (Version Core, int ExRevision) ParseReleaseVersion(string value)
+        {
+            Match match = Regex.Match(value, @"^(?<core>\d+\.\d+\.\d+)(?:-ex\.(?<revision>\d+))?$");
+            if (!match.Success || !Version.TryParse(match.Groups["core"].Value, out Version? core))
+            {
+                throw new FileFormatException("FileFormatIncorrect");
+            }
+            int revision = match.Groups["revision"].Success
+                ? int.Parse(match.Groups["revision"].Value)
+                : 0;
+            return (core, revision);
+        }
+
     }
 }

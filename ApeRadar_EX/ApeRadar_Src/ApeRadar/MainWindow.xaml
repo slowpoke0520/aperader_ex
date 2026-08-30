@@ -373,8 +373,8 @@
                     </TextBlock>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <TextBlock Margin="5,0,5,5" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}" Foreground="{Binding PR, Converter={StaticResource CvtPRColor}}">
-                        <Run Text="{DynamicResource DataGridToolTipAccountPR}"/> <Run Text="{Binding PR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}"/> <Run Text="  "/><Run Text="{DynamicResource DataGridToolTipShipPR}"/> <Run Text="{Binding ShipPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}"/>
+                    <TextBlock Margin="5,0,5,5" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}">
+                        <Run Text="{DynamicResource DataGridToolTipAccountPR}" Foreground="{Binding PR, Converter={StaticResource CvtPRColor}}"/> <Run Text="{Binding PR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding PR, Converter={StaticResource CvtPRColor}}"/> <Run Text="  "/><Run Text="{DynamicResource DataGridToolTipShipPR}" Foreground="{Binding ShipPR, Converter={StaticResource CvtPRColor}}"/> <Run Text="{Binding ShipPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding ShipPR, Converter={StaticResource CvtPRColor}}"/>
                     </TextBlock>
                     <TextBlock Margin="20,0,5,5" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}" Visibility="{Binding Note, Converter={StaticResource CvtNoteVisibility}}">
                         <Run Text="{DynamicResource LabelNote}"/> <Run Text="{Binding Note}"/>

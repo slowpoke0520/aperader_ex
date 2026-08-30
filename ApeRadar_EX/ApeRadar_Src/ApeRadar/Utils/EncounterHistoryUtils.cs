@@ -70,9 +70,7 @@ namespace ApeRadar.Utils
         {
             try
             {
-                using FileStream fs = new(FILENAME, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
-                using StreamWriter sw = new(fs);
-                sw.WriteLine(JsonConvert.SerializeObject(data, Formatting.Indented));
+                AtomicFileUtils.WriteAllText(FILENAME, JsonConvert.SerializeObject(data, Formatting.Indented));
             }
             catch (Exception ex)
             {

@@ -7,7 +7,8 @@ namespace ApeRadar.Utils.Converters
 {
     internal class PRColorConverter : IValueConverter
     {
-        //color bands follow the WoWS Numbers 8-color scale (same palette as the winrate tag colors)
+        // WoWS Numbers PR scale: Bad, Below Average, Average, Good,
+        // Very Good, Great, Unicum, Super Unicum.
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is not double pr || pr < 0)
@@ -16,14 +17,13 @@ namespace ApeRadar.Utils.Converters
             }
             string color = pr switch
             {
-                < 750 => "#607D8B",
-                < 1100 => "#FE0E00",
-                < 1350 => "#FE7903",
-                < 1550 => "#FFC71F",
-                < 1750 => "#44B300",
-                < 2100 => "#318000",
-                < 2450 => "#02C9B3",
-                < 2800 => "#D042F3",
+                < 750 => "#FE0E00",
+                < 1100 => "#FE7903",
+                < 1350 => "#FFC71F",
+                < 1550 => "#44B300",
+                < 1750 => "#318000",
+                < 2100 => "#02C9B3",
+                < 2450 => "#D042F3",
                 _ => "#A00DC5",
             };
             return new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
