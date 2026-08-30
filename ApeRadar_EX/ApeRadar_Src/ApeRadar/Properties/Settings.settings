@@ -3,7 +3,7 @@
   <Profiles />
   <Settings>
     <Setting Name="SoftwareVersion" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">2.1.1-ex.2</Value>
+      <Value Profile="(Default)">2.1.1-ex.3</Value>
     </Setting>
     <Setting Name="SoftwareDate" Type="System.String" Scope="Application">
       <Value Profile="(Default)">20260831</Value>

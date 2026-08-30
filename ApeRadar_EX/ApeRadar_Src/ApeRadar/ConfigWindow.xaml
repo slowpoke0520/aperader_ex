@@ -182,7 +182,7 @@
                             </Grid>
                             <Grid Grid.Row="10" Grid.Column="4" Grid.RowSpan="2">
                                 <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="BtnCheckForUpdates" Content="{DynamicResource BtnCheckForUpdates}" Width="100" Height="50" HorizontalAlignment="Left" Margin="10" Click="BtnCheckForUpdates_Click"/>
+                                    <Button x:Name="BtnCheckForUpdates" Content="{DynamicResource BtnCheckForUpdates}" Width="110" Height="50" HorizontalAlignment="Left" Margin="10" Click="BtnCheckForUpdates_Click"/>
                                     <CheckBox x:Name="ChkBoxCheckForUpdatesOnStartup" Content="{DynamicResource ChkBoxCheckForUpdatesOnStartup}" VerticalAlignment="Center" Margin="10"/>
                                 </StackPanel>
                             </Grid>
@@ -191,6 +191,9 @@
                             </Grid>
                             <Grid Grid.Row="11" Grid.Column="3">
                                 <Label x:Name="LabelShipListVersionDateStr" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid Grid.Row="11" Grid.Column="4">
+                                <Button x:Name="BtnUpdateShipList" Content="{DynamicResource BtnUpdateShipList}" Width="110" Height="30" HorizontalAlignment="Left" Margin="10" Click="BtnUpdateShipList_Click"/>
                             </Grid>
                             <Grid Grid.Row="12" Grid.Column="1">
                                 <Label Content="{DynamicResource LabelPRDataVersion}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5"/>

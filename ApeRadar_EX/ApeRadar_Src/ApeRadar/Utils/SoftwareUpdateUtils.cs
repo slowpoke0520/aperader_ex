@@ -25,7 +25,7 @@ namespace ApeRadar.Utils
         static readonly string[] occupiedFileList = { @".\ApeRadar.exe", @".\libSkiaSharp.dll" };
         private static bool updateInstallerStarted;
 
-        public static async Task<bool> CheckForUpdates(bool includeShipList = true)
+        public static async Task<bool> CheckForSoftwareUpdates()
         {
             try
             {
@@ -116,6 +116,74 @@ namespace ApeRadar.Utils
             }
         }
 
+        public static async Task<bool> CheckForShipListUpdates()
+        {
+            const string updateInfoUrl = "https://lxdev.org/aperadar/updateinfo/";
+            try
+            {
+                JObject updateInfo = JsonUtils.Parse(await NetworkUtils.HttpGet(updateInfoUrl));
+                string latestVersion = updateInfo["shiplist_latest_version"]?.Value<string>() ?? throw new FileFormatException("FileFormatIncorrect");
+                string latestDate = updateInfo["shiplist_latest_date"]?.Value<string>() ?? throw new FileFormatException("FileFormatIncorrect");
+                string downloadUrl = GetSecureDownloadUrl(updateInfo, "shiplist_latest_url");
+                string expectedHash = updateInfo["shiplist_latest_sha256"]?.Value<string>() ?? throw new FileFormatException("FileFormatIncorrect");
+
+                if (!int.TryParse(latestDate, out int latestDateValue) ||
+                    !int.TryParse(ShipInfoUtils.GetShipInfoDate(), out int currentDateValue))
+                {
+                    throw new FileFormatException("FileFormatIncorrect");
+                }
+                if (latestDateValue <= currentDateValue)
+                {
+                    return false;
+                }
+
+                if (MessageBox.Show($"{Application.Current.FindResource("MsgBoxShiplistUpdateFound") as string}\n{Application.Current.FindResource("MsgBoxCurrentVersion") as string} {ShipInfoUtils.GetShipInfoVersion()} ({ShipInfoUtils.GetShipInfoDate()})\n{Application.Current.FindResource("MsgBoxLatestVersion") as string} {latestVersion} ({latestDate})\n{Application.Current.FindResource("MsgBoxUpdateComfirm") as string}", Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.YesNo, MessageBoxImage.Information) != MessageBoxResult.Yes)
+                {
+                    return true;
+                }
+
+                NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageShiplistUpdateDownloading") as string);
+                Directory.CreateDirectory(downloadDirectory);
+                string archivePath = Path.GetFullPath(Path.Combine(downloadDirectory, Path.GetFileName(new Uri(downloadUrl).LocalPath)));
+                await NetworkUtils.HttpDownloadFile(downloadUrl, archivePath);
+                using (SHA256 sha = SHA256.Create())
+                using (FileStream fs = File.OpenRead(archivePath))
+                {
+                    string actualHash = Convert.ToHexString(sha.ComputeHash(fs));
+                    if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new FileFormatException("FileHashInvalid");
+                    }
+                }
+
+                const string shipListDirectory = @".\Resources\Json\";
+                ValidateArchiveEntries(archivePath, shipListDirectory);
+                ZipFile.ExtractToDirectory(archivePath, shipListDirectory, true);
+                ShipInfoUtils.ReadShipInfoFile(Path.Combine(shipListDirectory, "ships.json"));
+                NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageShiplistUpdateComplete") as string);
+                MessageBox.Show(Application.Current.FindResource("MsgBoxShiplistUpdateComplete") as string, Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.OK, MessageBoxImage.Information);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogUtils.WriteError("Ship list update failed", ex);
+                _ = ex.Message switch
+                {
+                    "HttpRequestFailed" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource("NotificationMessageUpdateConnectionError") as string),
+                    "FileHashInvalid" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource("NotificationMessageUpdateFileHashError") as string),
+                    _ => NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource("NotificationMessageOtherError") as string),
+                };
+                return true;
+            }
+            finally
+            {
+                if (Directory.Exists(downloadDirectory))
+                {
+                    Directory.Delete(downloadDirectory, true);
+                }
+            }
+        }
+
         private static string GetSecureDownloadUrl(JObject updateInfo, string propertyName)
         {
             string value = updateInfo[propertyName]?.Value<string>() ?? throw new FileFormatException("FileFormatIncorrect");
@@ -137,6 +205,21 @@ namespace ApeRadar.Utils
                 ? int.Parse(match.Groups["revision"].Value)
                 : 0;
             return (core, revision);
+        }
+
+        private static void ValidateArchiveEntries(string archivePath, string destinationDirectory)
+        {
+            string destinationRoot = Path.GetFullPath(destinationDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            using ZipArchive archive = ZipFile.OpenRead(archivePath);
+            foreach (ZipArchiveEntry entry in archive.Entries)
+            {
+                string destinationPath = Path.GetFullPath(Path.Combine(destinationRoot, entry.FullName));
+                if (!destinationPath.StartsWith(destinationRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new FileFormatException("FileFormatIncorrect");
+                }
+            }
         }
 
     }

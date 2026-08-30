@@ -244,7 +244,7 @@ namespace ApeRadar
 
             if (Properties.Settings.Default.CheckForUpdatesOnStartup)
             {
-                _ = SoftwareUpdateUtils.CheckForUpdates();
+                _ = CheckForStartupUpdates();
             }
 
             WinrateChart.TooltipTextPaint = new SolidColorPaint { Color = SKColors.Black, FontFamily = WinrateChart.FontFamily.Source };
@@ -546,7 +546,7 @@ namespace ApeRadar
             BtnSoftwareUpdate.IsEnabled = false;
             try
             {
-                if (await SoftwareUpdateUtils.CheckForUpdates(false) == false)
+                if (await SoftwareUpdateUtils.CheckForSoftwareUpdates() == false)
                 {
                     System.Windows.MessageBox.Show(FindResource("MsgBoxSoftwareUpdateNotFound") as string, FindResource("MsgBoxUpdate") as string, MessageBoxButton.OK, MessageBoxImage.Information);
                 }
@@ -555,6 +555,12 @@ namespace ApeRadar
             {
                 BtnSoftwareUpdate.IsEnabled = true;
             }
+        }
+
+        private static async Task CheckForStartupUpdates()
+        {
+            await SoftwareUpdateUtils.CheckForSoftwareUpdates();
+            await SoftwareUpdateUtils.CheckForShipListUpdates();
         }
 
         private void ComboBoxLanguage_SelectionChanged(object sender, SelectionChangedEventArgs e)

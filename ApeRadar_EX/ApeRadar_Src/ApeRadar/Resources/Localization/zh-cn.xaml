@@ -36,7 +36,8 @@
     <system:String x:Key="BtnDefault">默认</system:String>
     <system:String x:Key="BtnInsert">插入</system:String>
     <system:String x:Key="BtnBrowse">浏览</system:String>
-    <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">检查更新</TextBlock>
+    <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">检查软件更新</TextBlock>
+    <TextBlock x:Key="BtnUpdateShipList" TextAlignment="Center">更新船名列表</TextBlock>
     <system:String x:Key="BtnRefresh">刷新</system:String>
     <system:String x:Key="BtnSoftwareUpdate">软件更新</system:String>
     <system:String x:Key="BtnOpen">打开Replay</system:String>
@@ -409,6 +410,7 @@
     <system:String x:Key="MsgBoxUpdate">更新</system:String>
     <system:String x:Key="MsgBoxSoftwareUpdateFound">已找到软件的更新版本。</system:String>
     <system:String x:Key="MsgBoxShiplistUpdateFound">已找到船名列表的更新版本。</system:String>
+    <system:String x:Key="MsgBoxShipListUpdateNotFound">船名列表已经是最新版本。</system:String>
     <system:String x:Key="MsgBoxUpdatesNotFound">软件和船名列表已是最新版本。</system:String>
     <system:String x:Key="MsgBoxSoftwareUpdateNotFound">软件已是最新版本。</system:String>
     <system:String x:Key="MsgBoxCurrentVersion">当前版本：</system:String>

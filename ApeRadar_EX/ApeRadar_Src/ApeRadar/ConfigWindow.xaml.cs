@@ -395,11 +395,21 @@ namespace ApeRadar
         private async void BtnCheckForUpdates_Click(object sender, RoutedEventArgs e)
         {
             BtnCheckForUpdates.IsEnabled = false;
-            if (await SoftwareUpdateUtils.CheckForUpdates() == false)
+            if (await SoftwareUpdateUtils.CheckForSoftwareUpdates() == false)
             {
-                System.Windows.MessageBox.Show(System.Windows.Application.Current.FindResource("MsgBoxUpdatesNotFound") as string, System.Windows.Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Windows.MessageBox.Show(System.Windows.Application.Current.FindResource("MsgBoxSoftwareUpdateNotFound") as string, System.Windows.Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.OK, MessageBoxImage.Information);
             }
             BtnCheckForUpdates.IsEnabled = true;
+        }
+
+        private async void BtnUpdateShipList_Click(object sender, RoutedEventArgs e)
+        {
+            BtnUpdateShipList.IsEnabled = false;
+            if (await SoftwareUpdateUtils.CheckForShipListUpdates() == false)
+            {
+                System.Windows.MessageBox.Show(System.Windows.Application.Current.FindResource("MsgBoxShipListUpdateNotFound") as string, System.Windows.Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            BtnUpdateShipList.IsEnabled = true;
             LabelShipListVersionDateStr.Content = $"{ShipInfoUtils.GetShipInfoVersion()} ({ShipInfoUtils.GetShipInfoDate()})";
         }
 

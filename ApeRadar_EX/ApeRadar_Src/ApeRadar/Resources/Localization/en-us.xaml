@@ -36,7 +36,8 @@
     <system:String x:Key="BtnDefault">Default</system:String>
     <system:String x:Key="BtnInsert">Insert</system:String>
     <system:String x:Key="BtnBrowse">Browse</system:String>
-    <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">Check<LineBreak/>for Updates</TextBlock>
+    <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">Check App<LineBreak/>Update</TextBlock>
+    <TextBlock x:Key="BtnUpdateShipList" TextAlignment="Center">Update<LineBreak/>Ship List</TextBlock>
     <system:String x:Key="BtnRefresh">Refresh</system:String>
     <system:String x:Key="BtnSoftwareUpdate">Update app</system:String>
     <system:String x:Key="BtnOpen">Open Replay</system:String>
@@ -409,6 +410,7 @@
     <system:String x:Key="MsgBoxUpdate">Update</system:String>
     <system:String x:Key="MsgBoxSoftwareUpdateFound">Software update found.</system:String>
     <system:String x:Key="MsgBoxShiplistUpdateFound">Shiplist update found.</system:String>
+    <system:String x:Key="MsgBoxShipListUpdateNotFound">The ship list is already up to date.</system:String>
     <system:String x:Key="MsgBoxUpdatesNotFound">Software and shiplist are up to date.</system:String>
     <system:String x:Key="MsgBoxSoftwareUpdateNotFound">Software is up to date.</system:String>
     <system:String xml:space="preserve" x:Key="MsgBoxCurrentVersion">Current version: </system:String>

@@ -25,7 +25,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.2")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.3")]
         public string SoftwareVersion {
             get {
                 return ((string)(this["SoftwareVersion"]));
