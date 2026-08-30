@@ -48,7 +48,10 @@ namespace ApeRadar.Utils
                 softwareLasestSHA256 = digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
                     ? digest[7..]
                     : "";
-                softwareLatestDate = release["published_at"]?.Value<DateTimeOffset>().ToString("yyyyMMdd") ?? "";
+                string publishedAt = release["published_at"]?.ToString() ?? "";
+                softwareLatestDate = DateTimeOffset.TryParse(publishedAt, out DateTimeOffset publishedDate)
+                    ? publishedDate.ToString("yyyyMMdd")
+                    : "";
 
                 int versionComparison = latestVersion.CompareTo(currentVersion);
                 if (versionComparison < 0 || versionComparison == 0 && latestExRevision <= currentExRevision)
