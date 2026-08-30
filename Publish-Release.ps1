@@ -18,6 +18,16 @@ $artifactsDir = Join-Path $repoRoot 'artifacts'
 $packageRoot = Join-Path $artifactsDir 'package\ApeRadar'
 $archivePath = Join-Path $artifactsDir 'ApeRadar-win-x64.zip'
 $assemblyVersion = $Version.Split('-')[0] + '.0'
+$changeLogFile = Join-Path $repoRoot 'CHANGELOG.md'
+
+if (-not (Test-Path -LiteralPath $changeLogFile)) {
+    throw 'CHANGELOG.md is required before publishing'
+}
+$changeLog = [IO.File]::ReadAllText($changeLogFile)
+$escapedVersion = [regex]::Escape($Version)
+if ($changeLog -notmatch "(?m)^## \[$escapedVersion\]") {
+    throw "CHANGELOG.md does not contain a release section for $Version"
+}
 
 function Update-TextFile([string]$Path, [scriptblock]$Transform) {
     $content = [IO.File]::ReadAllText($Path)

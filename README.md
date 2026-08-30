@@ -4,6 +4,8 @@ ApeRadar EX 是《战舰世界》玩家战绩查看工具 ApeRadar 的社区增�
 
 > 本项目基于 zylalx1 的 ApeRadar 继续开发，EX 版本并非原项目官方发布版。
 
+版本变化请查看 [更新记录](./CHANGELOG.md)。
+
 ## 下载
 
 前往 [GitHub Releases](https://github.com/slowpoke0520/aperader_ex/releases/latest) 下载 `ApeRadar-win-x64.zip`，解压后运行 `ApeRadar.exe`。

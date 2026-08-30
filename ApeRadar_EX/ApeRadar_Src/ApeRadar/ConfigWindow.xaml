@@ -180,9 +180,9 @@
                                     <Run Text="{Binding Source={x:Static p:Settings.Default},Mode=OneWay,Path=SoftwareDate}"/>
                                 </TextBlock>
                             </Grid>
-                            <Grid Grid.Row="10" Grid.Column="4" Grid.RowSpan="2">
+                            <Grid Grid.Row="10" Grid.Column="4">
                                 <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="BtnCheckForUpdates" Content="{DynamicResource BtnCheckForUpdates}" Width="110" Height="50" HorizontalAlignment="Left" Margin="10" Click="BtnCheckForUpdates_Click"/>
+                                    <Button x:Name="BtnCheckForUpdates" Content="{DynamicResource BtnCheckForUpdates}" Width="110" Height="30" HorizontalAlignment="Left" Margin="10,5" Click="BtnCheckForUpdates_Click"/>
                                     <CheckBox x:Name="ChkBoxCheckForUpdatesOnStartup" Content="{DynamicResource ChkBoxCheckForUpdatesOnStartup}" VerticalAlignment="Center" Margin="10"/>
                                 </StackPanel>
                             </Grid>
@@ -193,7 +193,7 @@
                                 <Label x:Name="LabelShipListVersionDateStr" VerticalAlignment="Center"/>
                             </Grid>
                             <Grid Grid.Row="11" Grid.Column="4">
-                                <Button x:Name="BtnUpdateShipList" Content="{DynamicResource BtnUpdateShipList}" Width="110" Height="30" HorizontalAlignment="Left" Margin="10" Click="BtnUpdateShipList_Click"/>
+                                <Button x:Name="BtnUpdateShipList" Content="{DynamicResource BtnUpdateShipList}" Width="110" Height="30" HorizontalAlignment="Left" Margin="10,5" Click="BtnUpdateShipList_Click"/>
                             </Grid>
                             <Grid Grid.Row="12" Grid.Column="1">
                                 <Label Content="{DynamicResource LabelPRDataVersion}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5"/>
@@ -202,7 +202,7 @@
                                 <Label x:Name="LabelPRDataVersionDateStr" VerticalAlignment="Center"/>
                             </Grid>
                             <Grid Grid.Row="12" Grid.Column="4">
-                                <Button x:Name="BtnUpdatePRData" Content="{DynamicResource BtnUpdatePRData}" Width="100" Height="30" HorizontalAlignment="Left" Margin="10" Click="BtnUpdatePRData_Click"/>
+                                <Button x:Name="BtnUpdatePRData" Content="{DynamicResource BtnUpdatePRData}" Width="110" Height="30" HorizontalAlignment="Left" Margin="10,5" Click="BtnUpdatePRData_Click"/>
                             </Grid>
                         </Grid>
                     </TabItem>
@@ -220,14 +220,14 @@
                                 <RowDefinition/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="180"/>
-                                <ColumnDefinition Width="50"/>
-                                <ColumnDefinition Width="160"/>
-                                <ColumnDefinition Width="160"/>
-                                <ColumnDefinition Width="160"/>
-                                <ColumnDefinition Width="160"/>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="145"/>
+                                <ColumnDefinition Width="145"/>
+                                <ColumnDefinition Width="145"/>
+                                <ColumnDefinition Width="145"/>
+                                <ColumnDefinition Width="145"/>
                             </Grid.ColumnDefinitions>
                             <Grid Grid.Row="1" Grid.Column="1">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
