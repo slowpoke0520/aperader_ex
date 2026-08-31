@@ -6,6 +6,13 @@
 
 - 暂无。
 
+## [2.1.1-ex.5] - 2026-08-31
+
+### 新功能
+
+- 支持通过玩家右键菜单添加金色 `★` 自定义标记，标记随 `WatchList.json` 持久保存。
+- 近期重遇玩家的悬浮提示现在会列出每次遭遇的时间、敌我阵营和当时使用的舰船；旧版历史记录保持兼容。
+
 ## [2.1.1-ex.4] - 2026-08-31
 
 ### 修复
@@ -84,5 +91,6 @@
 
 [2.1.1-ex.3]: https://github.com/slowpoke0520/aperader_ex/compare/v2.1.1-ex.2...v2.1.1-ex.3
 [2.1.1-ex.4]: https://github.com/slowpoke0520/aperader_ex/compare/v2.1.1-ex.3...v2.1.1-ex.4
+[2.1.1-ex.5]: https://github.com/slowpoke0520/aperader_ex/compare/v2.1.1-ex.4...v2.1.1-ex.5
 [2.1.1-ex.2]: https://github.com/slowpoke0520/aperader_ex/compare/v2.1.1-ex.1...v2.1.1-ex.2
 [2.1.1-ex.1]: https://github.com/slowpoke0520/aperader_ex/releases/tag/v2.1.1-ex.1

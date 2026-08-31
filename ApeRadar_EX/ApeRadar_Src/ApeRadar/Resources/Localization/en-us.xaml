@@ -426,6 +426,12 @@
     <system:String x:Key="ContextMenuCopyPlayerStatistics">Copy Player Statistics</system:String>
     <system:String x:Key="ContextMenuRefreshPlayer">Update This Player</system:String>
     <system:String x:Key="ContextMenuFixedTeammate">Regular Teammate (exclude recent marker)</system:String>
+    <system:String x:Key="ContextMenuCustomMarker">Custom marker (★)</system:String>
+    <system:String x:Key="ToolTipRecentEncounters">Recent encounters</system:String>
+    <system:String x:Key="EncounterAlly">Ally</system:String>
+    <system:String x:Key="EncounterEnemy">Enemy</system:String>
+    <system:String x:Key="EncounterUnknown">Unknown side</system:String>
+    <system:String x:Key="EncounterLegacyDetails">Legacy record (side and ship unavailable)</system:String>
     <system:String x:Key="ContextMenuCheckOnWoWSOfficialSite">Check Details on WoWS Official Site</system:String>
     <system:String x:Key="ContextMenuCheckOnWoWSNumbers">Check Details on WoWS Numbers</system:String>
     <system:String x:Key="ContextMenuAddToWatchListPositive">Add to Watch List (Positive)</system:String>

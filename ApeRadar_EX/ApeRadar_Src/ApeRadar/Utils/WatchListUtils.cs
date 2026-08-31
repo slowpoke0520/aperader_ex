@@ -31,7 +31,7 @@ namespace ApeRadar.Utils
 
             if (JObjectWatchList[ServerExt.GetNameByServer(p.Server)]!.SelectToken(p.ID) != null)
             {
-                if (p.WatchStatus == WatchStatus.NONE && string.IsNullOrEmpty(p.Note))
+                if (p.WatchStatus == WatchStatus.NONE && string.IsNullOrEmpty(p.Note) && !p.IsCustomMarked)
                 {
                     JObject? JObjectToUpdate = JObjectWatchList[ServerExt.GetNameByServer(p.Server)] as JObject;
                     JObjectToUpdate!.Remove(p.ID);
@@ -47,16 +47,18 @@ namespace ApeRadar.Utils
                     {
                         JObjectWatchList[ServerExt.GetNameByServer(p.Server)]![p.ID]!["note"] = p.Note;
                     }
+                    JObjectWatchList[ServerExt.GetNameByServer(p.Server)]![p.ID]!["customMarker"] = p.IsCustomMarked;
                 }
             }
             else
             {
-                if (p.WatchStatus != WatchStatus.NONE || !string.IsNullOrEmpty(p.Note))
+                if (p.WatchStatus != WatchStatus.NONE || !string.IsNullOrEmpty(p.Note) || p.IsCustomMarked)
                 {
                     JObject JObjectPlayer = new()
                     {
                         ["name"] = p.Name,
-                        ["status"] = WatchStatusExt.GetNameByStatus(p.WatchStatus)
+                        ["status"] = WatchStatusExt.GetNameByStatus(p.WatchStatus),
+                        ["customMarker"] = p.IsCustomMarked
                     };
                     if (!string.IsNullOrEmpty(p.Note))
                     {
@@ -80,7 +82,8 @@ namespace ApeRadar.Utils
                 if (JObjectPlayer != null)
                 {
                     (JObjectPlayer as JObject)!.Remove("note");
-                    if (JObjectPlayer["status"]?.Value<string>() == WatchStatusExt.GetNameByStatus(WatchStatus.NONE))
+                    if (JObjectPlayer["status"]?.Value<string>() == WatchStatusExt.GetNameByStatus(WatchStatus.NONE) &&
+                        !(JObjectPlayer["customMarker"]?.Value<bool>() ?? false))
                     {
                         JObjectServer.Remove(p.ID);
                     }
@@ -115,6 +118,16 @@ namespace ApeRadar.Utils
                 return "";
             }
             return JObjectPlayer["note"]?.Value<string>() ?? "";
+        }
+
+        public static bool GetPlayerCustomMarker(JObject watchList, Server server, string playerID)
+        {
+            return watchList[ServerExt.GetNameByServer(server)]?.SelectToken(playerID)?["customMarker"]?.Value<bool>() ?? false;
+        }
+
+        public static void SaveCustomMarker(Player p, string filename)
+        {
+            SaveWatchList(p, filename);
         }
 
         private static void WriteWatchList(string filename, JObject watchList)

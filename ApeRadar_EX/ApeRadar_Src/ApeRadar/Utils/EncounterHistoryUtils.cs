@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Windows;
 
 namespace ApeRadar.Utils
 {
@@ -28,6 +29,14 @@ namespace ApeRadar.Utils
             public string BattleID { get; set; } = "";
             public DateTimeOffset BattleStartTime { get; set; }
             public List<string> PlayerKeys { get; set; } = new();
+            public List<PlayerEncounterRecord> Players { get; set; } = new();
+        }
+
+        private class PlayerEncounterRecord
+        {
+            public string PlayerKey { get; set; } = "";
+            public string Relation { get; set; } = "";
+            public string ShipName { get; set; } = "";
         }
 
         private class FixedTeammateRecord
@@ -57,6 +66,11 @@ namespace ApeRadar.Utils
                     data = JsonConvert.DeserializeObject<EncounterHistoryFile>(File.ReadAllText(FILENAME)) ?? new EncounterHistoryFile();
                     data.Battles ??= new List<BattleRecord>();
                     data.FixedTeammates ??= new List<FixedTeammateRecord>();
+                    foreach (BattleRecord battle in data.Battles)
+                    {
+                        battle.PlayerKeys ??= new List<string>();
+                        battle.Players ??= new List<PlayerEncounterRecord>();
+                    }
                 }
             }
             catch (Exception ex)
@@ -94,11 +108,38 @@ namespace ApeRadar.Utils
                 {
                     string key = GetPlayerKey(p);
                     p.IsFixedTeammate = fixedTeammates.Contains(key);
-                    p.RecentEncounterCount = p.Relation == "0" || p.IsFixedTeammate
-                        ? 0
-                        : recentBattles.Count(b => b.PlayerKeys.Contains(key));
+                    if (p.Relation == "0" || p.IsFixedTeammate)
+                    {
+                        p.RecentEncounterDetails = "";
+                        p.RecentEncounterCount = 0;
+                        continue;
+                    }
+
+                    List<BattleRecord> encounters = recentBattles
+                        .Where(b => b.PlayerKeys.Contains(key) || b.Players.Any(e => e.PlayerKey == key))
+                        .ToList();
+                    p.RecentEncounterDetails = string.Join(Environment.NewLine, encounters.Select(b => FormatEncounter(b, key)));
+                    p.RecentEncounterCount = encounters.Count;
                 }
             }
+        }
+
+        private static string FormatEncounter(BattleRecord battle, string playerKey)
+        {
+            PlayerEncounterRecord? encounter = battle.Players.FirstOrDefault(e => e.PlayerKey == playerKey);
+            string time = battle.BattleStartTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+            if (encounter == null)
+            {
+                return $"{time} · {Application.Current.FindResource("EncounterLegacyDetails")}";
+            }
+
+            string side = encounter.Relation switch
+            {
+                "1" => Application.Current.FindResource("EncounterAlly") as string ?? "Ally",
+                "0" => Application.Current.FindResource("EncounterUnknown") as string ?? "Unknown",
+                _ => Application.Current.FindResource("EncounterEnemy") as string ?? "Enemy"
+            };
+            return $"{time} · {side} · {encounter.ShipName}";
         }
 
         public static void RecordBattle(IEnumerable<Player> players, string battleID, DateTimeOffset battleStartTime)
@@ -111,7 +152,21 @@ namespace ApeRadar.Utils
                 {
                     BattleID = battleID,
                     BattleStartTime = battleStartTime,
-                    PlayerKeys = players.Where(p => p.Relation != "0").Select(GetPlayerKey).Distinct().ToList()
+                    PlayerKeys = players.Where(p => p.Relation != "0").Select(GetPlayerKey).Distinct().ToList(),
+                    Players = players
+                        .Where(p => p.Relation != "0")
+                        .GroupBy(GetPlayerKey)
+                        .Select(group =>
+                        {
+                            Player p = group.First();
+                            return new PlayerEncounterRecord
+                            {
+                                PlayerKey = group.Key,
+                                Relation = p.Relation,
+                                ShipName = p.ShipName
+                            };
+                        })
+                        .ToList()
                 });
                 data.Battles = data.Battles
                     .OrderByDescending(b => b.BattleStartTime)

@@ -138,7 +138,7 @@
         <DataTemplate x:Key="NameTemplate">
             <StackPanel Orientation="Vertical" VerticalAlignment="Center" >
                 <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,-5,0,0" Foreground="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusColor}}">
-                    <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run BaselineAlignment="Superscript" FontSize="12" Text="{Binding Karma, Converter={StaticResource CvtBattleData}}"/><Run Text="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusIcon}}"/><Run Text="{Binding Note, Converter={StaticResource CvtNoteIcon}}"/><Run Foreground="#FF8C00" Text="{Binding RecentEncounterIcon, Mode=OneWay}"/>
+                    <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run BaselineAlignment="Superscript" FontSize="12" Text="{Binding Karma, Converter={StaticResource CvtBattleData}}"/><Run Text="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusIcon}}"/><Run Text="{Binding Note, Converter={StaticResource CvtNoteIcon}}"/><Run Foreground="#FFD700" Text="{Binding CustomMarkerIcon, Mode=OneWay}"/><Run Foreground="#FF8C00" Text="{Binding RecentEncounterIcon, Mode=OneWay}"/>
                 </TextBlock>
                 <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,0,0,-5" Foreground="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusColor}}">
                     <Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/>
@@ -235,7 +235,7 @@
         <DataTemplate x:Key="NameTemplateMirrored">
             <StackPanel Orientation="Vertical" VerticalAlignment="Center">
                 <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,-5,0,0" HorizontalAlignment="Right">
-                    <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run BaselineAlignment="Superscript" FontSize="12" Text="{Binding Karma, Converter={StaticResource CvtBattleData}}"/><Run Text="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusIcon}}"/><Run Text="{Binding Note, Converter={StaticResource CvtNoteIcon}}"/><Run Foreground="#FF8C00" Text="{Binding RecentEncounterIcon, Mode=OneWay}"/>
+                    <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run BaselineAlignment="Superscript" FontSize="12" Text="{Binding Karma, Converter={StaticResource CvtBattleData}}"/><Run Text="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusIcon}}"/><Run Text="{Binding Note, Converter={StaticResource CvtNoteIcon}}"/><Run Foreground="#FFD700" Text="{Binding CustomMarkerIcon, Mode=OneWay}"/><Run Foreground="#FF8C00" Text="{Binding RecentEncounterIcon, Mode=OneWay}"/>
                 </TextBlock>
                 <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,0,0,-5" HorizontalAlignment="Right">
                     <Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/>
@@ -342,6 +342,7 @@
             <MenuItem x:Name="ContextMenuCopyPlayerStatistics" Header="{DynamicResource ContextMenuCopyPlayerStatistics}" Click="ContextMenuCopyPlayerStatistics_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemCopyPlayerStatisticsIsEnabled}}"/>
             <MenuItem x:Name="ContextMenuRefreshPlayer" Header="{DynamicResource ContextMenuRefreshPlayer}" Click="ContextMenuRefreshPlayer_Click" IsEnabled="{Binding CanRefreshData}"/>
             <MenuItem x:Name="ContextMenuFixedTeammate" Header="{DynamicResource ContextMenuFixedTeammate}" Click="ContextMenuFixedTeammate_Click" IsCheckable="True" IsChecked="{Binding IsFixedTeammate, Mode=OneWay}" IsEnabled="{Binding CanBeFixedTeammate}"/>
+            <MenuItem x:Name="ContextMenuCustomMarker" Header="{DynamicResource ContextMenuCustomMarker}" Click="ContextMenuCustomMarker_Click" IsCheckable="True" IsChecked="{Binding IsCustomMarked, Mode=OneWay}" IsEnabled="{Binding CanRefreshData}"/>
             <Separator/>
             <MenuItem x:Name="ContextMenuAddToWatchListPositive" Header="{DynamicResource ContextMenuAddToWatchListPositive}" Click="ContextMenuAddToWatchListPositive_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemAddToWatchListPositiveIsEnabled}}"/>
             <MenuItem x:Name="ContextMenuAddToWatchListNegtive" Header="{DynamicResource ContextMenuAddToWatchListNegtive}" Click="ContextMenuAddToWatchListNegtive_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemAddToWatchListNegtiveIsEnabled}}"/>
@@ -438,6 +439,11 @@
                             </StackPanel>
                         </StackPanel>
                     </StackPanel>
+                </StackPanel>
+                <Border BorderBrush="#FF8C00" BorderThickness="1,1,1,0" Margin="5,8,5,0" Visibility="{Binding RecentEncounterDetails, Converter={StaticResource CvtNoteVisibility}}"/>
+                <StackPanel Margin="10,4,10,8" Visibility="{Binding RecentEncounterDetails, Converter={StaticResource CvtNoteVisibility}}">
+                    <TextBlock Text="{DynamicResource ToolTipRecentEncounters}" FontWeight="Bold" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}"/>
+                    <TextBlock Text="{Binding RecentEncounterDetails}" TextWrapping="Wrap" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}"/>
                 </StackPanel>
             </StackPanel>
         </ToolTip>

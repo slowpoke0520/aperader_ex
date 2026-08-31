@@ -426,6 +426,12 @@
     <system:String x:Key="ContextMenuCopyPlayerStatistics">复制玩家战绩</system:String>
     <system:String x:Key="ContextMenuRefreshPlayer">更新此玩家数据</system:String>
     <system:String x:Key="ContextMenuFixedTeammate">固定队友（不标记近期遇到）</system:String>
+    <system:String x:Key="ContextMenuCustomMarker">自定义标记（★）</system:String>
+    <system:String x:Key="ToolTipRecentEncounters">近期遭遇</system:String>
+    <system:String x:Key="EncounterAlly">己方</system:String>
+    <system:String x:Key="EncounterEnemy">敌方</system:String>
+    <system:String x:Key="EncounterUnknown">阵营未知</system:String>
+    <system:String x:Key="EncounterLegacyDetails">旧记录（无阵营和舰船详情）</system:String>
     <system:String x:Key="ContextMenuCheckOnWoWSOfficialSite">在战舰世界官方网站上查看详细信息</system:String>
     <system:String x:Key="ContextMenuCheckOnWoWSNumbers">在WoWS Numbers上查看详细信息</system:String>
     <system:String x:Key="ContextMenuAddToWatchListPositive">添加到特别关注名单（正面）</system:String>

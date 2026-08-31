@@ -359,6 +359,7 @@ namespace ApeRadar
                         {
                             p.WatchStatus = WatchStatusExt.GetStatusByName(JObjectWatchList[ServerExt.GetNameByServer(p.Server)]![p.ID]!["status"]!.Value<string>()!);
                             p.Note = WatchListUtils.GetPlayerNote(JObjectWatchList, p.Server, p.ID);
+                            p.IsCustomMarked = WatchListUtils.GetPlayerCustomMarker(JObjectWatchList, p.Server, p.ID);
                         }
                     }
 
@@ -679,6 +680,19 @@ namespace ApeRadar
                 EncounterHistoryUtils.ApplyRecentEncounterMarkers(battlefield.Allies.Concat(battlefield.Enemies), currentBattleID, currentBattleStartTime);
                 RefreshPlayerList();
             }
+        }
+
+        private void ContextMenuCustomMarker_Click(object sender, RoutedEventArgs e)
+        {
+            Player? p = (sender as MenuItem)?.DataContext as Player;
+            if (p == null || p.ID == "-1")
+            {
+                return;
+            }
+
+            p.IsCustomMarked = !p.IsCustomMarked;
+            WatchListUtils.SaveCustomMarker(p, @".\WatchList.json");
+            RefreshPlayerList();
         }
 
         private void ContextMenuAddToWatchListPositive_Click(object sender, RoutedEventArgs e)
