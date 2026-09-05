@@ -15,6 +15,7 @@ using System.Windows.Threading;
 using ApeRadar.Models;
 using ApeRadar.Utils;
 using ApeRadar.Utils.Sorters;
+using ApeRadar.History;
 
 using Newtonsoft.Json.Linq;
 using LiveChartsCore.SkiaSharpView;
@@ -239,6 +240,7 @@ namespace ApeRadar
             LogUtils.WriteInfo($"ShipInfoFileDate: {ShipInfoUtils.GetShipInfoDate()}");
 
             PRUtils.LoadExpectedValues(@".\Resources\Json\expected_values.json");
+            _ = InitializeHistoryAsync();
 
             SoftwareUpdateUtils.CleanOldVersionFiles();
 
@@ -363,7 +365,16 @@ namespace ApeRadar
                         }
                     }
 
-                    string battleID = $"{battleStartTime:O}|{JObjectTempArenaInfo["mapName"]?.Value<string>()}|{JObjectTempArenaInfo["playerName"]?.Value<string>()}";
+                    string arenaId = JObjectTempArenaInfo["arenaUniqueId"]?.Value<string>()
+                        ?? JObjectTempArenaInfo["arenaUniqueID"]?.Value<string>()
+                        ?? JObjectTempArenaInfo["arenaId"]?.Value<string>()
+                        ?? "";
+                    string shipComposition = string.Join(",", JObjectTempArenaInfo["vehicles"]!
+                        .Select(x => x["shipId"]?.Value<string>() ?? "")
+                        .OrderBy(x => x, StringComparer.Ordinal));
+                    string battleID = !string.IsNullOrWhiteSpace(arenaId)
+                        ? $"arena:{arenaId}"
+                        : $"{ServerExt.GetNameByServer(server)}|{battleStartTime:O}|{JObjectTempArenaInfo["mapName"]?.Value<string>()}|{JObjectTempArenaInfo["playerName"]?.Value<string>()}|{shipComposition}";
                     EncounterHistoryUtils.ApplyRecentEncounterMarkers(playerList, battleID, battleStartTime);
 
                     //battlefield is the main model containing ally and enemy player list
@@ -387,6 +398,12 @@ namespace ApeRadar
                     ApplyBattlefieldToUI(battlefield);
                     PlayerDataCache.Save();
                     EncounterHistoryUtils.RecordBattle(playerList, battleID, battleStartTime);
+                    if (IsRandomBattle(battleType))
+                    {
+                        _ = CaptureHistoryAsync(battleID, battleType, battleStartTime,
+                            JObjectTempArenaInfo["mapName"]?.Value<string>() ?? JObjectTempArenaInfo["mapDisplayName"]?.Value<string>() ?? "",
+                            server, playerList);
+                    }
                     currentBattleFilename = filename;
                     currentBattleID = battleID;
                     currentBattleStartTime = battleStartTime;
@@ -539,6 +556,7 @@ namespace ApeRadar
                 Owner = this
             };
             configWindow.ShowDialog();
+            _ = InitializeHistoryAsync();
             ForceUpdateDataGridColumnWidth();
         }
 
@@ -557,6 +575,57 @@ namespace ApeRadar
                 BtnSoftwareUpdate.IsEnabled = true;
             }
         }
+
+        private void BtnHistory_Click(object sender, RoutedEventArgs e)
+        {
+            HistoryWindow window = new() { Owner = this };
+            window.Show();
+        }
+
+        private async Task InitializeHistoryAsync()
+        {
+            try
+            {
+                await HistoryServices.InitializeAsync(Properties.Settings.Default.GamePath);
+                LogUtils.WriteInfo($"Battle history database: {HistoryServices.Repository.DatabasePath}");
+            }
+            catch (Exception ex)
+            {
+                LogUtils.WriteError("Battle history initialization failed.", ex);
+                NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageHistoryUnavailable") as string);
+            }
+        }
+
+        private async Task CaptureHistoryAsync(string battleKey, string mode, DateTimeOffset startedAt, string mapName, Server server, List<Player> players)
+        {
+            try
+            {
+                Player? self = players.FirstOrDefault(x => x.Relation == "0");
+                if (self == null) return;
+                BattleRecord battle = new()
+                {
+                    BattleKey = battleKey,
+                    StartedAt = startedAt,
+                    Server = ServerExt.GetNameByServer(server),
+                    Mode = mode,
+                    MapName = mapName,
+                    AccountId = self.ID,
+                    AccountName = self.Name,
+                    ShipId = self.ShipID,
+                    ShipName = self.ShipName,
+                    Completeness = BattleCompleteness.Pending,
+                    Source = BattleMetricSource.MetadataOnly,
+                    StatusMessage = "WaitingForReplay"
+                };
+                await HistoryServices.Coordinator.CapturePreBattleAsync(battle, players.Select(BattlePlayerRecord.FromPlayer).ToList(), null);
+            }
+            catch (Exception ex) { LogUtils.WriteError("Unable to save the pre-battle history snapshot.", ex); }
+        }
+
+        private static bool IsRandomBattle(string mode) =>
+            mode.Equals("pvp", StringComparison.OrdinalIgnoreCase) ||
+            mode.Equals("random", StringComparison.OrdinalIgnoreCase) ||
+            mode.Equals("RandomBattle", StringComparison.OrdinalIgnoreCase);
 
         private static async Task CheckForStartupUpdates()
         {
