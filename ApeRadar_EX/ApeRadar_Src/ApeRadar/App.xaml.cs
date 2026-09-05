@@ -2,6 +2,7 @@
 using RestoreWindowPlace;
 using ApeRadar.Utils;
 using System;
+using ApeRadar.History;
 
 namespace ApeRadar
 {
@@ -29,6 +30,8 @@ namespace ApeRadar
 
         protected override void OnExit(ExitEventArgs e)
         {
+            try { HistoryServices.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
+            catch (Exception ex) { LogUtils.WriteError("Battle history shutdown failed.", ex); }
             base.OnExit(e);
             this.WindowPlace.Save();
         }

@@ -5,6 +5,10 @@ VisualStudioVersion = 17.2.32602.215
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ApeRadar", "ApeRadar\ApeRadar.csproj", "{2229F1DE-51BC-4471-B45F-10F42477393A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApeRadar.Tests", "ApeRadar.Tests\ApeRadar.Tests.csproj", "{E6992D3D-A0A8-4BEA-9FF2-B29E29A0F70C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApeRadar.Updater", "ApeRadar.Updater\ApeRadar.Updater.csproj", "{97D91987-2D89-40FC-A1FC-7730DEB1F9E9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +19,14 @@ Global
 		{2229F1DE-51BC-4471-B45F-10F42477393A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2229F1DE-51BC-4471-B45F-10F42477393A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2229F1DE-51BC-4471-B45F-10F42477393A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E6992D3D-A0A8-4BEA-9FF2-B29E29A0F70C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E6992D3D-A0A8-4BEA-9FF2-B29E29A0F70C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E6992D3D-A0A8-4BEA-9FF2-B29E29A0F70C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E6992D3D-A0A8-4BEA-9FF2-B29E29A0F70C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97D91987-2D89-40FC-A1FC-7730DEB1F9E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97D91987-2D89-40FC-A1FC-7730DEB1F9E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97D91987-2D89-40FC-A1FC-7730DEB1F9E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97D91987-2D89-40FC-A1FC-7730DEB1F9E9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

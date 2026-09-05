@@ -25,7 +25,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.5")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.6")]
         public string SoftwareVersion {
             get {
                 return ((string)(this["SoftwareVersion"]));
@@ -34,7 +34,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("20260831")]
+        [global::System.Configuration.DefaultSettingValueAttribute("20260905")]
         public string SoftwareDate {
             get {
                 return ((string)(this["SoftwareDate"]));
@@ -616,6 +616,18 @@ namespace ApeRadar.Properties {
             }
             set {
                 this["APITypeSelection"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string WgApplicationId {
+            get {
+                return ((string)(this["WgApplicationId"]));
+            }
+            set {
+                this["WgApplicationId"] = value;
             }
         }
         

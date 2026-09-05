@@ -612,13 +612,14 @@
             </DataGrid>
         </Grid>
         <Grid Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button x:Name="BtnRefresh" Content="{DynamicResource BtnRefresh}" HorizontalAlignment="Left" Height="40" Margin="10,5,5,5" VerticalAlignment="Center" Width="80" Click="BtnRefresh_Click"/>
                 <Button x:Name="BtnOpen" Content="{DynamicResource BtnOpen}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnOpen_Click"/>
+                <Button x:Name="BtnHistory" Content="{DynamicResource BtnHistory}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="90" Click="BtnHistory_Click"/>
                 <Button x:Name="BtnSoftwareUpdate" Content="{DynamicResource BtnSoftwareUpdate}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnSoftwareUpdate_Click"/>
                 <Button x:Name="BtnConfig" Content="{DynamicResource BtnConfig}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnConfig_Click"/>
                 <Button x:Name="BtnScreenshot" Content="{DynamicResource BtnScreenshot}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnScreenshot_Click"/>
-            </StackPanel>
+            </WrapPanel>
         </Grid>
         <Grid Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2">
             <StackPanel Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,0,10,0">

@@ -10,10 +10,13 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
 $projectDir = Join-Path $repoRoot 'ApeRadar_EX\ApeRadar_Src\ApeRadar'
 $projectFile = Join-Path $projectDir 'ApeRadar.csproj'
+$solutionFile = Join-Path $repoRoot 'ApeRadar_EX\ApeRadar_Src\ApeRadar.sln'
+$updaterProject = Join-Path $repoRoot 'ApeRadar_EX\ApeRadar_Src\ApeRadar.Updater\ApeRadar.Updater.csproj'
 $settingsFile = Join-Path $projectDir 'Properties\Settings.settings'
 $designerFile = Join-Path $projectDir 'Properties\Settings.Designer.cs'
 $appConfigFile = Join-Path $projectDir 'App.config'
-$publishDir = Join-Path $projectDir 'bin\Release\net6.0-windows\publish\win-x64'
+$publishDir = Join-Path $projectDir 'bin\Release\net8.0-windows\win-x64\publish'
+$updaterPublishDir = Join-Path (Split-Path $updaterProject) 'bin\Release\net8.0\win-x64\publish'
 $artifactsDir = Join-Path $repoRoot 'artifacts'
 $packageRoot = Join-Path $artifactsDir 'package\ApeRadar'
 $archivePath = Join-Path $artifactsDir 'ApeRadar-win-x64.zip'
@@ -66,8 +69,22 @@ if ($settingsVersion -ne $Version -or $configVersion -ne $Version) {
     throw 'Version synchronization failed'
 }
 
-dotnet publish $projectFile --configuration Release --runtime win-x64 --self-contained false -p:PublishProfile=FolderProfile
+dotnet test $solutionFile --configuration Release
+if ($LASTEXITCODE -ne 0) { throw 'dotnet test failed' }
+
+if (Test-Path -LiteralPath $publishDir) {
+    Remove-Item -LiteralPath $publishDir -Recurse -Force
+}
+if (Test-Path -LiteralPath $updaterPublishDir) {
+    Remove-Item -LiteralPath $updaterPublishDir -Recurse -Force
+}
+
+dotnet publish $projectFile --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
+
+dotnet publish $updaterProject --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true
+if ($LASTEXITCODE -ne 0) { throw 'updater publish failed' }
+Copy-Item -LiteralPath (Join-Path $updaterPublishDir 'ApeRadar.Updater.exe') -Destination $publishDir -Force
 
 if (Test-Path -LiteralPath $artifactsDir) {
     Remove-Item -LiteralPath $artifactsDir -Recurse -Force

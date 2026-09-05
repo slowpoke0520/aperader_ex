@@ -47,6 +47,7 @@ namespace ApeRadar
             ChkBoxTextOutputUnlocked.Checked += ChkBoxTextOutputUnlocked_Checked;
             ChkBoxAutoCopy.IsChecked = Properties.Settings.Default.OutputTextAutoCopy && Properties.Settings.Default.OutputTextUnlock;
             ComboBoxAPIType.SelectedValue = Properties.Settings.Default.APITypeSelection;
+            TxtWgApplicationId.Text = Properties.Settings.Default.WgApplicationId;
             ChkBoxEnableYuyukoAPIPush.IsChecked = Properties.Settings.Default.YuyukoAPIPushEnabled;
             ChkBoxEnableDebugMode.IsChecked = Properties.Settings.Default.DebugMode;
             TxtApeWinrateThreshold.Text = Properties.Settings.Default.ApeWinrateThreshold.ToString("f1");
@@ -117,6 +118,7 @@ namespace ApeRadar
                     Properties.Settings.Default.OutputTextExcludeSelf = ChkBoxExcludeYourself.IsChecked ?? false;
                     Properties.Settings.Default.OutputTextAutoCopy = ChkBoxAutoCopy.IsChecked ?? false;
                     Properties.Settings.Default.APITypeSelection = ComboBoxAPIType.SelectedValue.ToString();
+                    Properties.Settings.Default.WgApplicationId = TxtWgApplicationId.Text.Trim();
                     Properties.Settings.Default.YuyukoAPIPushEnabled = ChkBoxEnableYuyukoAPIPush.IsChecked ?? false;
                     Properties.Settings.Default.DebugMode = ChkBoxEnableDebugMode.IsChecked ?? false;
                     Properties.Settings.Default.ApeWinrateThreshold = ApeWinrateThreshold;
