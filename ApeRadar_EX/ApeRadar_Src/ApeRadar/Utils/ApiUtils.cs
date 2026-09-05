@@ -21,7 +21,9 @@ namespace ApeRadar.Utils
 
         public async static Task<List<Player>> WgPublicApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool useYuyukoProxy, bool forceRefresh = false, string? forceRefreshPlayerID = null)
         {
-            const string WG_PUBLIC_API_APPLICATION_ID = "447ec579e994976e39dec0e7d0bac644";
+            string wgPublicApiApplicationId = string.IsNullOrWhiteSpace(Properties.Settings.Default.WgApplicationId)
+                ? "447ec579e994976e39dec0e7d0bac644"
+                : Properties.Settings.Default.WgApplicationId.Trim();
             const string YUYUKO_PROXY_URL = "dev-proxy.wows.shinoaki.com:7700/dev";
 
             LogUtils.WriteInfo("WG Public API");
@@ -66,7 +68,7 @@ namespace ApeRadar.Utils
             }
             else
             {
-                requestUrl = $"https://api.{serverUrlString}/wows/account/list/?application_id={WG_PUBLIC_API_APPLICATION_ID}&type=exact&search={playerNameList}";
+                requestUrl = $"https://api.{serverUrlString}/wows/account/list/?application_id={wgPublicApiApplicationId}&type=exact&search={playerNameList}";
             }
 
             responseBodyAsText = await NetworkUtils.HttpGet(requestUrl);
@@ -139,7 +141,7 @@ namespace ApeRadar.Utils
             }
             else 
             {
-                requestUrl = $"https://api.{serverUrlString}/wows/account/info/?application_id={WG_PUBLIC_API_APPLICATION_ID}&extra=statistics.pvp_solo%2Cstatistics.pvp_div2%2Cstatistics.pvp_div3&fields=hidden_profile%2Cstatistics.pvp.wins%2Cstatistics.pvp.battles%2Cstatistics.pvp_solo.wins%2Cstatistics.pvp_solo.battles%2Cstatistics.pvp_div2.wins%2Cstatistics.pvp_div2.battles%2Cstatistics.pvp_div3.wins%2Cstatistics.pvp_div3.battles&account_id={playerIdList}";
+                requestUrl = $"https://api.{serverUrlString}/wows/account/info/?application_id={wgPublicApiApplicationId}&extra=statistics.pvp_solo%2Cstatistics.pvp_div2%2Cstatistics.pvp_div3&fields=hidden_profile%2Cstatistics.pvp.wins%2Cstatistics.pvp.battles%2Cstatistics.pvp_solo.wins%2Cstatistics.pvp_solo.battles%2Cstatistics.pvp_div2.wins%2Cstatistics.pvp_div2.battles%2Cstatistics.pvp_div3.wins%2Cstatistics.pvp_div3.battles&account_id={playerIdList}";
             }
 
             responseBodyAsText = await NetworkUtils.HttpGet(requestUrl);
@@ -152,7 +154,7 @@ namespace ApeRadar.Utils
             }
             else
             {
-                requestUrl = $"https://api.{serverUrlString}/wows/clans/accountinfo/?application_id={WG_PUBLIC_API_APPLICATION_ID}&extra=clan&fields=clan_id%2Cclan.tag&account_id={playerIdList}";
+                requestUrl = $"https://api.{serverUrlString}/wows/clans/accountinfo/?application_id={wgPublicApiApplicationId}&extra=clan&fields=clan_id%2Cclan.tag&account_id={playerIdList}";
             }
             responseBodyAsText = await NetworkUtils.HttpGet(requestUrl);
             LogUtils.WriteDebug($"WgPublicApiGetPlayersClanData Response:{responseBodyAsText}");
@@ -279,8 +281,8 @@ namespace ApeRadar.Utils
                     }
                     else
                     {
-                        requestUrlPvpOnly = $"https://api.{serverUrlString}/wows/ships/stats/?application_id={WG_PUBLIC_API_APPLICATION_ID}&fields=ship_id%2Cpvp.wins%2Cpvp.battles%2Cpvp.damage_dealt%2Cpvp.frags&account_id={p.ID}";
-                        requestUrlModesOnly = $"https://api.{serverUrlString}/wows/ships/stats/?application_id={WG_PUBLIC_API_APPLICATION_ID}&extra=pvp_solo%2Cpvp_div2%2Cpvp_div3&fields=pvp_solo.wins%2Cpvp_solo.battles%2Cpvp_solo.damage_dealt%2Cpvp_solo.frags%2Cpvp_div2.wins%2Cpvp_div2.battles%2Cpvp_div2.damage_dealt%2Cpvp_div2.frags%2Cpvp_div3.wins%2Cpvp_div3.battles%2Cpvp_div3.damage_dealt%2Cpvp_div3.frags&account_id={p.ID}&ship_id={p.ShipID}";
+                        requestUrlPvpOnly = $"https://api.{serverUrlString}/wows/ships/stats/?application_id={wgPublicApiApplicationId}&fields=ship_id%2Cpvp.wins%2Cpvp.battles%2Cpvp.damage_dealt%2Cpvp.frags&account_id={p.ID}";
+                        requestUrlModesOnly = $"https://api.{serverUrlString}/wows/ships/stats/?application_id={wgPublicApiApplicationId}&extra=pvp_solo%2Cpvp_div2%2Cpvp_div3&fields=pvp_solo.wins%2Cpvp_solo.battles%2Cpvp_solo.damage_dealt%2Cpvp_solo.frags%2Cpvp_div2.wins%2Cpvp_div2.battles%2Cpvp_div2.damage_dealt%2Cpvp_div2.frags%2Cpvp_div3.wins%2Cpvp_div3.battles%2Cpvp_div3.damage_dealt%2Cpvp_div3.frags&account_id={p.ID}&ship_id={p.ShipID}";
                     }
                     taskListWgPublicApiGetPlayersShipsPvpData.Add(NetworkUtils.HttpGet(requestUrlPvpOnly));
                     taskListWgPublicApiGetPlayersShipsModesData.Add(NetworkUtils.HttpGet(requestUrlModesOnly));
