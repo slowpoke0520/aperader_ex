@@ -7,12 +7,11 @@
 
 使用说明
 
-1.安装.NET 6.0
-https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/runtime-desktop-6.0.19-windows-x64-installer
+1. 解压后运行 ApeRadar.exe。本发布包为 Windows x64 自包含版本，不需要安装 .NET。
 
-2.运行ApeRadar.exe。单击右下角的设置按钮，设置游戏路径。
+2. 单击右下角的设置按钮，设置《战舰世界》游戏路径。
 
-3.开局将自动显示战绩数据。
+3. 进入对局后会自动显示双方战绩。随机战会额外记录本机舰船、开场阵容和对局结果。
 
 
 网站：https://lxdev.org/aperadar/
@@ -39,6 +38,14 @@ QQ群：1012624096（1群） 272868560（2群）
    固定队友可通过玩家右键菜单进行勾选；勾选后不会显示近期遇到标记。记录保存在
    EncounterHistory.json中。
 
+6. 对局历史与单船追踪：主窗口底部点击“对局历史”。程序会自动扫描游戏 replays
+   目录中的既有录像，并在以后每场随机战结束后导入 Replay。顶部可按服务器、账号、
+   舰船和日期筛选；选择一艘船后，汇总和曲线只统计这艘船。可查看 10、20、50 场或
+   全部场次的滚动胜率、伤害、击沉和 PR。胜利为绿色、失败为红色；PR 使用与主界面
+   一致的分级颜色。录像不完整时，程序会以单船累计数据差值补查；“重新解析录像”和
+   “重新补查”可重试失败录像和待处理数据。历史仅保存在本机
+   %LocalAppData%\ApeRadar EX\History\history.db，不会因软件更新丢失。
+
 
 
 Disclaimer
@@ -50,12 +57,11 @@ The developer does not take any responsibility for those penalties.
 
 User Guide
 
-1. Install .NET 6.0
-https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/runtime-desktop-6.0.19-windows-x64-installer
+1. Extract and run ApeRadar.exe. This Windows x64 package is self-contained and does not require .NET.
 
-2. Run the ApeRadar.exe. Click the Config button in the bottom-right and set the Game Path. 
+2. Click Config in the bottom-right and set the World of Warships game path.
 
-3. Data will be displayed after battle start. 
+3. Player data is displayed after battle start. Random battles also record local ship, opening roster and result.
 
 
 Website: https://lxdev.org/aperadar/
@@ -84,3 +90,11 @@ New Features
 5. Recent encounters: a player seen in the previous five battles is marked with an orange 🔁 and the
    encounter count. Regular teammates can be checked in the player context menu and are excluded from
    this marker. The records are stored in EncounterHistory.json.
+
+6. Battle history and ship tracking: click History at the bottom of the main window. Existing Replay
+   files are imported from the game's replays folder, and future random-battle Replays are monitored
+   automatically. Filter by server, account, ship and date; a ship filter limits every summary and trend
+   to that ship. View 10, 20, 50 battle or all-battle rolling win-rate, damage, frags and PR. Wins are
+   green, losses red, and PR uses the same rating colors as the main window. Incomplete Replays fall
+   back to ship-stat snapshots; Retry replays and Retry API retry failed files and pending results. Data
+   remains local at %LocalAppData%\ApeRadar EX\History\history.db and survives app updates.
