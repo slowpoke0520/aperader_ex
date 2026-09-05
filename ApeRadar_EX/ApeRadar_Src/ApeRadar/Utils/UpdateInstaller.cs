@@ -18,7 +18,10 @@ namespace ApeRadar.Utils
 
         public static void Start(string archivePath)
         {
-            string currentExecutable = Environment.ProcessPath ?? throw new InvalidOperationException("Executable path unavailable");
+            string bundledUpdater = Path.Combine(AppContext.BaseDirectory, "ApeRadar.Updater.exe");
+            string currentExecutable = File.Exists(bundledUpdater)
+                ? bundledUpdater
+                : Environment.ProcessPath ?? throw new InvalidOperationException("Executable path unavailable");
             string updaterPath = Path.Combine(Path.GetTempPath(), $"ApeRadar.Updater.{Guid.NewGuid():N}.exe");
             File.Copy(currentExecutable, updaterPath, true);
 
