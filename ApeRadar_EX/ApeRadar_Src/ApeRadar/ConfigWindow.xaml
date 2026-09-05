@@ -604,6 +604,15 @@
                             <Grid Grid.Row="2" Grid.Column="1">
                                 <TextBox x:Name="TxtOutputTextTemplateGeneralStatistics" HorizontalAlignment="Stretch" TextWrapping="Wrap" VerticalAlignment="Stretch" Margin="5,5,10,5"/>
                             </Grid>
+                            <Grid Grid.Row="1" Grid.Column="1">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Label Content="{DynamicResource LabelWgApplicationId}" VerticalAlignment="Center"/>
+                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipWgApplicationId}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid Grid.Row="1" Grid.Column="3">
+                                <TextBox x:Name="TxtWgApplicationId" Width="280" Margin="5" MaxLength="64" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            </Grid>
                             <Grid Grid.Row="2" Grid.Column="2">
                                 <StackPanel Orientation="Vertical">
                                     <ComboBox x:Name="ComboBoxTagInsertGeneralStatistics" DisplayMemberPath="Content" SelectedValuePath="Value" Width="250" VerticalAlignment="Center" Margin="10,5,10,10" SelectedIndex="0">
