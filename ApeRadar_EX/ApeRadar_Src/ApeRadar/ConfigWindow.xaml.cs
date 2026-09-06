@@ -404,6 +404,15 @@ namespace ApeRadar
             BtnCheckForUpdates.IsEnabled = true;
         }
 
+        private void BtnViewChangelog_Click(object sender, RoutedEventArgs e)
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = SoftwareUpdateUtils.ReleaseNotesUrl,
+                UseShellExecute = true
+            });
+        }
+
         private async void BtnUpdateShipList_Click(object sender, RoutedEventArgs e)
         {
             BtnUpdateShipList.IsEnabled = false;

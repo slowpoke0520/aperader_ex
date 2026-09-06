@@ -86,8 +86,11 @@ dotnet publish $updaterProject --configuration Release --runtime win-x64 --self-
 if ($LASTEXITCODE -ne 0) { throw 'updater publish failed' }
 Copy-Item -LiteralPath (Join-Path $updaterPublishDir 'ApeRadar.Updater.exe') -Destination $publishDir -Force
 
-if (Test-Path -LiteralPath $artifactsDir) {
-    Remove-Item -LiteralPath $artifactsDir -Recurse -Force
+if (Test-Path -LiteralPath $packageRoot) {
+    Remove-Item -LiteralPath $packageRoot -Recurse -Force
+}
+if (Test-Path -LiteralPath $archivePath) {
+    Remove-Item -LiteralPath $archivePath -Force
 }
 New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
 Copy-Item -Path (Join-Path $publishDir '*') -Destination $packageRoot -Recurse -Force

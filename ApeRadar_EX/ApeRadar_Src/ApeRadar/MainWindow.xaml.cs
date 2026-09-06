@@ -630,7 +630,6 @@ namespace ApeRadar
         private static async Task CheckForStartupUpdates()
         {
             await SoftwareUpdateUtils.CheckForSoftwareUpdates();
-            await SoftwareUpdateUtils.CheckForShipListUpdates();
         }
 
         private void ComboBoxLanguage_SelectionChanged(object sender, SelectionChangedEventArgs e)
