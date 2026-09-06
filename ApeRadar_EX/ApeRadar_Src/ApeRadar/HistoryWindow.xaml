@@ -7,7 +7,9 @@
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <cvt:BattleResultColorConverter x:Key="CvtBattleResultColor"/>
-        <cvt:PRColorConverter x:Key="CvtPRColor"/>
+        <cvt:BattleResultBackgroundColorConverter x:Key="CvtBattleResultBackgroundColor"/>
+        <cvt:HistoryPrColorConverter x:Key="CvtHistoryPrColor"/>
+        <cvt:HistoryPrBackgroundColorConverter x:Key="CvtHistoryPrBackgroundColor"/>
     </Window.Resources>
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -54,7 +56,7 @@
             <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryWinrate}"/><TextBlock Text="{Binding WinrateText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
             <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAverageDamage}"/><TextBlock Text="{Binding AverageDamageText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
             <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAverageFrags}"/><TextBlock Text="{Binding AverageFragsText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
-            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAveragePr}"/><TextBlock Text="{Binding AveragePrText}" Foreground="{Binding AveragePrValue, Converter={StaticResource CvtPRColor}}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
+            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAveragePr}"/><TextBlock Text="{Binding AveragePrText}" Foreground="{Binding AveragePrValue, Converter={StaticResource CvtHistoryPrColor}}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
             <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryCompleteness}"/><TextBlock Text="{Binding CompletenessText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
         </UniformGrid>
 
@@ -74,7 +76,9 @@
                 <DataGridTemplateColumn Header="{DynamicResource HistoryColumnResult}" Width="85">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Result}" Foreground="{Binding ResultValue, Converter={StaticResource CvtBattleResultColor}}" HorizontalAlignment="Center" FontWeight="SemiBold"/>
+                            <Border Background="{Binding ResultValue, Converter={StaticResource CvtBattleResultBackgroundColor}}" CornerRadius="3" Padding="6,2" HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding Result}" Foreground="{Binding ResultValue, Converter={StaticResource CvtBattleResultColor}}" FontWeight="SemiBold"/>
+                            </Border>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -83,7 +87,9 @@
                 <DataGridTemplateColumn Header="PR" Width="75">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Pr}" Foreground="{Binding PrValue, Converter={StaticResource CvtPRColor}}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                            <Border Background="{Binding PrValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="3" Padding="5,2" HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding Pr}" Foreground="{Binding PrValue, Converter={StaticResource CvtHistoryPrColor}}" TextAlignment="Right" FontWeight="SemiBold"/>
+                            </Border>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

@@ -3,10 +3,10 @@
   <Profiles />
   <Settings>
     <Setting Name="SoftwareVersion" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">2.1.1-ex.6</Value>
+      <Value Profile="(Default)">2.1.1-ex.7</Value>
     </Setting>
     <Setting Name="SoftwareDate" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">20260905</Value>
+      <Value Profile="(Default)">20260906</Value>
     </Setting>
     <Setting Name="SettingsUpgradeDone" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>

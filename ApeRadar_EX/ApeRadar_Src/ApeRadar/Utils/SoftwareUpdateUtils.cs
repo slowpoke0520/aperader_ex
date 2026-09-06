@@ -15,6 +15,7 @@ namespace ApeRadar.Utils
     static internal class SoftwareUpdateUtils
     {
         private const string LatestReleaseApiUrl = "https://api.github.com/repos/slowpoke0520/aperader_ex/releases/latest";
+        public const string ReleaseNotesUrl = "https://github.com/slowpoke0520/aperader_ex/releases";
         private const string ReleaseAssetName = "ApeRadar-win-x64.zip";
         static string softwareLatestVersion = "";
         static string softwareLatestDate = "";

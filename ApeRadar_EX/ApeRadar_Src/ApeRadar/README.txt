@@ -31,14 +31,18 @@ QQ群：1012624096（1群） 272868560（2群）
 
 3.手动更新软件：单击主界面右下角的“软件更新”按钮，可立即检查并安装新版本。
 
-4.更新单个玩家：右键点击玩家并选择“更新此玩家数据”，可忽略该玩家的缓存并重新
+4. 自动检查与更新日志：在“设置 -> 高级”中可开启或关闭“软件启动时自动检查更新”。
+   关闭后不会在启动时访问 GitHub Release，但仍可手动检查软件更新；同一页面的“查看更新
+   日志”会打开全部版本的 Release 说明。
+
+5.更新单个玩家：右键点击玩家并选择“更新此玩家数据”，可忽略该玩家的缓存并重新
    获取最新战绩，其他玩家仍使用缓存。
 
-5.近期遇到标记：若一名玩家在此前5局中出现过，其名称后会显示橙色🔁和遇到次数。
+6.近期遇到标记：若一名玩家在此前5局中出现过，其名称后会显示橙色🔁和遇到次数。
    固定队友可通过玩家右键菜单进行勾选；勾选后不会显示近期遇到标记。记录保存在
    EncounterHistory.json中。
 
-6. 对局历史与单船追踪：主窗口底部点击“对局历史”。程序会自动扫描游戏 replays
+7. 对局历史与单船追踪：主窗口底部点击“对局历史”。程序会自动扫描游戏 replays
    目录中的既有录像，并在以后每场随机战结束后导入 Replay。顶部可按服务器、账号、
    舰船和日期筛选；选择一艘船后，汇总和曲线只统计这艘船。可查看 10、20、50 场或
    全部场次的滚动胜率、伤害、击沉和 PR。胜利为绿色、失败为红色；PR 使用与主界面
@@ -84,14 +88,18 @@ New Features
 3. Manual software update: click "Update app" in the bottom-right corner of the main window to check
    for and install a new version immediately.
 
-4. Update one player: right-click a player and choose "Update This Player" to bypass only that
+4. Automatic checks and changelog: use Config -> Advanced to enable or disable Check for Updates on
+   Startup. When disabled, ApeRadar does not contact GitHub Releases at startup, but manual app-update
+   checks remain available. View changelog on the same page opens release notes for every version.
+
+5. Update one player: right-click a player and choose "Update This Player" to bypass only that
    player's cache and retrieve the latest statistics. Other players can still use cached data.
 
-5. Recent encounters: a player seen in the previous five battles is marked with an orange 🔁 and the
+6. Recent encounters: a player seen in the previous five battles is marked with an orange 🔁 and the
    encounter count. Regular teammates can be checked in the player context menu and are excluded from
    this marker. The records are stored in EncounterHistory.json.
 
-6. Battle history and ship tracking: click History at the bottom of the main window. Existing Replay
+7. Battle history and ship tracking: click History at the bottom of the main window. Existing Replay
    files are imported from the game's replays folder, and future random-battle Replays are monitored
    automatically. Filter by server, account, ship and date; a ship filter limits every summary and trend
    to that ship. View 10, 20, 50 battle or all-battle rolling win-rate, damage, frags and PR. Wins are
