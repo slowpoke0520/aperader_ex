@@ -142,5 +142,38 @@ namespace ApeRadar.Utils
             }
             return CalculatePR(damageDealt, expectedDmg * battles, wins, expectedWinratePercent / 100.0 * battles, frags, expectedFrags * battles);
         }
+
+        // KOKOMI exposes separate damage/frag colours and Yuyuko uses ship-class
+        // damage thresholds. We instead normalize against each ship's PR expected
+        // values so tiers and roles remain comparable. A ship's expected value maps
+        // to 1150 (the PR produced when damage, frags and wins all meet expectation).
+        public static double CalculateDamageRating(string shipId, double battles, double damageDealt)
+        {
+            if (battles <= 0 || !TryGetExpectedValues(shipId, out double expectedDmg, out _, out _))
+            {
+                return -1;
+            }
+            return CalculateMetricRating(damageDealt, expectedDmg * battles, 0.4);
+        }
+
+        public static double CalculateFragsRating(string shipId, double battles, double frags)
+        {
+            if (battles <= 0 || !TryGetExpectedValues(shipId, out _, out double expectedFrags, out _))
+            {
+                return -1;
+            }
+            return CalculateMetricRating(frags, expectedFrags * battles, 0.1);
+        }
+
+        internal static double CalculateMetricRating(double actual, double expected, double normalizationFloor)
+        {
+            if (actual < 0 || expected <= 0 || normalizationFloor < 0 || normalizationFloor >= 1)
+            {
+                return -1;
+            }
+            double ratio = actual / expected;
+            double normalized = Math.Max(0, (ratio - normalizationFloor) / (1 - normalizationFloor));
+            return Math.Min(1150 * normalized, 9999);
+        }
     }
 }

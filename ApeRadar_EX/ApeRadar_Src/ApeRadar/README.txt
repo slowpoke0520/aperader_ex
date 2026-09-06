@@ -45,8 +45,9 @@ QQ群：1012624096（1群） 272868560（2群）
 7. 对局历史与单船追踪：主窗口底部点击“对局历史”。程序会自动扫描游戏 replays
    目录中的既有录像，并在以后每场随机战结束后导入 Replay。顶部可按服务器、账号、
    舰船和日期筛选；选择一艘船后，汇总和曲线只统计这艘船。可查看 10、20、50 场或
-   全部场次的滚动胜率、伤害、击沉和 PR。胜利为绿色、失败为红色；PR 使用与主界面
-   一致的分级颜色。录像不完整时，程序会以单船累计数据差值补查；“重新解析录像”和
+   全部场次的滚动胜率、伤害、击沉和 PR。胜利为绿色、失败为红色；伤害、击沉和 PR
+   会根据该舰船的期望值使用一致的分级颜色，地图代号会显示为亚服官方名称。录像不
+   完整时，程序会以单船累计数据差值补查；“重新解析录像”和
    “重新补查”可重试失败录像和待处理数据。历史仅保存在本机
    %LocalAppData%\ApeRadar EX\History\history.db，不会因软件更新丢失。
 
@@ -103,6 +104,7 @@ New Features
    files are imported from the game's replays folder, and future random-battle Replays are monitored
    automatically. Filter by server, account, ship and date; a ship filter limits every summary and trend
    to that ship. View 10, 20, 50 battle or all-battle rolling win-rate, damage, frags and PR. Wins are
-   green, losses red, and PR uses the same rating colors as the main window. Incomplete Replays fall
+   green and losses red; damage, frags and PR share expected-value rating colors. Internal map codes
+   are replaced with official Asia-server map names. Incomplete Replays fall
    back to ship-stat snapshots; Retry replays and Retry API retry failed files and pending results. Data
    remains local at %LocalAppData%\ApeRadar EX\History\history.db and survives app updates.

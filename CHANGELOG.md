@@ -6,6 +6,17 @@
 
 - 暂无。
 
+## [2.1.1-ex.8] - 2026-09-06
+
+### 改进
+
+- 对局历史的单场及筛选汇总“伤害”“击沉”增加分级颜色：按每艘舰船当前 PR 期望值计算相对表现，再映射到与 PR 一致的 8 档高对比度文字和淡色标签，避免不同舰种、等级使用固定绝对阈值造成误判。
+- 对局历史地图列不再直接显示 Replay 内部代号；内置亚服官方中英文地图名称映射，并兼容旧数据库中的 `spaces/...`、`IDS_MAP_...` 和英文名称。
+
+### 测试
+
+- 增加伤害/击沉标准化评分边界和地图代号转换测试，未知的新地图代号仍会原样显示，避免空白。
+
 ## [2.1.1-ex.7] - 2026-09-06
 
 ### 改进
@@ -141,5 +152,7 @@
 [2.1.1-ex.4]: https://github.com/slowpoke0520/aperader_ex/compare/v2.1.1-ex.3...v2.1.1-ex.4
 [2.1.1-ex.5]: https://github.com/slowpoke0520/aperader_ex/compare/v2.1.1-ex.4...v2.1.1-ex.5
 [2.1.1-ex.6]: https://github.com/slowpoke0520/aperader_ex/compare/v2.1.1-ex.5...v2.1.1-ex.6
+[2.1.1-ex.7]: https://github.com/slowpoke0520/aperader_ex/compare/v2.1.1-ex.6...v2.1.1-ex.7
+[2.1.1-ex.8]: https://github.com/slowpoke0520/aperader_ex/compare/v2.1.1-ex.7...v2.1.1-ex.8
 [2.1.1-ex.2]: https://github.com/slowpoke0520/aperader_ex/compare/v2.1.1-ex.1...v2.1.1-ex.2
 [2.1.1-ex.1]: https://github.com/slowpoke0520/aperader_ex/releases/tag/v2.1.1-ex.1

@@ -54,8 +54,8 @@
         <UniformGrid Grid.Row="1" Columns="6" Margin="0,0,0,10">
             <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryRecordedBattles}"/><TextBlock Text="{Binding RecordedBattlesText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
             <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryWinrate}"/><TextBlock Text="{Binding WinrateText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
-            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAverageDamage}"/><TextBlock Text="{Binding AverageDamageText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
-            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAverageFrags}"/><TextBlock Text="{Binding AverageFragsText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
+            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAverageDamage}"/><Border Background="{Binding AverageDamageRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="4" Padding="5,1" HorizontalAlignment="Left"><TextBlock Text="{Binding AverageDamageText}" Foreground="{Binding AverageDamageRatingValue, Converter={StaticResource CvtHistoryPrColor}}" FontSize="22" FontWeight="SemiBold"/></Border></StackPanel></Border>
+            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAverageFrags}"/><Border Background="{Binding AverageFragsRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="4" Padding="5,1" HorizontalAlignment="Left"><TextBlock Text="{Binding AverageFragsText}" Foreground="{Binding AverageFragsRatingValue, Converter={StaticResource CvtHistoryPrColor}}" FontSize="22" FontWeight="SemiBold"/></Border></StackPanel></Border>
             <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAveragePr}"/><TextBlock Text="{Binding AveragePrText}" Foreground="{Binding AveragePrValue, Converter={StaticResource CvtHistoryPrColor}}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
             <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryCompleteness}"/><TextBlock Text="{Binding CompletenessText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
         </UniformGrid>
@@ -82,8 +82,24 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="{DynamicResource HistoryColumnDamage}" Binding="{Binding Damage}" Width="90"/>
-                <DataGridTextColumn Header="{DynamicResource HistoryColumnFrags}" Binding="{Binding Frags}" Width="70"/>
+                <DataGridTemplateColumn Header="{DynamicResource HistoryColumnDamage}" Width="90">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Background="{Binding DamageRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="3" Padding="5,2" HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding Damage}" Foreground="{Binding DamageRatingValue, Converter={StaticResource CvtHistoryPrColor}}" TextAlignment="Right" FontWeight="SemiBold"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="{DynamicResource HistoryColumnFrags}" Width="70">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Background="{Binding FragsRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="3" Padding="5,2" HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding Frags}" Foreground="{Binding FragsRatingValue, Converter={StaticResource CvtHistoryPrColor}}" TextAlignment="Right" FontWeight="SemiBold"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTemplateColumn Header="PR" Width="75">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

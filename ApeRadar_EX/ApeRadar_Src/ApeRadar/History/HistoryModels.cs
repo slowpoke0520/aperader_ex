@@ -136,7 +136,9 @@ namespace ApeRadar.History
         public int EffectiveBattles { get; init; }
         public double? Winrate { get; init; }
         public double? AverageDamage { get; init; }
+        public double? AverageDamageRating { get; init; }
         public double? AverageFrags { get; init; }
+        public double? AverageFragsRating { get; init; }
         public double? AveragePr { get; init; }
         public double CompletenessRate { get; init; }
     }

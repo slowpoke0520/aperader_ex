@@ -61,5 +61,7 @@ namespace ApeRadar.History
         HistorySummary CalculateSummary(IReadOnlyList<BattleRecord> battles);
         IReadOnlyList<HistoryTrendPoint> CalculateTrend(IReadOnlyList<BattleRecord> battles, string metric, int rollingWindow);
         double? CalculateBattlePr(BattleRecord battle);
+        double? CalculateBattleDamageRating(BattleRecord battle);
+        double? CalculateBattleFragsRating(BattleRecord battle);
     }
 }

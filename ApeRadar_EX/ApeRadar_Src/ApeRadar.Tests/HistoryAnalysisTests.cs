@@ -1,4 +1,5 @@
 using ApeRadar.History;
+using ApeRadar.Utils;
 using Xunit;
 
 namespace ApeRadar.Tests;
@@ -52,6 +53,33 @@ public sealed class HistoryAnalysisTests
         Assert.Equal(1, summary.RecordedBattles);
         Assert.Equal(0, summary.EffectiveBattles);
         Assert.Equal(0, summary.CompletenessRate);
+    }
+
+    [Theory]
+    [InlineData(400, 1000, 0.4, 0)]
+    [InlineData(1000, 1000, 0.4, 1150)]
+    [InlineData(1600, 1000, 0.4, 2300)]
+    [InlineData(100, 1000, 0.1, 0)]
+    [InlineData(1000, 1000, 0.1, 1150)]
+    public void MetricRating_MapsExpectedValueToAveragePrBand(double actual, double expected, double floor, double rating)
+    {
+        Assert.Equal(rating, PRUtils.CalculateMetricRating(actual, expected, floor), 6);
+    }
+
+    [Theory]
+    [InlineData("37_Ridge", "山脉锁链")]
+    [InlineData("spaces/01_solomon_islands", "狂鲨怒湾")]
+    [InlineData("IDS_MAP_20_NE_TWO_BROTHERS", "双峰海峡")]
+    [InlineData("Mountain Range", "山脉锁链")]
+    public void MapNames_UseAsiaOfficialChineseNames(string internalName, string expected)
+    {
+        Assert.Equal(expected, HistoryMapNameLocalizer.GetDisplayName(internalName, true));
+    }
+
+    [Fact]
+    public void UnknownMapName_IsPreserved()
+    {
+        Assert.Equal("future_map", HistoryMapNameLocalizer.GetDisplayName("future_map", true));
     }
 
     private static BattleRecord Complete(long id, int count, long damage, double frags, double wins, BattleMetricSource source = BattleMetricSource.ApiExact) => new()

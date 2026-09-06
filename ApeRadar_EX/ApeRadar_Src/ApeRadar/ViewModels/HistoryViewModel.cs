@@ -75,7 +75,9 @@ namespace ApeRadar.ViewModels
         public string RecordedBattlesText { get; private set; } = "0";
         public string WinrateText { get; private set; } = "-";
         public string AverageDamageText { get; private set; } = "-";
+        public double? AverageDamageRatingValue { get; private set; }
         public string AverageFragsText { get; private set; } = "-";
+        public double? AverageFragsRatingValue { get; private set; }
         public string AveragePrText { get; private set; } = "-";
         public double? AveragePrValue { get; private set; }
         public string CompletenessText { get; private set; } = "0%";
@@ -119,7 +121,14 @@ namespace ApeRadar.ViewModels
                 };
                 IReadOnlyList<BattleRecord> battles = await repository.GetBattlesAsync(query);
                 Rows.Clear();
-                foreach (BattleRecord battle in battles.OrderByDescending(x => x.StartedAt)) Rows.Add(new HistoryRowViewModel(battle, analysis.CalculateBattlePr(battle)));
+                foreach (BattleRecord battle in battles.OrderByDescending(x => x.StartedAt))
+                {
+                    Rows.Add(new HistoryRowViewModel(
+                        battle,
+                        analysis.CalculateBattlePr(battle),
+                        analysis.CalculateBattleDamageRating(battle),
+                        analysis.CalculateBattleFragsRating(battle)));
+                }
                 ApplySummary(analysis.CalculateSummary(battles));
                 ApplyChart(battles);
                 StatusText = string.Format(Resource("HistoryLoadedStatus", "Loaded {0} records"), battles.Count);
@@ -187,12 +196,15 @@ namespace ApeRadar.ViewModels
             RecordedBattlesText = summary.RecordedBattles.ToString(CultureInfo.CurrentCulture);
             WinrateText = summary.Winrate?.ToString("P2") ?? "-";
             AverageDamageText = summary.AverageDamage?.ToString("N0") ?? "-";
+            AverageDamageRatingValue = summary.AverageDamageRating;
             AverageFragsText = summary.AverageFrags?.ToString("N2") ?? "-";
+            AverageFragsRatingValue = summary.AverageFragsRating;
             AveragePrText = summary.AveragePr?.ToString("N0") ?? "-";
             AveragePrValue = summary.AveragePr;
             CompletenessText = summary.CompletenessRate.ToString("P1");
             OnPropertyChanged(nameof(RecordedBattlesText)); OnPropertyChanged(nameof(WinrateText));
-            OnPropertyChanged(nameof(AverageDamageText)); OnPropertyChanged(nameof(AverageFragsText));
+            OnPropertyChanged(nameof(AverageDamageText)); OnPropertyChanged(nameof(AverageDamageRatingValue));
+            OnPropertyChanged(nameof(AverageFragsText)); OnPropertyChanged(nameof(AverageFragsRatingValue));
             OnPropertyChanged(nameof(AveragePrText)); OnPropertyChanged(nameof(AveragePrValue)); OnPropertyChanged(nameof(CompletenessText));
             OnPropertyChanged(nameof(PrDataVersionText));
         }
@@ -228,13 +240,13 @@ namespace ApeRadar.ViewModels
 
     internal sealed class HistoryRowViewModel
     {
-        public HistoryRowViewModel(BattleRecord battle, double? pr)
+        public HistoryRowViewModel(BattleRecord battle, double? pr, double? damageRating, double? fragsRating)
         {
             StartedAt = battle.StartedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
-            MapName = battle.MapName; ShipName = battle.ShipName;
+            MapName = HistoryMapNameLocalizer.GetDisplayName(battle.MapName); ShipName = battle.ShipName;
             Result = LocalizeResult(battle.Result); Damage = battle.Damage?.ToString("N0") ?? "-";
             Frags = battle.Frags?.ToString("N0") ?? "-"; Pr = pr?.ToString("N0") ?? "-";
-            ResultValue = battle.Result; PrValue = pr;
+            ResultValue = battle.Result; DamageRatingValue = damageRating; FragsRatingValue = fragsRating; PrValue = pr;
             Source = LocalizeSource(battle.Source); Completeness = LocalizeCompleteness(battle.Completeness);
             Status = battle.StatusMessage ?? "";
         }
@@ -244,7 +256,9 @@ namespace ApeRadar.ViewModels
         public string Result { get; }
         public BattleResult ResultValue { get; }
         public string Damage { get; }
+        public double? DamageRatingValue { get; }
         public string Frags { get; }
+        public double? FragsRatingValue { get; }
         public string Pr { get; }
         public double? PrValue { get; }
         public string Source { get; }

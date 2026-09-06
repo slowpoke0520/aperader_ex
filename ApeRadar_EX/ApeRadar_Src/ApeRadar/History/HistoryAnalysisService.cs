@@ -23,7 +23,9 @@ namespace ApeRadar.History
                 EffectiveBattles = Convert.ToInt32(effectiveCount),
                 Winrate = knownResultCount > 0 ? wins / knownResultCount : null,
                 AverageDamage = damageCount > 0 ? effective.Where(x => x.Damage.HasValue).Sum(x => x.Damage!.Value) / damageCount : null,
+                AverageDamageRating = CalculateAggregateMetricRating(effective, true),
                 AverageFrags = fragCount > 0 ? effective.Where(x => x.Frags.HasValue).Sum(x => x.Frags!.Value) / fragCount : null,
+                AverageFragsRating = CalculateAggregateMetricRating(effective, false),
                 AveragePr = CalculateAggregatePr(effective),
                 CompletenessRate = recorded > 0 ? effectiveCount / recorded : 0
             };
@@ -64,6 +66,20 @@ namespace ApeRadar.History
             if (!HasBaseMetrics(battle) || !battle.Damage.HasValue || !battle.Frags.HasValue || !battle.WinCount.HasValue)
                 return null;
             double value = PRUtils.CalculateShipPR(battle.ShipId, Math.Max(1, battle.BattleCount), battle.Damage.Value, battle.Frags.Value, battle.WinCount.Value);
+            return value < 0 ? null : value;
+        }
+
+        public double? CalculateBattleDamageRating(BattleRecord battle)
+        {
+            if (!HasBaseMetrics(battle) || !battle.Damage.HasValue) return null;
+            double value = PRUtils.CalculateDamageRating(battle.ShipId, Math.Max(1, battle.BattleCount), battle.Damage.Value);
+            return value < 0 ? null : value;
+        }
+
+        public double? CalculateBattleFragsRating(BattleRecord battle)
+        {
+            if (!HasBaseMetrics(battle) || !battle.Frags.HasValue) return null;
+            double value = PRUtils.CalculateFragsRating(battle.ShipId, Math.Max(1, battle.BattleCount), battle.Frags.Value);
             return value < 0 ? null : value;
         }
 
@@ -110,6 +126,25 @@ namespace ApeRadar.History
             if (values.Count == 0) return null;
             double pr = PRUtils.CalculateAccountPR(values);
             return pr < 0 ? null : pr;
+        }
+
+        private static double? CalculateAggregateMetricRating(IEnumerable<BattleRecord> battles, bool damage)
+        {
+            double actual = 0;
+            double expected = 0;
+            foreach (BattleRecord battle in battles)
+            {
+                if ((damage && !battle.Damage.HasValue) || (!damage && !battle.Frags.HasValue)) continue;
+                if (!PRUtils.TryGetExpectedValues(battle.ShipId, out double expectedDamage, out double expectedFrags, out _)) continue;
+
+                int battleCount = Math.Max(1, battle.BattleCount);
+                actual += damage ? battle.Damage!.Value : battle.Frags!.Value;
+                expected += (damage ? expectedDamage : expectedFrags) * battleCount;
+            }
+
+            if (expected <= 0) return null;
+            double value = PRUtils.CalculateMetricRating(actual, expected, damage ? 0.4 : 0.1);
+            return value < 0 ? null : value;
         }
     }
 }
