@@ -1,7 +1,12 @@
 using ApeRadar.ViewModels;
+using LiveChartsCore.SkiaSharpView.Painting;
+using SkiaSharp;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace ApeRadar
 {
@@ -13,10 +18,45 @@ namespace ApeRadar
         public HistoryWindow()
         {
             InitializeComponent();
-            viewModel = new HistoryViewModel(History.HistoryServices.Repository, History.HistoryServices.Analysis, History.HistoryServices.Coordinator);
+            string chartFontFamily = ResolveChartFontFamily(HistoryChart.FontFamily);
+            HistoryChart.TooltipTextPaint = new SolidColorPaint
+            {
+                Color = SKColors.Black,
+                FontFamily = chartFontFamily
+            };
+            viewModel = new HistoryViewModel(
+                History.HistoryServices.Repository,
+                History.HistoryServices.Analysis,
+                History.HistoryServices.Coordinator,
+                chartFontFamily);
             DataContext = viewModel;
             Loaded += HistoryWindow_Loaded;
             Closed += (_, _) => viewModel.Dispose();
+        }
+
+        private static string ResolveChartFontFamily(FontFamily preferred)
+        {
+            IEnumerable<FontFamily> candidates = new[]
+            {
+                preferred,
+                new FontFamily("Microsoft YaHei UI"),
+                new FontFamily("Microsoft YaHei"),
+                new FontFamily("Microsoft JhengHei UI"),
+                new FontFamily("Yu Gothic UI"),
+                new FontFamily("Malgun Gothic")
+            };
+
+            foreach (FontFamily family in candidates.GroupBy(x => x.Source, StringComparer.OrdinalIgnoreCase).Select(x => x.First()))
+            {
+                if (family.GetTypefaces().Any(typeface =>
+                    typeface.TryGetGlyphTypeface(out GlyphTypeface glyphs) &&
+                    glyphs.CharacterToGlyphMap.ContainsKey('中')))
+                {
+                    return family.Source;
+                }
+            }
+
+            return preferred.Source;
         }
 
         private async void HistoryWindow_Loaded(object sender, RoutedEventArgs e)

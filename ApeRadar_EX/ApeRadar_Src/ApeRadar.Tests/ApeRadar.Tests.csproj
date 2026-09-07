@@ -16,5 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ApeRadar\ApeRadar.csproj" />
+    <ProjectReference Include="..\ApeRadar.Updater\ApeRadar.Updater.csproj" />
   </ItemGroup>
 </Project>

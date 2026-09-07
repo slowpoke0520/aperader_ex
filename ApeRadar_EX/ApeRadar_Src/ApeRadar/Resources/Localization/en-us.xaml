@@ -456,7 +456,8 @@
     <system:String x:Key="NotificationMessageMaximumAttemptsReached">Maximum attempts reached. Aborting.</system:String>
     <system:String xml:space="preserve" x:Key="NotificationMessageScreenshotIsSavedTo">Screenshot is saved to </system:String>
     <system:String x:Key="NotificationMessagePeriod">.</system:String>
-    <system:String x:Key="NotificationMessageSoftwareUpdateDownloading">Downloading software update, please wait...</system:String>
+    <system:String x:Key="NotificationMessageSoftwareUpdateDownloading">Starting the updater. Download and installation progress will appear in a new window...</system:String>
+    <system:String x:Key="NotificationMessageSoftwareUpdateAlreadyRunning">A software update check is already running.</system:String>
     <system:String x:Key="NotificationMessageShiplistUpdateDownloading">Downloading shiplist update, please wait...</system:String>
     <system:String x:Key="NotificationMessageSoftwareUpdateComplete">Software update complete and will be closed. Run again to use the latest version.</system:String>
     <system:String x:Key="NotificationMessageShiplistUpdateComplete">Shiplist update complete.</system:String>

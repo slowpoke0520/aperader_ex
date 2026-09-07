@@ -23,17 +23,17 @@ namespace ApeRadar.History
         public static async Task InitializeAsync(string gamePath, CancellationToken cancellationToken = default)
         {
             gamePath ??= "";
-            await initializationLock.WaitAsync(cancellationToken);
+            await initializationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 if (initialized && string.Equals(currentGamePath, gamePath, StringComparison.OrdinalIgnoreCase)) return;
                 if (initialized)
                 {
-                    await Coordinator.DisposeAsync();
+                    await Coordinator.DisposeAsync().ConfigureAwait(false);
                     Coordinator = CreateCoordinator();
                     initialized = false;
                 }
-                await Coordinator.InitializeAsync(gamePath, cancellationToken);
+                await Coordinator.InitializeAsync(gamePath, cancellationToken).ConfigureAwait(false);
                 currentGamePath = gamePath;
                 initialized = true;
             }
@@ -42,7 +42,7 @@ namespace ApeRadar.History
 
         public static async ValueTask DisposeAsync()
         {
-            if (initialized) await Coordinator.DisposeAsync();
+            if (initialized) await Coordinator.DisposeAsync().ConfigureAwait(false);
             initializationLock.Dispose();
         }
     }

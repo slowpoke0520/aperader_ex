@@ -98,18 +98,18 @@ namespace ApeRadar.History
             using PeriodicTimer timer = new(TimeSpan.FromSeconds(3));
             try
             {
-                while (await timer.WaitForNextTickAsync(cancellationToken))
+                while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
                 {
                     if (importPaused) continue;
                     if (++scanTicks >= 40)
                     {
                         scanTicks = 0;
-                        await RescanAsync(cancellationToken);
+                        await RescanAsync(cancellationToken).ConfigureAwait(false);
                     }
                     foreach (string path in candidates.Keys.ToArray().OrderBy(GetLastWriteTimeUtcSafe))
                     {
                         if (cancellationToken.IsCancellationRequested) return;
-                        await TryProcessAsync(path, cancellationToken);
+                        await TryProcessAsync(path, cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
@@ -254,7 +254,7 @@ namespace ApeRadar.History
             lifetime.Cancel();
             if (processingTask != null)
             {
-                try { await processingTask; } catch (OperationCanceledException) { }
+                try { await processingTask.ConfigureAwait(false); } catch (OperationCanceledException) { }
             }
             lifetime.Dispose();
             if (parser is IDisposable disposable) disposable.Dispose();

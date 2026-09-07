@@ -104,7 +104,10 @@ namespace ApeRadar.History
             using PeriodicTimer timer = new(TimeSpan.FromSeconds(30));
             try
             {
-                while (await timer.WaitForNextTickAsync(cancellationToken)) await RetryPendingAsync(cancellationToken);
+                while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    await RetryPendingAsync(cancellationToken).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) { }
         }
@@ -114,9 +117,9 @@ namespace ApeRadar.History
             lifetime.Cancel();
             if (retryLoop != null)
             {
-                try { await retryLoop; } catch (OperationCanceledException) { }
+                try { await retryLoop.ConfigureAwait(false); } catch (OperationCanceledException) { }
             }
-            await ReplayMonitor.DisposeAsync();
+            await ReplayMonitor.DisposeAsync().ConfigureAwait(false);
             lifetime.Dispose();
         }
     }

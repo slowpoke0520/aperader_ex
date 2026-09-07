@@ -62,7 +62,7 @@
 
         <Grid Grid.Row="2">
             <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-            <lvc:CartesianChart Series="{Binding ChartSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding ChartYAxes}" LegendPosition="Hidden"/>
+            <lvc:CartesianChart x:Name="HistoryChart" Series="{Binding ChartSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding ChartYAxes}" LegendPosition="Hidden"/>
             <TextBlock Grid.Row="1" HorizontalAlignment="Right" Foreground="Gray" Margin="0,0,4,4">
                 <Run Text="{DynamicResource HistoryPrDataVersion}"/><Run Text=" "/><Run Text="{Binding PrDataVersionText, Mode=OneWay}"/>
             </TextBlock>

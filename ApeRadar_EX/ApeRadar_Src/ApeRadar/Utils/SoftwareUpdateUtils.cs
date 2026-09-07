@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using ApeRadar.Models;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace ApeRadar.Utils
 {
@@ -17,22 +18,22 @@ namespace ApeRadar.Utils
         private const string LatestReleaseApiUrl = "https://api.github.com/repos/slowpoke0520/aperader_ex/releases/latest";
         public const string ReleaseNotesUrl = "https://github.com/slowpoke0520/aperader_ex/releases";
         private const string ReleaseAssetName = "ApeRadar-win-x64.zip";
-        static string softwareLatestVersion = "";
-        static string softwareLatestDate = "";
-        static string softwareLatestUrl = "";
-        static string softwareLatestFileName = "";
-        static string softwareLasestSHA256 = "";
-        static readonly string downloadDirectory = @".\Download";
         static readonly string[] occupiedFileList = { @".\ApeRadar.exe", @".\libSkiaSharp.dll" };
-        private static bool updateInstallerStarted;
+        private static readonly SemaphoreSlim SoftwareUpdateGate = new(1, 1);
 
         public static async Task<bool> CheckForSoftwareUpdates()
         {
+            if (!await SoftwareUpdateGate.WaitAsync(0))
+            {
+                NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageSoftwareUpdateAlreadyRunning") as string);
+                return true;
+            }
+
             try
             {
                 JObject release = JsonUtils.Parse(await NetworkUtils.HttpGet(LatestReleaseApiUrl));
                 string tagName = release["tag_name"]?.Value<string>() ?? throw new FileFormatException("FileFormatIncorrect");
-                softwareLatestVersion = tagName.TrimStart('v', 'V');
+                string softwareLatestVersion = tagName.TrimStart('v', 'V');
                 (Version latestVersion, int latestExRevision) = ParseReleaseVersion(softwareLatestVersion);
                 (Version currentVersion, int currentExRevision) = ParseReleaseVersion(Properties.Settings.Default.SoftwareVersion);
 
@@ -43,14 +44,13 @@ namespace ApeRadar.Utils
                 {
                     throw new FileFormatException("FileFormatIncorrect");
                 }
-                softwareLatestUrl = GetSecureDownloadUrl(softwareAsset, "browser_download_url");
-                softwareLatestFileName = ReleaseAssetName;
+                string softwareLatestUrl = GetSecureDownloadUrl(softwareAsset, "browser_download_url");
                 string digest = softwareAsset["digest"]?.Value<string>() ?? "";
-                softwareLasestSHA256 = digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
+                string softwareLatestSHA256 = digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
                     ? digest[7..]
                     : "";
                 string publishedAt = release["published_at"]?.ToString() ?? "";
-                softwareLatestDate = DateTimeOffset.TryParse(publishedAt, out DateTimeOffset publishedDate)
+                string softwareLatestDate = DateTimeOffset.TryParse(publishedAt, out DateTimeOffset publishedDate)
                     ? publishedDate.ToString("yyyyMMdd")
                     : "";
 
@@ -63,25 +63,12 @@ namespace ApeRadar.Utils
                 if (MessageBox.Show($"{Application.Current.FindResource("MsgBoxSoftwareUpdateFound") as string}\n{Application.Current.FindResource("MsgBoxCurrentVersion") as string} {Properties.Settings.Default.SoftwareVersion}\n{Application.Current.FindResource("MsgBoxLatestVersion") as string} {softwareLatestVersion} ({softwareLatestDate})\n{Application.Current.FindResource("MsgBoxUpdateComfirm") as string}", Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
                 {
                     NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageSoftwareUpdateDownloading") as string);
-                    Directory.CreateDirectory(downloadDirectory);
-                    string softwareArchive = Path.GetFullPath(Path.Combine(downloadDirectory, softwareLatestFileName));
-                    await NetworkUtils.HttpDownloadFile(softwareLatestUrl, softwareArchive);
-                    if (string.IsNullOrWhiteSpace(softwareLasestSHA256))
+                    if (string.IsNullOrWhiteSpace(softwareLatestSHA256))
                     {
                         throw new FileFormatException("FileHashInvalid");
                     }
-                    using (SHA256 sha = SHA256.Create())
-                    using (FileStream fs = File.OpenRead(softwareArchive))
-                    {
-                        string actualHash = Convert.ToHexString(sha.ComputeHash(fs));
-                        if (!actualHash.Equals(softwareLasestSHA256, StringComparison.OrdinalIgnoreCase))
-                        {
-                            throw new FileFormatException("FileHashInvalid");
-                        }
-                    }
 
-                    UpdateInstaller.Start(softwareArchive);
-                    updateInstallerStarted = true;
+                    UpdateInstaller.Start(softwareLatestUrl, softwareLatestSHA256, softwareLatestVersion, Properties.Settings.Default.Language);
                     Application.Current.Shutdown();
                 }
                 return true;
@@ -99,10 +86,7 @@ namespace ApeRadar.Utils
             }
             finally
             {
-                if (!updateInstallerStarted && Directory.Exists(downloadDirectory))
-                {
-                    Directory.Delete(downloadDirectory, true);
-                }
+                SoftwareUpdateGate.Release();
             }
         }
 
@@ -120,6 +104,7 @@ namespace ApeRadar.Utils
         public static async Task<bool> CheckForShipListUpdates()
         {
             const string updateInfoUrl = "https://lxdev.org/aperadar/updateinfo/";
+            string? downloadDirectory = null;
             try
             {
                 JObject updateInfo = JsonUtils.Parse(await NetworkUtils.HttpGet(updateInfoUrl));
@@ -144,6 +129,7 @@ namespace ApeRadar.Utils
                 }
 
                 NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageShiplistUpdateDownloading") as string);
+                downloadDirectory = Path.Combine(Path.GetTempPath(), $"ApeRadar.ShipList.{Guid.NewGuid():N}");
                 Directory.CreateDirectory(downloadDirectory);
                 string archivePath = Path.GetFullPath(Path.Combine(downloadDirectory, Path.GetFileName(new Uri(downloadUrl).LocalPath)));
                 await NetworkUtils.HttpDownloadFile(downloadUrl, archivePath);
@@ -178,9 +164,9 @@ namespace ApeRadar.Utils
             }
             finally
             {
-                if (Directory.Exists(downloadDirectory))
+                if (downloadDirectory != null && Directory.Exists(downloadDirectory))
                 {
-                    Directory.Delete(downloadDirectory, true);
+                    try { Directory.Delete(downloadDirectory, true); } catch { }
                 }
             }
         }

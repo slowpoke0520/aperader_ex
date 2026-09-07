@@ -20,17 +20,23 @@ namespace ApeRadar
 
         protected override void OnStartup(StartupEventArgs e)
         {
-            if (UpdateInstaller.TryApplyFromCommandLine(Environment.GetCommandLineArgs()[1..]))
-            {
-                Shutdown();
-                return;
-            }
             base.OnStartup(e);
         }
 
         protected override void OnExit(ExitEventArgs e)
         {
-            try { HistoryServices.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
+            try
+            {
+                var disposeTask = HistoryServices.DisposeAsync().AsTask();
+                if (!disposeTask.Wait(TimeSpan.FromSeconds(10)))
+                {
+                    LogUtils.WriteInfo("Battle history shutdown timed out; process exit will release remaining resources.");
+                }
+                else
+                {
+                    disposeTask.GetAwaiter().GetResult();
+                }
+            }
             catch (Exception ex) { LogUtils.WriteError("Battle history shutdown failed.", ex); }
             base.OnExit(e);
             this.WindowPlace.Save();

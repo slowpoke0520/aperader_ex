@@ -29,7 +29,12 @@ QQ群：1012624096（1群） 272868560（2群）
    数据存放在Resources\Json\expected_values.json中，可在设置 -> 通用 -> 更新PR数据
    中手动更新。
 
-3.手动更新软件：单击主界面右下角的“软件更新”按钮，可立即检查并安装新版本。
+3.手动更新软件：单击主界面右下角的“软件更新”按钮，可立即检查并安装新版本。新版
+   更新器会从下载开始显示百分比和容量，以及等待、校验、解压、备份、安装、验证和
+   启动进度；更新可安全取消，安装失败时自动恢复原版本并
+   尝试重新启动。错误日志位于 %LocalAppData%\ApeRadar EX\Update\UpdateError.log。
+   从 2.1.1-ex.7 或 2.1.1-ex.8 升级到首个包含新版更新器的版本时，请先退出 ApeRadar，
+   手动下载完整压缩包并覆盖安装一次；此后即可正常使用软件内更新。
 
 4. 自动检查与更新日志：在“设置 -> 高级”中可开启或关闭“软件启动时自动检查更新”。
    关闭后不会在启动时访问 GitHub Release，但仍可手动检查软件更新；同一页面的“查看更新
@@ -87,7 +92,12 @@ New Features
    Update PR Data.
 
 3. Manual software update: click "Update app" in the bottom-right corner of the main window to check
-   for and install a new version immediately.
+   for and install a new version immediately. The updater shows download percentage and size, wait,
+   verify, extract, backup, install and start progress. The update can be cancelled safely. If installation
+   fails, it restores and restarts the previous version when possible.
+   Errors are logged at %LocalAppData%\ApeRadar EX\Update\UpdateError.log. To upgrade from 2.1.1-ex.7
+   or 2.1.1-ex.8 to the first release containing this updater, exit ApeRadar and manually overwrite it
+   with the complete release package once. Later versions can use the in-app updater normally.
 
 4. Automatic checks and changelog: use Config -> Advanced to enable or disable Check for Updates on
    Startup. When disabled, ApeRadar does not contact GitHub Releases at startup, but manual app-update

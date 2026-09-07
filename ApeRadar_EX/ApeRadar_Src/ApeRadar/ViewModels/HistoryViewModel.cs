@@ -2,6 +2,8 @@ using ApeRadar.History;
 using ApeRadar.Utils;
 using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -20,6 +22,7 @@ namespace ApeRadar.ViewModels
         private readonly IHistoryRepository repository;
         private readonly IHistoryAnalysisService analysis;
         private readonly IBattleTrackingCoordinator coordinator;
+        private readonly string chartFontFamily;
         private HistoryFilterOption? selectedServer;
         private HistoryFilterOption? selectedAccount;
         private HistoryFilterOption? selectedShip;
@@ -33,11 +36,12 @@ namespace ApeRadar.ViewModels
         private Axis[] chartXAxes = Array.Empty<Axis>();
         private Axis[] chartYAxes = Array.Empty<Axis>();
 
-        public HistoryViewModel(IHistoryRepository repository, IHistoryAnalysisService analysis, IBattleTrackingCoordinator coordinator)
+        public HistoryViewModel(IHistoryRepository repository, IHistoryAnalysisService analysis, IBattleTrackingCoordinator coordinator, string chartFontFamily)
         {
             this.repository = repository;
             this.analysis = analysis;
             this.coordinator = coordinator;
+            this.chartFontFamily = chartFontFamily;
             MetricOptions.Add(new HistoryFilterOption { Value = "Winrate", Display = Resource("HistoryMetricWinrate", "Win rate") });
             MetricOptions.Add(new HistoryFilterOption { Value = "Damage", Display = Resource("HistoryMetricDamage", "Damage") });
             MetricOptions.Add(new HistoryFilterOption { Value = "Frags", Display = Resource("HistoryMetricFrags", "Frags") });
@@ -215,9 +219,31 @@ namespace ApeRadar.ViewModels
             int window = int.TryParse(SelectedRollingWindow?.Value, out int parsed) ? parsed : 20;
             IReadOnlyList<HistoryTrendPoint> points = analysis.CalculateTrend(battles, metric, window);
             ChartSeries = new ISeries[] { new LineSeries<double> { Values = points.Select(x => x.Value).ToArray(), GeometrySize = 6, LineSmoothness = 0.25, Fill = null, Name = SelectedMetric?.Display } };
-            ChartXAxes = new[] { new Axis { Labels = points.Select(x => x.Label).ToArray(), LabelsRotation = 25, TextSize = 11 } };
-            ChartYAxes = new[] { new Axis { Labeler = metric == "Winrate" ? value => value.ToString("P0") : value => value.ToString("N0") } };
+            ChartXAxes = new[]
+            {
+                new Axis
+                {
+                    Labels = points.Select(x => x.Label).ToArray(),
+                    LabelsRotation = 25,
+                    TextSize = 11,
+                    LabelsPaint = CreateChartTextPaint()
+                }
+            };
+            ChartYAxes = new[]
+            {
+                new Axis
+                {
+                    Labeler = metric == "Winrate" ? value => value.ToString("P0") : value => value.ToString("N0"),
+                    LabelsPaint = CreateChartTextPaint()
+                }
+            };
         }
+
+        private SolidColorPaint CreateChartTextPaint() => new()
+        {
+            Color = new SKColor(70, 70, 70),
+            FontFamily = chartFontFamily
+        };
 
         private void ReplayMonitor_ImportProgressChanged(object? sender, ReplayImportProgress e)
         {

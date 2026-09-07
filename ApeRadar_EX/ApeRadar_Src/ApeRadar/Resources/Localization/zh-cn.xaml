@@ -456,7 +456,8 @@
     <system:String x:Key="NotificationMessageMaximumAttemptsReached">已达到最大重试次数。操作已终止。</system:String>
     <system:String x:Key="NotificationMessageScreenshotIsSavedTo">截图文件已保存至</system:String>
     <system:String x:Key="NotificationMessagePeriod">。</system:String>
-    <system:String x:Key="NotificationMessageSoftwareUpdateDownloading">正在下载软件更新，请稍候…</system:String>
+    <system:String x:Key="NotificationMessageSoftwareUpdateDownloading">正在启动更新程序，下载和安装进度将在新窗口中显示…</system:String>
+    <system:String x:Key="NotificationMessageSoftwareUpdateAlreadyRunning">软件更新检查正在进行，请稍候。</system:String>
     <system:String x:Key="NotificationMessageShiplistUpdateDownloading">正在下载船名列表更新，请稍候…</system:String>
     <system:String x:Key="NotificationMessageSoftwareUpdateComplete">软件更新完成，即将关闭。重新运行即可使用最新版本。</system:String>
     <system:String x:Key="NotificationMessageShiplistUpdateComplete">船名列表更新完成。</system:String>
