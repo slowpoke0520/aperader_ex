@@ -17,7 +17,9 @@ namespace ApeRadar
         private bool ready;
         private bool filterRefreshInProgress;
 
-        public HistoryWindow()
+        public HistoryWindow() : this(true) { }
+
+        internal HistoryWindow(bool initializeOnLoaded)
         {
             InitializeComponent();
             string chartFontFamily = ResolveChartFontFamily(HistoryChart.FontFamily);
@@ -34,7 +36,7 @@ namespace ApeRadar
                 History.HistoryServices.Coordinator,
                 chartFontFamily);
             DataContext = viewModel;
-            Loaded += HistoryWindow_Loaded;
+            if (initializeOnLoaded) Loaded += HistoryWindow_Loaded;
             Closed += (_, _) => viewModel.Dispose();
         }
 

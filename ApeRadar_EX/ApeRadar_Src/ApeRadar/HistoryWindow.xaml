@@ -89,7 +89,7 @@
                         <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryCompleteness}"/><TextBlock Text="{Binding CompletenessText}" FontSize="21" FontWeight="SemiBold"/></StackPanel></Border>
                     </UniformGrid>
                     <lvc:CartesianChart Grid.Row="1" x:Name="HistoryChart" Series="{Binding ChartSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding ChartYAxes}" LegendPosition="Hidden"/>
-                    <TextBlock Grid.Row="2" HorizontalAlignment="Right" Foreground="Gray" Margin="0,3"><Run Text="{DynamicResource HistoryPrDataVersion}"/><Run Text=" "/><Run Text="{Binding PrDataVersionText}"/></TextBlock>
+                    <TextBlock Grid.Row="2" HorizontalAlignment="Right" Foreground="Gray" Margin="0,3"><Run Text="{DynamicResource HistoryPrDataVersion}"/><Run Text=" "/><Run Text="{Binding PrDataVersionText, Mode=OneWay}"/></TextBlock>
                 </Grid>
             </TabItem>
 
