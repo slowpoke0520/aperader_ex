@@ -820,6 +820,7 @@
                                 <RowDefinition Height="50"/>
                                 <RowDefinition Height="50"/>
                                 <RowDefinition Height="50"/>
+                                <RowDefinition Height="50"/>
                                 <RowDefinition/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
@@ -862,11 +863,17 @@
                             </Grid>
                             <Grid Grid.Row="6" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
+                                    <CheckBox x:Name="ChkBoxShowExperimentalReplayMetrics" Content="{DynamicResource ChkBoxShowExperimentalReplayMetrics}" VerticalAlignment="Center" Margin="5"/>
+                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipShowExperimentalReplayMetrics}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid Grid.Row="7" Grid.Column="3">
+                                <StackPanel Orientation="Horizontal">
                                     <Button x:Name="BtnViewChangelog" Content="{DynamicResource BtnViewChangelog}" Width="120" Height="30" HorizontalAlignment="Left" Margin="5" Click="BtnViewChangelog_Click"/>
                                     <TextBlock Text="{DynamicResource TextViewChangelogHint}" VerticalAlignment="Center" Margin="5"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="7" Grid.Column="3">
+                            <Grid Grid.Row="8" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <Button x:Name="BtnClearCache" Content="{DynamicResource BtnClearCache}" Width="120" Height="30" HorizontalAlignment="Left" Margin="5" Click="BtnClearCache_Click"/>
                                 </StackPanel>

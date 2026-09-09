@@ -30,6 +30,8 @@ namespace ApeRadar
         private string currentBattleFilename = "";
         private string currentBattleID = "";
         private DateTimeOffset currentBattleStartTime = DateTimeOffset.MinValue;
+        private int sessionSummaryTicks;
+        private bool sessionSummaryRefreshing;
 
         private void SwitchLanguage(Language language)
         {
@@ -273,6 +275,11 @@ namespace ApeRadar
             if (latestFileName != "")
             {
                 await ReadPlayersListAndGetDataFromServer(latestFileName);
+            }
+            if (++sessionSummaryTicks >= 30)
+            {
+                sessionSummaryTicks = 0;
+                await RefreshSessionSummaryAsync();
             }
         }
 
@@ -582,12 +589,15 @@ namespace ApeRadar
             window.Show();
         }
 
+        private void CurrentSessionSummaryCard_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => BtnHistory_Click(sender, e);
+
         private async Task InitializeHistoryAsync()
         {
             try
             {
                 await HistoryServices.InitializeAsync(Properties.Settings.Default.GamePath);
                 LogUtils.WriteInfo($"Battle history database: {HistoryServices.Repository.DatabasePath}");
+                await RefreshSessionSummaryAsync();
             }
             catch (Exception ex)
             {
@@ -618,8 +628,33 @@ namespace ApeRadar
                     StatusMessage = "WaitingForReplay"
                 };
                 await HistoryServices.Coordinator.CapturePreBattleAsync(battle, players.Select(BattlePlayerRecord.FromPlayer).ToList(), null);
+                await RefreshSessionSummaryAsync();
             }
             catch (Exception ex) { LogUtils.WriteError("Unable to save the pre-battle history snapshot.", ex); }
+        }
+
+        private async Task RefreshSessionSummaryAsync()
+        {
+            if (sessionSummaryRefreshing) return;
+            sessionSummaryRefreshing = true;
+            try
+            {
+                BattleSession? session = await HistoryServices.Repository.GetLatestSessionAsync();
+                if (session == null)
+                {
+                    TxtMainSessionBattles.Text = TxtMainSessionWinrate.Text = TxtMainSessionDamage.Text = TxtMainSessionPr.Text = "-";
+                    return;
+                }
+                IReadOnlyList<BattleRecord> battles = await HistoryServices.Repository.GetSessionBattlesAsync(session.Id);
+                IReadOnlyDictionary<long, BattleAdvancedMetrics> advanced = await HistoryServices.Repository.GetAdvancedMetricsAsync(battles.Select(x => x.Id));
+                SessionSummary summary = HistoryServices.SessionAnalysis.CalculateSession(session, battles, advanced);
+                TxtMainSessionBattles.Text = summary.Metrics.RecordedBattles.ToString(CultureInfo.CurrentCulture);
+                TxtMainSessionWinrate.Text = summary.Metrics.Winrate?.ToString("P1") ?? "-";
+                TxtMainSessionDamage.Text = summary.Metrics.AverageDamage?.ToString("N0") ?? "-";
+                TxtMainSessionPr.Text = summary.Metrics.AveragePr?.ToString("N0") ?? "-";
+            }
+            catch (Exception ex) { LogUtils.WriteError("Unable to refresh the current session summary.", ex); }
+            finally { sessionSummaryRefreshing = false; }
         }
 
         private static bool IsRandomBattle(string mode) =>

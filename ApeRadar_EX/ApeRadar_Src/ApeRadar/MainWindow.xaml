@@ -622,7 +622,19 @@
             </WrapPanel>
         </Grid>
         <Grid Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2">
-            <StackPanel Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,0,10,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Border Grid.Column="0" x:Name="CurrentSessionSummaryCard" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="5,0,8,0" Padding="10,4"
+                    BorderBrush="#CCD6E2" BorderThickness="1" CornerRadius="5" Background="#F8FAFD" Cursor="Hand"
+                    MouseLeftButtonDown="CurrentSessionSummaryCard_MouseLeftButtonDown" ToolTip="{DynamicResource MainSessionOpenHint}">
+                <WrapPanel>
+                    <TextBlock Text="{DynamicResource MainSessionTitle}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="{DynamicResource MainSessionBattles}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionBattles" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
+                    <TextBlock Text="{DynamicResource HistoryWinrate}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionWinrate" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
+                    <TextBlock Text="{DynamicResource HistoryAverageDamage}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionDamage" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
+                    <TextBlock Text="PR" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionPr" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,0,0"/>
+                </WrapPanel>
+            </Border>
+            <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,0,10,0">
                 <TextBlock HorizontalAlignment="Right" FontSize="11">
                     <Run Text="{DynamicResource WindowTitleApeRadar}"/>
                     <Run Text="{Binding Source={x:Static p:Settings.Default}, Mode=OneWay,Path=SoftwareVersion}"/>

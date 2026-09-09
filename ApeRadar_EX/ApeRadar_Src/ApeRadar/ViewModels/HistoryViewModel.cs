@@ -21,6 +21,8 @@ namespace ApeRadar.ViewModels
     {
         private readonly IHistoryRepository repository;
         private readonly IHistoryAnalysisService analysis;
+        private readonly ISessionAnalysisService sessionAnalysis;
+        private readonly IImprovementInsightService insightService;
         private readonly IBattleTrackingCoordinator coordinator;
         private readonly string chartFontFamily;
         private HistoryFilterOption? selectedServer;
@@ -35,17 +37,35 @@ namespace ApeRadar.ViewModels
         private ISeries[] chartSeries = Array.Empty<ISeries>();
         private Axis[] chartXAxes = Array.Empty<Axis>();
         private Axis[] chartYAxes = Array.Empty<Axis>();
+        private SessionRowViewModel? selectedSession;
+        private HistoryRowViewModel? selectedSessionBattle;
+        private HistoryRowViewModel? selectedBattle;
+        private string reviewNote = "";
+        private bool isFavorite;
+        private int sessionLoadVersion;
+        private int battleDetailLoadVersion;
 
-        public HistoryViewModel(IHistoryRepository repository, IHistoryAnalysisService analysis, IBattleTrackingCoordinator coordinator, string chartFontFamily)
+        public HistoryViewModel(IHistoryRepository repository, IHistoryAnalysisService analysis, ISessionAnalysisService sessionAnalysis,
+            IImprovementInsightService insightService, IBattleTrackingCoordinator coordinator, string chartFontFamily)
         {
             this.repository = repository;
             this.analysis = analysis;
+            this.sessionAnalysis = sessionAnalysis;
+            this.insightService = insightService;
             this.coordinator = coordinator;
             this.chartFontFamily = chartFontFamily;
             MetricOptions.Add(new HistoryFilterOption { Value = "Winrate", Display = Resource("HistoryMetricWinrate", "Win rate") });
             MetricOptions.Add(new HistoryFilterOption { Value = "Damage", Display = Resource("HistoryMetricDamage", "Damage") });
             MetricOptions.Add(new HistoryFilterOption { Value = "Frags", Display = Resource("HistoryMetricFrags", "Frags") });
             MetricOptions.Add(new HistoryFilterOption { Value = "PR", Display = "PR" });
+            MetricOptions.Add(new HistoryFilterOption { Value = "Survival", Display = Resource("HistoryMetricSurvival", "Survival rate") });
+            MetricOptions.Add(new HistoryFilterOption { Value = "PotentialDamage", Display = Resource("HistoryMetricPotentialDamage", "Potential damage") });
+            MetricOptions.Add(new HistoryFilterOption { Value = "DamagePerMinute", Display = Resource("HistoryMetricDamagePerMinute", "Damage/min") });
+            if (Properties.Settings.Default.ShowExperimentalReplayMetrics)
+            {
+                MetricOptions.Add(new HistoryFilterOption { Value = "DamageTaken", Display = Resource("HistoryMetricDamageTakenExperimental", "Damage taken (experimental)") });
+                MetricOptions.Add(new HistoryFilterOption { Value = "TradeRatio", Display = Resource("HistoryMetricTradeRatioExperimental", "Trade ratio (experimental)") });
+            }
             RollingWindowOptions.Add(new HistoryFilterOption { Value = "10", Display = "10" });
             RollingWindowOptions.Add(new HistoryFilterOption { Value = "20", Display = "20" });
             RollingWindowOptions.Add(new HistoryFilterOption { Value = "50", Display = "50" });
@@ -53,6 +73,8 @@ namespace ApeRadar.ViewModels
             SelectedMetric = MetricOptions[0];
             SelectedRollingWindow = RollingWindowOptions[1];
             coordinator.ReplayMonitor.ImportProgressChanged += ReplayMonitor_ImportProgressChanged;
+            foreach (string tag in new[] { "GoodPerformance", "EarlyDeath", "LowOpportunity", "Positioning", "Clutch", "ReviewReplay" })
+                ReviewTags.Add(new ReviewTagOption(tag, Resource($"HistoryReviewTag{tag}", tag)));
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -62,6 +84,12 @@ namespace ApeRadar.ViewModels
         public ObservableCollection<HistoryFilterOption> MetricOptions { get; } = new();
         public ObservableCollection<HistoryFilterOption> RollingWindowOptions { get; } = new();
         public ObservableCollection<HistoryRowViewModel> Rows { get; } = new();
+        public ObservableCollection<SessionRowViewModel> Sessions { get; } = new();
+        public ObservableCollection<HistoryRowViewModel> SessionBattles { get; } = new();
+        public ObservableCollection<InsightRowViewModel> Insights { get; } = new();
+        public ObservableCollection<DamageBreakdownRowViewModel> DamageBreakdowns { get; } = new();
+        public ObservableCollection<BattlePlayerRowViewModel> BattlePlayers { get; } = new();
+        public ObservableCollection<ReviewTagOption> ReviewTags { get; } = new();
 
         public HistoryFilterOption? SelectedServer { get => selectedServer; set => Set(ref selectedServer, value); }
         public HistoryFilterOption? SelectedAccount { get => selectedAccount; set => Set(ref selectedAccount, value); }
@@ -75,6 +103,12 @@ namespace ApeRadar.ViewModels
         public ISeries[] ChartSeries { get => chartSeries; private set => Set(ref chartSeries, value); }
         public Axis[] ChartXAxes { get => chartXAxes; private set => Set(ref chartXAxes, value); }
         public Axis[] ChartYAxes { get => chartYAxes; private set => Set(ref chartYAxes, value); }
+        public bool ShowExperimentalMetrics => Properties.Settings.Default.ShowExperimentalReplayMetrics;
+        public SessionRowViewModel? SelectedSession { get => selectedSession; set { if (Set(ref selectedSession, value)) _ = LoadSelectedSessionAsync(value, ++sessionLoadVersion); } }
+        public HistoryRowViewModel? SelectedSessionBattle { get => selectedSessionBattle; set => Set(ref selectedSessionBattle, value); }
+        public HistoryRowViewModel? SelectedBattle { get => selectedBattle; set { if (Set(ref selectedBattle, value)) _ = LoadBattleDetailsAsync(value, ++battleDetailLoadVersion); } }
+        public string ReviewNote { get => reviewNote; set => Set(ref reviewNote, value); }
+        public bool IsFavorite { get => isFavorite; set => Set(ref isFavorite, value); }
 
         public string RecordedBattlesText { get; private set; } = "0";
         public string WinrateText { get; private set; } = "-";
@@ -85,6 +119,16 @@ namespace ApeRadar.ViewModels
         public string AveragePrText { get; private set; } = "-";
         public double? AveragePrValue { get; private set; }
         public string CompletenessText { get; private set; } = "0%";
+        public string CurrentSessionTitle { get; private set; } = "-";
+        public string CurrentSessionBattlesText { get; private set; } = "0";
+        public string CurrentSessionWinrateText { get; private set; } = "-";
+        public string CurrentSessionDamageText { get; private set; } = "-";
+        public string CurrentSessionPrText { get; private set; } = "-";
+        public string CurrentSessionSurvivalText { get; private set; } = "-";
+        public string CurrentSessionPotentialText { get; private set; } = "-";
+        public string CurrentSessionPendingText { get; private set; } = "0";
+        public string BattleDetailTitle { get; private set; } = "-";
+        public string BattleDetailMetrics { get; private set; } = "-";
         public string PrDataVersionText => PRUtils.GetExpectedValuesDateString();
 
         public async Task InitializeAsync()
@@ -92,6 +136,7 @@ namespace ApeRadar.ViewModels
             await repository.InitializeAsync();
             await LoadServersAsync();
             await ReloadAsync();
+            await LoadSessionsAsync();
         }
 
         public async Task RefreshDependentFiltersAsync(bool serverChanged, bool accountChanged)
@@ -107,6 +152,7 @@ namespace ApeRadar.ViewModels
                 SelectedShip = Ships.FirstOrDefault();
             }
             await ReloadAsync();
+            await LoadSessionsAsync();
         }
 
         public async Task ReloadAsync()
@@ -124,6 +170,7 @@ namespace ApeRadar.ViewModels
                     To = ToDate.HasValue ? new DateTimeOffset(ToDate.Value.Date.AddDays(1)) : null
                 };
                 IReadOnlyList<BattleRecord> battles = await repository.GetBattlesAsync(query);
+                IReadOnlyDictionary<long, BattleAdvancedMetrics> advanced = await repository.GetAdvancedMetricsAsync(battles.Select(x => x.Id));
                 Rows.Clear();
                 foreach (BattleRecord battle in battles.OrderByDescending(x => x.StartedAt))
                 {
@@ -131,10 +178,12 @@ namespace ApeRadar.ViewModels
                         battle,
                         analysis.CalculateBattlePr(battle),
                         analysis.CalculateBattleDamageRating(battle),
-                        analysis.CalculateBattleFragsRating(battle)));
+                        analysis.CalculateBattleFragsRating(battle),
+                        advanced.TryGetValue(battle.Id, out BattleAdvancedMetrics? metric) ? metric : null,
+                        ShowExperimentalMetrics));
                 }
                 ApplySummary(analysis.CalculateSummary(battles));
-                ApplyChart(battles);
+                ApplyChart(battles, advanced);
                 StatusText = string.Format(Resource("HistoryLoadedStatus", "Loaded {0} records"), battles.Count);
             }
             catch (Exception ex)
@@ -160,14 +209,20 @@ namespace ApeRadar.ViewModels
         {
             await repository.MakePendingChecksDueAsync();
             await coordinator.RetryPendingAsync();
-            await ReloadAsync();
+            await RefreshAllAsync();
         }
 
         public async Task ClearAsync()
         {
             await repository.DeleteAllAsync();
             await LoadServersAsync();
+            await RefreshAllAsync();
+        }
+
+        public async Task RefreshAllAsync()
+        {
             await ReloadAsync();
+            await LoadSessionsAsync();
         }
 
         public void OpenDataDirectory()
@@ -176,6 +231,210 @@ namespace ApeRadar.ViewModels
             System.IO.Directory.CreateDirectory(directory);
             Process.Start(new ProcessStartInfo { FileName = "explorer.exe", ArgumentList = { directory }, UseShellExecute = true });
         }
+
+        public void ReportError(Exception exception) =>
+            StatusText = string.Format(Resource("HistoryLoadFailed", "Unable to load history: {0}"), exception.Message);
+
+        public async Task SaveReviewAsync()
+        {
+            if (SelectedBattle == null) return;
+            await repository.SaveBattleReviewAsync(new BattleReview
+            {
+                BattleId = SelectedBattle.Battle.Id,
+                IsFavorite = IsFavorite,
+                Note = ReviewNote,
+                Tags = ReviewTags.Where(x => x.IsSelected).Select(x => x.Key).ToList()
+            });
+            StatusText = Resource("HistoryReviewSaved", "Review saved.");
+        }
+
+        public async Task MergeSessionsAsync(IEnumerable<SessionRowViewModel> selected)
+        {
+            long[] ids = selected.Select(x => x.Session.Id).Distinct().ToArray();
+            if (ids.Length < 2) return;
+            try
+            {
+                await repository.MergeSessionsAsync(ids);
+                await LoadSessionsAsync();
+                StatusText = Resource("HistorySessionsMerged", "Sessions merged.");
+            }
+            catch (Exception ex) { StatusText = string.Format(Resource("HistorySessionEditFailed", "Unable to edit sessions: {0}"), ex.Message); }
+        }
+
+        public async Task SplitSelectedSessionAsync()
+        {
+            if (SelectedSession == null || SelectedSessionBattle == null) return;
+            try
+            {
+                await repository.SplitSessionAsync(SelectedSession.Session.Id, SelectedSessionBattle.Battle.Id);
+                await LoadSessionsAsync();
+                StatusText = Resource("HistorySessionSplit", "Session split.");
+            }
+            catch (Exception ex) { StatusText = string.Format(Resource("HistorySessionEditFailed", "Unable to edit sessions: {0}"), ex.Message); }
+        }
+
+        private async Task LoadSessionsAsync()
+        {
+            long? selectedId = SelectedSession?.Session.Id;
+            IReadOnlyList<BattleSession> values = await repository.GetSessionsAsync(EmptyToNull(SelectedServer?.Value), EmptyToNull(SelectedAccount?.Value));
+            Sessions.Clear();
+            foreach (BattleSession session in values) Sessions.Add(new SessionRowViewModel(session));
+            SelectedSession = Sessions.FirstOrDefault(x => x.Session.Id == selectedId) ?? Sessions.FirstOrDefault();
+            if (SelectedSession == null) ClearSessionDisplay();
+        }
+
+        private async Task LoadSelectedSessionAsync(SessionRowViewModel? selected, int version)
+        {
+            if (selected == null)
+            {
+                if (version == sessionLoadVersion) ClearSessionDisplay();
+                return;
+            }
+            try
+            {
+                BattleSession session = selected.Session;
+                IReadOnlyList<BattleRecord> battles = await repository.GetSessionBattlesAsync(session.Id);
+                IReadOnlyDictionary<long, BattleAdvancedMetrics> advanced = await repository.GetAdvancedMetricsAsync(battles.Select(x => x.Id));
+                SessionSummary summary = sessionAnalysis.CalculateSession(session, battles, advanced, ShowExperimentalMetrics);
+                IReadOnlyList<BattleRecord> baseline = await repository.GetBattlesAsync(new HistoryQuery
+                {
+                    Server = session.Server,
+                    AccountId = session.AccountId,
+                    To = session.StartedAt
+                });
+                IReadOnlyDictionary<long, BattleAdvancedMetrics> baselineAdvanced = await repository.GetAdvancedMetricsAsync(baseline.Select(x => x.Id));
+                IReadOnlyList<ImprovementInsight> insights = insightService.CreateInsights(battles, advanced, baseline, baselineAdvanced, ShowExperimentalMetrics);
+                if (version != sessionLoadVersion || !ReferenceEquals(selected, SelectedSession)) return;
+
+                SelectedSessionBattle = null;
+                ApplyCurrentSession(summary);
+                SessionBattles.Clear();
+                foreach (BattleRecord battle in battles)
+                    SessionBattles.Add(new HistoryRowViewModel(battle, analysis.CalculateBattlePr(battle), analysis.CalculateBattleDamageRating(battle),
+                        analysis.CalculateBattleFragsRating(battle), advanced.TryGetValue(battle.Id, out BattleAdvancedMetrics? metric) ? metric : null, ShowExperimentalMetrics));
+                Insights.Clear();
+                foreach (ImprovementInsight insight in insights)
+                    Insights.Add(new InsightRowViewModel(insight));
+            }
+            catch (Exception ex)
+            {
+                StatusText = string.Format(Resource("HistoryLoadFailed", "Unable to load history: {0}"), ex.Message);
+            }
+        }
+
+        private async Task LoadBattleDetailsAsync(HistoryRowViewModel? row, int version)
+        {
+            if (row == null)
+            {
+                if (version == battleDetailLoadVersion) ClearBattleDetails();
+                return;
+            }
+            try
+            {
+                IReadOnlyDictionary<long, BattleAdvancedMetrics> advanced = await repository.GetAdvancedMetricsAsync(new[] { row.Battle.Id });
+                advanced.TryGetValue(row.Battle.Id, out BattleAdvancedMetrics? metric);
+                IReadOnlyList<BattleDamageBreakdown> breakdowns = await repository.GetDamageBreakdownsAsync(row.Battle.Id);
+                IReadOnlyList<BattlePlayerRecord> players = await repository.GetBattlePlayersAsync(row.Battle.Id);
+                BattleReview? review = await repository.GetBattleReviewAsync(row.Battle.Id);
+                if (version != battleDetailLoadVersion || !ReferenceEquals(row, SelectedBattle)) return;
+
+                ClearBattleDetails();
+                BattleDetailTitle = $"{row.StartedAt} · {row.MapName} · {row.ShipName}";
+                BattleDetailMetrics = FormatBattleMetrics(row, metric);
+                foreach (BattleDamageBreakdown item in breakdowns)
+                {
+                    if (item.Availability == MetricAvailability.Experimental && !ShowExperimentalMetrics) continue;
+                    DamageBreakdowns.Add(new DamageBreakdownRowViewModel(item));
+                }
+                foreach (BattlePlayerRecord player in players)
+                    BattlePlayers.Add(new BattlePlayerRowViewModel(player));
+                if (review != null)
+                {
+                    IsFavorite = review.IsFavorite;
+                    ReviewNote = review.Note;
+                    foreach (ReviewTagOption tag in ReviewTags) tag.IsSelected = review.Tags.Contains(tag.Key, StringComparer.Ordinal);
+                }
+                OnPropertyChanged(nameof(BattleDetailTitle));
+                OnPropertyChanged(nameof(BattleDetailMetrics));
+            }
+            catch (Exception ex)
+            {
+                StatusText = string.Format(Resource("HistoryLoadFailed", "Unable to load history: {0}"), ex.Message);
+            }
+        }
+
+        private void ClearBattleDetails()
+        {
+            DamageBreakdowns.Clear();
+            BattlePlayers.Clear();
+            foreach (ReviewTagOption tag in ReviewTags) tag.IsSelected = false;
+            ReviewNote = "";
+            IsFavorite = false;
+            BattleDetailTitle = "-";
+            BattleDetailMetrics = "-";
+            OnPropertyChanged(nameof(BattleDetailTitle));
+            OnPropertyChanged(nameof(BattleDetailMetrics));
+        }
+
+        private void ApplyCurrentSession(SessionSummary summary)
+        {
+            HistorySummary metrics = summary.Metrics;
+            CurrentSessionTitle = $"{summary.Session.StartedAt.ToLocalTime():yyyy-MM-dd HH:mm} · {summary.Session.AccountName}";
+            CurrentSessionBattlesText = metrics.RecordedBattles.ToString(CultureInfo.CurrentCulture);
+            CurrentSessionWinrateText = metrics.Winrate?.ToString("P2") ?? "-";
+            CurrentSessionDamageText = metrics.AverageDamage?.ToString("N0") ?? "-";
+            CurrentSessionPrText = metrics.AveragePr?.ToString("N0") ?? "-";
+            CurrentSessionSurvivalText = metrics.SurvivalRate.HasValue ? $"{metrics.SurvivalRate:P1} ({metrics.SurvivalSampleCount}/{metrics.RecordedBattles})" : "-";
+            CurrentSessionPotentialText = metrics.AveragePotentialDamage.HasValue ? $"{metrics.AveragePotentialDamage:N0} ({metrics.PotentialDamageSampleCount}/{metrics.RecordedBattles})" : "-";
+            CurrentSessionPendingText = summary.PendingBattles.ToString(CultureInfo.CurrentCulture);
+            OnPropertyChanged(nameof(CurrentSessionTitle)); OnPropertyChanged(nameof(CurrentSessionBattlesText));
+            OnPropertyChanged(nameof(CurrentSessionWinrateText)); OnPropertyChanged(nameof(CurrentSessionDamageText));
+            OnPropertyChanged(nameof(CurrentSessionPrText)); OnPropertyChanged(nameof(CurrentSessionSurvivalText));
+            OnPropertyChanged(nameof(CurrentSessionPotentialText)); OnPropertyChanged(nameof(CurrentSessionPendingText));
+        }
+
+        private void ClearSessionDisplay()
+        {
+            SessionBattles.Clear(); Insights.Clear();
+            CurrentSessionTitle = "-"; CurrentSessionBattlesText = "0"; CurrentSessionWinrateText = "-";
+            CurrentSessionDamageText = "-"; CurrentSessionPrText = "-"; CurrentSessionSurvivalText = "-";
+            CurrentSessionPotentialText = "-"; CurrentSessionPendingText = "0";
+            OnPropertyChanged(nameof(CurrentSessionTitle)); OnPropertyChanged(nameof(CurrentSessionBattlesText));
+            OnPropertyChanged(nameof(CurrentSessionWinrateText)); OnPropertyChanged(nameof(CurrentSessionDamageText));
+            OnPropertyChanged(nameof(CurrentSessionPrText)); OnPropertyChanged(nameof(CurrentSessionSurvivalText));
+            OnPropertyChanged(nameof(CurrentSessionPotentialText)); OnPropertyChanged(nameof(CurrentSessionPendingText));
+        }
+
+        private string FormatBattleMetrics(HistoryRowViewModel row, BattleAdvancedMetrics? metric)
+        {
+            List<string> parts = new()
+            {
+                $"{Resource("HistoryColumnResult", "Result")}: {row.Result}",
+                $"{Resource("HistoryColumnDamage", "Damage")}: {row.Damage}",
+                $"{Resource("HistoryColumnFrags", "Frags")}: {row.Frags}",
+                $"PR: {row.Pr}",
+                $"{Resource("HistoryColumnSource", "Source")}: {row.Source}",
+                $"{Resource("HistoryColumnCompleteness", "Completeness")}: {row.Completeness}"
+            };
+            if (!string.IsNullOrWhiteSpace(row.Status))
+                parts.Add($"{Resource("HistoryColumnStatus", "Status")}: {row.Status}");
+            if (metric == null)
+            {
+                parts.Add(Resource("HistoryAdvancedUnavailable", "Advanced Replay metrics are unavailable."));
+                return string.Join(Environment.NewLine, parts);
+            }
+            parts.AddRange(new[]
+            {
+                $"{Resource("HistoryMetricSurvival", "Survival")}: {(metric.Survived.HasValue ? metric.Survived.Value ? Resource("HistorySurvived", "Survived") : Resource("HistorySunk", "Sunk") : "-")}",
+                $"{Resource("HistorySurvivalTime", "Survival time")}: {FormatDuration(metric.SurvivalSeconds)}",
+                $"{Resource("HistoryMetricPotentialDamage", "Potential damage")}: {(metric.PotentialDamage?.ToString("N0") ?? "-")}"
+            });
+            if (ShowExperimentalMetrics)
+                parts.Add($"{Resource("HistoryMetricDamageTakenExperimental", "Damage taken (experimental)")}: {(metric.DamageTaken?.ToString("N0") ?? "-")}");
+            return string.Join(Environment.NewLine, parts);
+        }
+
+        private static string FormatDuration(double? seconds) => seconds.HasValue ? TimeSpan.FromSeconds(seconds.Value).ToString(@"mm\:ss") : "-";
 
         private async Task LoadServersAsync()
         {
@@ -213,11 +472,13 @@ namespace ApeRadar.ViewModels
             OnPropertyChanged(nameof(PrDataVersionText));
         }
 
-        private void ApplyChart(IReadOnlyList<BattleRecord> battles)
+        private void ApplyChart(IReadOnlyList<BattleRecord> battles, IReadOnlyDictionary<long, BattleAdvancedMetrics> advanced)
         {
             string metric = SelectedMetric?.Value ?? "Winrate";
             int window = int.TryParse(SelectedRollingWindow?.Value, out int parsed) ? parsed : 20;
-            IReadOnlyList<HistoryTrendPoint> points = analysis.CalculateTrend(battles, metric, window);
+            IReadOnlyList<HistoryTrendPoint> points = metric is "Winrate" or "Damage" or "Frags" or "PR"
+                ? analysis.CalculateTrend(battles, metric, window)
+                : sessionAnalysis.CalculateAdvancedTrend(battles, advanced, metric, window, ShowExperimentalMetrics);
             ChartSeries = new ISeries[] { new LineSeries<double> { Values = points.Select(x => x.Value).ToArray(), GeometrySize = 6, LineSmoothness = 0.25, Fill = null, Name = SelectedMetric?.Display } };
             ChartXAxes = new[]
             {
@@ -233,7 +494,8 @@ namespace ApeRadar.ViewModels
             {
                 new Axis
                 {
-                    Labeler = metric == "Winrate" ? value => value.ToString("P0") : value => value.ToString("N0"),
+                    Labeler = metric is "Winrate" or "Survival" ? value => value.ToString("P0") :
+                        metric == "TradeRatio" ? value => value.ToString("N2") : value => value.ToString("N0"),
                     LabelsPaint = CreateChartTextPaint()
                 }
             };
@@ -266,8 +528,9 @@ namespace ApeRadar.ViewModels
 
     internal sealed class HistoryRowViewModel
     {
-        public HistoryRowViewModel(BattleRecord battle, double? pr, double? damageRating, double? fragsRating)
+        public HistoryRowViewModel(BattleRecord battle, double? pr, double? damageRating, double? fragsRating, BattleAdvancedMetrics? advanced = null, bool showExperimental = false)
         {
+            Battle = battle;
             StartedAt = battle.StartedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
             MapName = HistoryMapNameLocalizer.GetDisplayName(battle.MapName); ShipName = battle.ShipName;
             Result = LocalizeResult(battle.Result); Damage = battle.Damage?.ToString("N0") ?? "-";
@@ -275,7 +538,11 @@ namespace ApeRadar.ViewModels
             ResultValue = battle.Result; DamageRatingValue = damageRating; FragsRatingValue = fragsRating; PrValue = pr;
             Source = LocalizeSource(battle.Source); Completeness = LocalizeCompleteness(battle.Completeness);
             Status = battle.StatusMessage ?? "";
+            Survival = advanced?.Survived.HasValue == true ? advanced.Survived.Value ? Resource("HistorySurvived", "Survived") : Resource("HistorySunk", "Sunk") : "-";
+            PotentialDamage = advanced?.PotentialDamage?.ToString("N0") ?? "-";
+            DamageTaken = showExperimental ? advanced?.DamageTaken?.ToString("N0") ?? "-" : "-";
         }
+        public BattleRecord Battle { get; }
         public string StartedAt { get; }
         public string MapName { get; }
         public string ShipName { get; }
@@ -290,10 +557,104 @@ namespace ApeRadar.ViewModels
         public string Source { get; }
         public string Completeness { get; }
         public string Status { get; }
+        public string Survival { get; }
+        public string PotentialDamage { get; }
+        public string DamageTaken { get; }
 
         private static string LocalizeResult(BattleResult value) => Resource($"HistoryResult{value}", value.ToString());
         private static string LocalizeSource(BattleMetricSource value) => Resource($"HistorySource{value}", value.ToString());
         private static string LocalizeCompleteness(BattleCompleteness value) => Resource($"HistoryCompleteness{value}", value.ToString());
         private static string Resource(string key, string fallback) => Application.Current.TryFindResource(key) as string ?? fallback;
+    }
+
+    internal sealed class SessionRowViewModel
+    {
+        public SessionRowViewModel(BattleSession session)
+        {
+            Session = session;
+            StartedAt = session.StartedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+            EndedAt = session.EndedAt.ToLocalTime().ToString("HH:mm");
+            Account = session.AccountName;
+            Server = session.Server;
+            Battles = session.BattleCount.ToString(CultureInfo.CurrentCulture);
+            Type = session.IsManual ? Resource("HistorySessionManual", "Manual") : Resource("HistorySessionAutomatic", "Automatic");
+        }
+        public BattleSession Session { get; }
+        public string StartedAt { get; }
+        public string EndedAt { get; }
+        public string Account { get; }
+        public string Server { get; }
+        public string Battles { get; }
+        public string Type { get; }
+        private static string Resource(string key, string fallback) => Application.Current.TryFindResource(key) as string ?? fallback;
+    }
+
+    internal sealed class InsightRowViewModel
+    {
+        public InsightRowViewModel(ImprovementInsight insight)
+        {
+            Kind = insight.Kind;
+            if (insight.Metric == "CollectingData")
+            {
+                Text = Resource("HistoryInsightCollecting", "At least 5 current and 20 earlier battles on the same ship are needed for comparisons.");
+                return;
+            }
+            string[] parts = insight.Metric.Split('|', 2);
+            string ship = parts[0];
+            string metric = Resource($"HistoryInsightMetric{parts.ElementAtOrDefault(1)}", parts.ElementAtOrDefault(1) ?? "");
+            double delta = (insight.CurrentValue - insight.BaselineValue) / Math.Abs(insight.BaselineValue);
+            Text = string.Format(Resource("HistoryInsightComparison", "{0} · {1}: {2:N1} vs {3:N1} ({4:+0.0%;-0.0%;0%}), samples {5}/{6}."),
+                ship, metric, insight.CurrentValue, insight.BaselineValue, delta, insight.CurrentSampleCount, insight.BaselineSampleCount);
+        }
+        public ImprovementInsightKind Kind { get; }
+        public string Text { get; } = "";
+        private static string Resource(string key, string fallback) => Application.Current.TryFindResource(key) as string ?? fallback;
+    }
+
+    internal sealed class DamageBreakdownRowViewModel
+    {
+        public DamageBreakdownRowViewModel(BattleDamageBreakdown value)
+        {
+            Direction = value.Direction == DamageDirection.Dealt ? Resource("HistoryDamageDealt", "Dealt") : Resource("HistoryDamageReceived", "Received");
+            Type = value.Category == DamageCategory.Unknown ? $"{Resource("HistoryRawDamageType", "Type")} #{value.RawTypeCode}" : value.Category.ToString();
+            Damage = value.Damage.ToString("N0");
+            Quality = value.Availability == MetricAvailability.Experimental ? Resource("HistoryExperimental", "Experimental") : Resource("HistoryStable", "Stable");
+        }
+        public string Direction { get; }
+        public string Type { get; }
+        public string Damage { get; }
+        public string Quality { get; }
+        private static string Resource(string key, string fallback) => Application.Current.TryFindResource(key) as string ?? fallback;
+    }
+
+    internal sealed class BattlePlayerRowViewModel
+    {
+        public BattlePlayerRowViewModel(BattlePlayerRecord value)
+        {
+            Relation = value.Relation == "0" ? Resource("HistorySelf", "Self") : value.Relation == "1" ? Resource("EncounterAlly", "Ally") : Resource("EncounterEnemy", "Enemy");
+            Player = value.AccountName; Ship = value.ShipName;
+            Winrate = value.AccountWinrate?.ToString("P2") ?? "-";
+            Pr = value.AccountPr?.ToString("N0") ?? "-";
+        }
+        public string Relation { get; }
+        public string Player { get; }
+        public string Ship { get; }
+        public string Winrate { get; }
+        public string Pr { get; }
+        private static string Resource(string key, string fallback) => Application.Current.TryFindResource(key) as string ?? fallback;
+    }
+
+    internal sealed class ReviewTagOption : INotifyPropertyChanged
+    {
+        private bool isSelected;
+        public ReviewTagOption(string key, string display) { Key = key; Display = display; }
+        public string Key { get; }
+        public string Display { get; }
+        public bool IsSelected
+        {
+            get => isSelected;
+            set { if (isSelected == value) return; isSelected = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected))); }
+        }
+        public event PropertyChangedEventHandler? PropertyChanged;
     }
 }

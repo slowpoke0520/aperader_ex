@@ -3,128 +3,147 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
         xmlns:cvt="clr-namespace:ApeRadar.Utils.Converters"
-        Title="{DynamicResource HistoryWindowTitle}" Width="1280" Height="820" MinWidth="920" MinHeight="640"
+        Title="{DynamicResource HistoryWindowTitle}" Width="1320" Height="860" MinWidth="980" MinHeight="680"
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <cvt:BattleResultColorConverter x:Key="CvtBattleResultColor"/>
         <cvt:BattleResultBackgroundColorConverter x:Key="CvtBattleResultBackgroundColor"/>
         <cvt:HistoryPrColorConverter x:Key="CvtHistoryPrColor"/>
         <cvt:HistoryPrBackgroundColorConverter x:Key="CvtHistoryPrBackgroundColor"/>
+        <Style x:Key="SummaryCard" TargetType="Border">
+            <Setter Property="BorderBrush" Value="#D6DCE5"/><Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/><Setter Property="Margin" Value="4"/><Setter Property="Padding" Value="10,7"/>
+            <Setter Property="Background" Value="#FAFBFD"/>
+        </Style>
+        <DataTemplate x:Key="HistoryResultCellTemplate">
+            <Border Background="{Binding ResultValue, Converter={StaticResource CvtBattleResultBackgroundColor}}" CornerRadius="3" Padding="5,2" HorizontalAlignment="Center">
+                <TextBlock Text="{Binding Result}" Foreground="{Binding ResultValue, Converter={StaticResource CvtBattleResultColor}}" FontWeight="SemiBold"/>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="HistoryDamageCellTemplate">
+            <Border Background="{Binding DamageRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="3" Padding="5,2" HorizontalAlignment="Right">
+                <TextBlock Text="{Binding Damage}" Foreground="{Binding DamageRatingValue, Converter={StaticResource CvtHistoryPrColor}}" TextAlignment="Right" FontWeight="SemiBold"/>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="HistoryFragsCellTemplate">
+            <Border Background="{Binding FragsRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="3" Padding="5,2" HorizontalAlignment="Right">
+                <TextBlock Text="{Binding Frags}" Foreground="{Binding FragsRatingValue, Converter={StaticResource CvtHistoryPrColor}}" TextAlignment="Right" FontWeight="SemiBold"/>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="HistoryPrCellTemplate">
+            <Border Background="{Binding PrValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="3" Padding="5,2" HorizontalAlignment="Right">
+                <TextBlock Text="{Binding Pr}" Foreground="{Binding PrValue, Converter={StaticResource CvtHistoryPrColor}}" TextAlignment="Right" FontWeight="SemiBold"/>
+            </Border>
+        </DataTemplate>
     </Window.Resources>
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="2*"/>
-            <RowDefinition Height="3*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <Grid Margin="14">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
 
-        <WrapPanel Grid.Row="0" Margin="0,0,0,10">
-            <StackPanel Margin="0,0,12,6">
-                <TextBlock Text="{DynamicResource HistoryServer}"/>
-                <ComboBox Width="130" ItemsSource="{Binding Servers}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedServer}" SelectionChanged="Server_SelectionChanged"/>
-            </StackPanel>
-            <StackPanel Margin="0,0,12,6">
-                <TextBlock Text="{DynamicResource HistoryAccount}"/>
-                <ComboBox Width="180" ItemsSource="{Binding Accounts}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedAccount}" SelectionChanged="Account_SelectionChanged"/>
-            </StackPanel>
-            <StackPanel Margin="0,0,12,6">
-                <TextBlock Text="{DynamicResource HistoryShip}"/>
-                <ComboBox Width="180" ItemsSource="{Binding Ships}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedShip}" SelectionChanged="Filter_SelectionChanged"/>
-            </StackPanel>
-            <StackPanel Margin="0,0,12,6">
-                <TextBlock Text="{DynamicResource HistoryFromDate}"/>
-                <DatePicker Width="135" SelectedDate="{Binding FromDate}" SelectedDateChanged="Date_Changed"/>
-            </StackPanel>
-            <StackPanel Margin="0,0,12,6">
-                <TextBlock Text="{DynamicResource HistoryToDate}"/>
-                <DatePicker Width="135" SelectedDate="{Binding ToDate}" SelectedDateChanged="Date_Changed"/>
-            </StackPanel>
-            <StackPanel Margin="0,0,12,6">
-                <TextBlock Text="{DynamicResource HistoryMetric}"/>
-                <ComboBox Width="120" ItemsSource="{Binding MetricOptions}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedMetric}" SelectionChanged="Filter_SelectionChanged"/>
-            </StackPanel>
-            <StackPanel Margin="0,0,12,6">
-                <TextBlock Text="{DynamicResource HistoryRollingWindow}"/>
-                <ComboBox Width="90" ItemsSource="{Binding RollingWindowOptions}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedRollingWindow}" SelectionChanged="Filter_SelectionChanged"/>
-            </StackPanel>
+        <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+            <StackPanel Margin="0,0,12,6"><TextBlock Text="{DynamicResource HistoryServer}"/><ComboBox Width="125" ItemsSource="{Binding Servers}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedServer}" SelectionChanged="Server_SelectionChanged"/></StackPanel>
+            <StackPanel Margin="0,0,12,6"><TextBlock Text="{DynamicResource HistoryAccount}"/><ComboBox Width="175" ItemsSource="{Binding Accounts}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedAccount}" SelectionChanged="Account_SelectionChanged"/></StackPanel>
+            <StackPanel Margin="0,0,12,6"><TextBlock Text="{DynamicResource HistoryShip}"/><ComboBox Width="175" ItemsSource="{Binding Ships}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedShip}" SelectionChanged="Filter_SelectionChanged"/></StackPanel>
+            <StackPanel Margin="0,0,12,6"><TextBlock Text="{DynamicResource HistoryFromDate}"/><DatePicker Width="130" SelectedDate="{Binding FromDate}" SelectedDateChanged="Date_Changed"/></StackPanel>
+            <StackPanel Margin="0,0,12,6"><TextBlock Text="{DynamicResource HistoryToDate}"/><DatePicker Width="130" SelectedDate="{Binding ToDate}" SelectedDateChanged="Date_Changed"/></StackPanel>
+            <StackPanel Margin="0,0,12,6"><TextBlock Text="{DynamicResource HistoryMetric}"/><ComboBox Width="160" ItemsSource="{Binding MetricOptions}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedMetric}" SelectionChanged="Filter_SelectionChanged"/></StackPanel>
+            <StackPanel Margin="0,0,12,6"><TextBlock Text="{DynamicResource HistoryRollingWindow}"/><ComboBox Width="85" ItemsSource="{Binding RollingWindowOptions}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedRollingWindow}" SelectionChanged="Filter_SelectionChanged"/></StackPanel>
         </WrapPanel>
 
-        <UniformGrid Grid.Row="1" Columns="6" Margin="0,0,0,10">
-            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryRecordedBattles}"/><TextBlock Text="{Binding RecordedBattlesText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
-            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryWinrate}"/><TextBlock Text="{Binding WinrateText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
-            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAverageDamage}"/><Border Background="{Binding AverageDamageRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="4" Padding="5,1" HorizontalAlignment="Left"><TextBlock Text="{Binding AverageDamageText}" Foreground="{Binding AverageDamageRatingValue, Converter={StaticResource CvtHistoryPrColor}}" FontSize="22" FontWeight="SemiBold"/></Border></StackPanel></Border>
-            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAverageFrags}"/><Border Background="{Binding AverageFragsRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="4" Padding="5,1" HorizontalAlignment="Left"><TextBlock Text="{Binding AverageFragsText}" Foreground="{Binding AverageFragsRatingValue, Converter={StaticResource CvtHistoryPrColor}}" FontSize="22" FontWeight="SemiBold"/></Border></StackPanel></Border>
-            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryAveragePr}"/><TextBlock Text="{Binding AveragePrText}" Foreground="{Binding AveragePrValue, Converter={StaticResource CvtHistoryPrColor}}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
-            <Border BorderBrush="#D0D0D0" BorderThickness="1" Margin="3" Padding="8"><StackPanel><TextBlock Text="{DynamicResource HistoryCompleteness}"/><TextBlock Text="{Binding CompletenessText}" FontSize="22" FontWeight="SemiBold"/></StackPanel></Border>
-        </UniformGrid>
+        <TabControl Grid.Row="1">
+            <TabItem Header="{DynamicResource HistoryTabCurrentSession}">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <TextBlock Text="{Binding CurrentSessionTitle}" FontSize="18" FontWeight="SemiBold" Margin="4,2,4,8"/>
+                    <UniformGrid Grid.Row="1" Columns="7" Margin="0,0,0,8">
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryRecordedBattles}"/><TextBlock Text="{Binding CurrentSessionBattlesText}" FontSize="20" FontWeight="SemiBold"/></StackPanel></Border>
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryWinrate}"/><TextBlock Text="{Binding CurrentSessionWinrateText}" FontSize="20" FontWeight="SemiBold"/></StackPanel></Border>
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryAverageDamage}"/><TextBlock Text="{Binding CurrentSessionDamageText}" FontSize="20" FontWeight="SemiBold"/></StackPanel></Border>
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryAveragePr}"/><TextBlock Text="{Binding CurrentSessionPrText}" FontSize="20" FontWeight="SemiBold"/></StackPanel></Border>
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryMetricSurvival}"/><TextBlock Text="{Binding CurrentSessionSurvivalText}" FontSize="15" FontWeight="SemiBold"/></StackPanel></Border>
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryMetricPotentialDamage}"/><TextBlock Text="{Binding CurrentSessionPotentialText}" FontSize="15" FontWeight="SemiBold"/></StackPanel></Border>
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryPendingBattles}"/><TextBlock Text="{Binding CurrentSessionPendingText}" FontSize="20" FontWeight="SemiBold"/></StackPanel></Border>
+                    </UniformGrid>
+                    <ItemsControl Grid.Row="2" ItemsSource="{Binding Insights}" Margin="4,0,4,8">
+                        <ItemsControl.ItemTemplate><DataTemplate><Border Background="#F2F6FB" BorderBrush="#D8E1EC" BorderThickness="1" CornerRadius="4" Padding="8,5" Margin="0,2"><TextBlock Text="{Binding Text}" TextWrapping="Wrap"/></Border></DataTemplate></ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <DataGrid Grid.Row="3" ItemsSource="{Binding SessionBattles}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource HistoryColumnTime}" Binding="{Binding StartedAt}" Width="135"/><DataGridTextColumn Header="{DynamicResource HistoryColumnShip}" Binding="{Binding ShipName}" Width="*"/>
+                            <DataGridTemplateColumn Header="{DynamicResource HistoryColumnResult}" CellTemplate="{StaticResource HistoryResultCellTemplate}" Width="75"/><DataGridTemplateColumn Header="{DynamicResource HistoryColumnDamage}" CellTemplate="{StaticResource HistoryDamageCellTemplate}" Width="90"/>
+                            <DataGridTemplateColumn Header="PR" CellTemplate="{StaticResource HistoryPrCellTemplate}" Width="70"/><DataGridTextColumn Header="{DynamicResource HistoryMetricSurvival}" Binding="{Binding Survival}" Width="85"/>
+                            <DataGridTextColumn Header="{DynamicResource HistoryMetricPotentialDamage}" Binding="{Binding PotentialDamage}" Width="110"/><DataGridTextColumn Header="{DynamicResource HistoryColumnCompleteness}" Binding="{Binding Completeness}" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
 
-        <Grid Grid.Row="2">
-            <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-            <lvc:CartesianChart x:Name="HistoryChart" Series="{Binding ChartSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding ChartYAxes}" LegendPosition="Hidden"/>
-            <TextBlock Grid.Row="1" HorizontalAlignment="Right" Foreground="Gray" Margin="0,0,4,4">
-                <Run Text="{DynamicResource HistoryPrDataVersion}"/><Run Text=" "/><Run Text="{Binding PrDataVersionText, Mode=OneWay}"/>
-            </TextBlock>
-        </Grid>
+            <TabItem Header="{DynamicResource HistoryTabShipTrends}">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <UniformGrid Columns="6" Margin="0,0,0,8">
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryRecordedBattles}"/><TextBlock Text="{Binding RecordedBattlesText}" FontSize="21" FontWeight="SemiBold"/></StackPanel></Border>
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryWinrate}"/><TextBlock Text="{Binding WinrateText}" FontSize="21" FontWeight="SemiBold"/></StackPanel></Border>
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryAverageDamage}"/><Border Background="{Binding AverageDamageRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="4" Padding="5,1" HorizontalAlignment="Left"><TextBlock Text="{Binding AverageDamageText}" Foreground="{Binding AverageDamageRatingValue, Converter={StaticResource CvtHistoryPrColor}}" FontSize="21" FontWeight="SemiBold"/></Border></StackPanel></Border>
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryAverageFrags}"/><Border Background="{Binding AverageFragsRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="4" Padding="5,1" HorizontalAlignment="Left"><TextBlock Text="{Binding AverageFragsText}" Foreground="{Binding AverageFragsRatingValue, Converter={StaticResource CvtHistoryPrColor}}" FontSize="21" FontWeight="SemiBold"/></Border></StackPanel></Border>
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryAveragePr}"/><TextBlock Text="{Binding AveragePrText}" Foreground="{Binding AveragePrValue, Converter={StaticResource CvtHistoryPrColor}}" FontSize="21" FontWeight="SemiBold"/></StackPanel></Border>
+                        <Border Style="{StaticResource SummaryCard}"><StackPanel><TextBlock Text="{DynamicResource HistoryCompleteness}"/><TextBlock Text="{Binding CompletenessText}" FontSize="21" FontWeight="SemiBold"/></StackPanel></Border>
+                    </UniformGrid>
+                    <lvc:CartesianChart Grid.Row="1" x:Name="HistoryChart" Series="{Binding ChartSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding ChartYAxes}" LegendPosition="Hidden"/>
+                    <TextBlock Grid.Row="2" HorizontalAlignment="Right" Foreground="Gray" Margin="0,3"><Run Text="{DynamicResource HistoryPrDataVersion}"/><Run Text=" "/><Run Text="{Binding PrDataVersionText}"/></TextBlock>
+                </Grid>
+            </TabItem>
 
-        <DataGrid Grid.Row="3" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" Margin="0,8,0,8">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="{DynamicResource HistoryColumnTime}" Binding="{Binding StartedAt}" Width="135"/>
-                <DataGridTextColumn Header="{DynamicResource HistoryColumnMap}" Binding="{Binding MapName}" Width="*"/>
-                <DataGridTextColumn Header="{DynamicResource HistoryColumnShip}" Binding="{Binding ShipName}" Width="*"/>
-                <DataGridTemplateColumn Header="{DynamicResource HistoryColumnResult}" Width="85">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <Border Background="{Binding ResultValue, Converter={StaticResource CvtBattleResultBackgroundColor}}" CornerRadius="3" Padding="6,2" HorizontalAlignment="Center">
-                                <TextBlock Text="{Binding Result}" Foreground="{Binding ResultValue, Converter={StaticResource CvtBattleResultColor}}" FontWeight="SemiBold"/>
-                            </Border>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="{DynamicResource HistoryColumnDamage}" Width="90">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <Border Background="{Binding DamageRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="3" Padding="5,2" HorizontalAlignment="Right">
-                                <TextBlock Text="{Binding Damage}" Foreground="{Binding DamageRatingValue, Converter={StaticResource CvtHistoryPrColor}}" TextAlignment="Right" FontWeight="SemiBold"/>
-                            </Border>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="{DynamicResource HistoryColumnFrags}" Width="70">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <Border Background="{Binding FragsRatingValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="3" Padding="5,2" HorizontalAlignment="Right">
-                                <TextBlock Text="{Binding Frags}" Foreground="{Binding FragsRatingValue, Converter={StaticResource CvtHistoryPrColor}}" TextAlignment="Right" FontWeight="SemiBold"/>
-                            </Border>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="PR" Width="75">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <Border Background="{Binding PrValue, Converter={StaticResource CvtHistoryPrBackgroundColor}}" CornerRadius="3" Padding="5,2" HorizontalAlignment="Right">
-                                <TextBlock Text="{Binding Pr}" Foreground="{Binding PrValue, Converter={StaticResource CvtHistoryPrColor}}" TextAlignment="Right" FontWeight="SemiBold"/>
-                            </Border>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-                <DataGridTextColumn Header="{DynamicResource HistoryColumnSource}" Binding="{Binding Source}" Width="115"/>
-                <DataGridTextColumn Header="{DynamicResource HistoryColumnCompleteness}" Binding="{Binding Completeness}" Width="90"/>
-                <DataGridTextColumn Header="{DynamicResource HistoryColumnStatus}" Binding="{Binding Status}" Width="2*"/>
-            </DataGrid.Columns>
-        </DataGrid>
+            <TabItem Header="{DynamicResource HistoryTabBattles}">
+                <Grid Margin="8">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+                    <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedBattle}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" EnableRowVirtualization="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource HistoryColumnTime}" Binding="{Binding StartedAt}" Width="130"/><DataGridTextColumn Header="{DynamicResource HistoryColumnMap}" Binding="{Binding MapName}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource HistoryColumnShip}" Binding="{Binding ShipName}" Width="*"/>
+                            <DataGridTemplateColumn Header="{DynamicResource HistoryColumnResult}" CellTemplate="{StaticResource HistoryResultCellTemplate}" Width="75"/>
+                            <DataGridTemplateColumn Header="{DynamicResource HistoryColumnDamage}" CellTemplate="{StaticResource HistoryDamageCellTemplate}" Width="85"/>
+                            <DataGridTemplateColumn Header="{DynamicResource HistoryColumnFrags}" CellTemplate="{StaticResource HistoryFragsCellTemplate}" Width="65"/>
+                            <DataGridTemplateColumn Header="PR" CellTemplate="{StaticResource HistoryPrCellTemplate}" Width="65"/>
+                            <DataGridTextColumn Header="{DynamicResource HistoryColumnCompleteness}" Binding="{Binding Completeness}" Width="80"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Column="2" BorderBrush="#D6DCE5" BorderThickness="1" CornerRadius="6" Padding="10">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
+                            <TextBlock Text="{Binding BattleDetailTitle}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/><TextBlock Text="{Binding BattleDetailMetrics}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <TextBlock Text="{DynamicResource HistoryExperimentalWarning}" Foreground="#9A5B00" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <TextBlock Text="{DynamicResource HistoryDamageBreakdown}" FontWeight="SemiBold"/>
+                            <DataGrid ItemsSource="{Binding DamageBreakdowns}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" Height="120" Margin="0,3,0,8"><DataGrid.Columns><DataGridTextColumn Header="{DynamicResource HistoryDirection}" Binding="{Binding Direction}" Width="80"/><DataGridTextColumn Header="{DynamicResource HistoryDamageType}" Binding="{Binding Type}" Width="*"/><DataGridTextColumn Header="{DynamicResource HistoryColumnDamage}" Binding="{Binding Damage}" Width="85"/><DataGridTextColumn Header="{DynamicResource HistoryColumnCompleteness}" Binding="{Binding Quality}" Width="85"/></DataGrid.Columns></DataGrid>
+                            <TextBlock Text="{DynamicResource HistoryRosterSnapshot}" FontWeight="SemiBold"/>
+                            <DataGrid ItemsSource="{Binding BattlePlayers}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" Height="150" Margin="0,3,0,8"><DataGrid.Columns><DataGridTextColumn Header="{DynamicResource HistoryRelation}" Binding="{Binding Relation}" Width="65"/><DataGridTextColumn Header="{DynamicResource HistoryPlayer}" Binding="{Binding Player}" Width="*"/><DataGridTextColumn Header="{DynamicResource HistoryColumnShip}" Binding="{Binding Ship}" Width="*"/><DataGridTextColumn Header="{DynamicResource HistoryWinrate}" Binding="{Binding Winrate}" Width="75"/><DataGridTextColumn Header="PR" Binding="{Binding Pr}" Width="65"/></DataGrid.Columns></DataGrid>
+                            <CheckBox Content="{DynamicResource HistoryFavorite}" IsChecked="{Binding IsFavorite}" Margin="0,0,0,5"/>
+                            <ItemsControl ItemsSource="{Binding ReviewTags}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><CheckBox Content="{Binding Display}" IsChecked="{Binding IsSelected}" Margin="0,2,10,2"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                            <TextBox Text="{Binding ReviewNote, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="75" MaxLength="4000" VerticalScrollBarVisibility="Auto" Margin="0,6"/>
+                            <Button Content="{DynamicResource HistorySaveReview}" HorizontalAlignment="Left" MinWidth="100" Height="30" Click="SaveReview_Click"/>
+                        </StackPanel></ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
 
-        <Grid Grid.Row="4">
-            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TabItem Header="{DynamicResource HistoryTabSessions}">
+                <Grid Margin="8"><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
+                    <Grid><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <DataGrid x:Name="SessionGrid" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession}" SelectionMode="Extended" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"><DataGrid.Columns><DataGridTextColumn Header="{DynamicResource HistoryColumnTime}" Binding="{Binding StartedAt}" Width="130"/><DataGridTextColumn Header="{DynamicResource HistorySessionEnd}" Binding="{Binding EndedAt}" Width="60"/><DataGridTextColumn Header="{DynamicResource HistoryAccount}" Binding="{Binding Account}" Width="*"/><DataGridTextColumn Header="{DynamicResource HistoryRecordedBattles}" Binding="{Binding Battles}" Width="70"/><DataGridTextColumn Header="{DynamicResource HistorySessionType}" Binding="{Binding Type}" Width="80"/></DataGrid.Columns></DataGrid>
+                        <Button Grid.Row="1" Content="{DynamicResource HistoryMergeSessions}" MinWidth="110" Height="30" HorizontalAlignment="Left" Margin="0,6,0,0" Click="MergeSessions_Click"/>
+                    </Grid>
+                    <Grid Grid.Column="2"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <DataGrid ItemsSource="{Binding SessionBattles}" SelectedItem="{Binding SelectedSessionBattle}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"><DataGrid.Columns><DataGridTextColumn Header="{DynamicResource HistoryColumnTime}" Binding="{Binding StartedAt}" Width="135"/><DataGridTextColumn Header="{DynamicResource HistoryColumnShip}" Binding="{Binding ShipName}" Width="*"/><DataGridTemplateColumn Header="{DynamicResource HistoryColumnResult}" CellTemplate="{StaticResource HistoryResultCellTemplate}" Width="75"/><DataGridTemplateColumn Header="{DynamicResource HistoryColumnDamage}" CellTemplate="{StaticResource HistoryDamageCellTemplate}" Width="85"/></DataGrid.Columns></DataGrid>
+                        <Button Grid.Row="1" Content="{DynamicResource HistorySplitBeforeBattle}" MinWidth="140" Height="30" HorizontalAlignment="Left" Margin="0,6,0,0" Click="SplitSession_Click"/>
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <Grid Grid.Row="2" Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="4"/>
             <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
-                <Button Content="{DynamicResource HistoryRefresh}" MinWidth="90" Height="32" Margin="4" Click="Refresh_Click"/>
-                <Button Content="{DynamicResource HistoryRetryReplay}" MinWidth="110" Height="32" Margin="4" Click="RetryReplay_Click"/>
-                <Button Content="{DynamicResource HistoryCancelImport}" MinWidth="110" Height="32" Margin="4" Click="CancelImport_Click"/>
-                <Button Content="{DynamicResource HistoryRetryApi}" MinWidth="100" Height="32" Margin="4" Click="RetryApi_Click"/>
-                <Button Content="{DynamicResource HistoryOpenData}" MinWidth="100" Height="32" Margin="4" Click="OpenData_Click"/>
-                <Button Content="{DynamicResource HistoryClear}" MinWidth="90" Height="32" Margin="4" Click="Clear_Click"/>
+                <Button Content="{DynamicResource HistoryRefresh}" MinWidth="80" Height="32" Margin="3" Click="Refresh_Click"/><Button Content="{DynamicResource HistoryRetryReplay}" MinWidth="105" Height="32" Margin="3" Click="RetryReplay_Click"/>
+                <Button Content="{DynamicResource HistoryCancelImport}" MinWidth="95" Height="32" Margin="3" Click="CancelImport_Click"/><Button Content="{DynamicResource HistoryRetryApi}" MinWidth="90" Height="32" Margin="3" Click="RetryApi_Click"/>
+                <Button Content="{DynamicResource HistoryOpenData}" MinWidth="95" Height="32" Margin="3" Click="OpenData_Click"/><Button Content="{DynamicResource HistoryClear}" MinWidth="80" Height="32" Margin="3" Click="Clear_Click"/>
             </WrapPanel>
         </Grid>
     </Grid>

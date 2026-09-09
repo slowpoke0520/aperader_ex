@@ -63,6 +63,7 @@ namespace ApeRadar
             ComboBoxServer.SelectedValue = Properties.Settings.Default.Server;
             ComboBoxShipNameLanguage.SelectedValue = Properties.Settings.Default.ShipNameLanguage;
             ChkBoxCheckForUpdatesOnStartup.IsChecked = Properties.Settings.Default.CheckForUpdatesOnStartup;
+            ChkBoxShowExperimentalReplayMetrics.IsChecked = Properties.Settings.Default.ShowExperimentalReplayMetrics;
             LabelShipListVersionDateStr.Content = $"{ShipInfoUtils.GetShipInfoVersion()} ({ShipInfoUtils.GetShipInfoDate()})";
             if (PRUtils.GetExpectedValuesTime() <= 0)
             {
@@ -134,6 +135,7 @@ namespace ApeRadar
                     Properties.Settings.Default.Server = ComboBoxServer.SelectedValue.ToString();
                     Properties.Settings.Default.ShipNameLanguage = ComboBoxShipNameLanguage.SelectedValue.ToString();
                     Properties.Settings.Default.CheckForUpdatesOnStartup = ChkBoxCheckForUpdatesOnStartup.IsChecked ?? false;
+                    Properties.Settings.Default.ShowExperimentalReplayMetrics = ChkBoxShowExperimentalReplayMetrics.IsChecked ?? false;
                     Properties.Settings.Default.OutputTextUnlock = ChkBoxTextOutputUnlocked.IsChecked ?? false;
                     Properties.Settings.Default.Save();
                     if (Properties.Settings.Default.DebugMode)

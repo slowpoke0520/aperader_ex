@@ -25,7 +25,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.9")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.10")]
         public string SoftwareVersion {
             get {
                 return ((string)(this["SoftwareVersion"]));
@@ -34,7 +34,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("20260907")]
+        [global::System.Configuration.DefaultSettingValueAttribute("20260909")]
         public string SoftwareDate {
             get {
                 return ((string)(this["SoftwareDate"]));
@@ -616,6 +616,18 @@ namespace ApeRadar.Properties {
             }
             set {
                 this["APITypeSelection"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ShowExperimentalReplayMetrics {
+            get {
+                return ((bool)(this["ShowExperimentalReplayMetrics"]));
+            }
+            set {
+                this["ShowExperimentalReplayMetrics"] = value;
             }
         }
 
