@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,6 +12,8 @@ namespace ApeRadar.History
 {
     internal sealed class SqliteHistoryRepository : IHistoryRepository
     {
+        private const int CurrentSchemaVersion = 2;
+        private static readonly TimeSpan SessionGap = TimeSpan.FromMinutes(45);
         private readonly SemaphoreSlim writeLock = new(1, 1);
         private bool initialized;
 
@@ -43,6 +46,7 @@ namespace ApeRadar.History
                 Directory.CreateDirectory(Path.GetDirectoryName(DatabasePath)!);
                 try
                 {
+                    await BackupBeforeMigrationAsync(cancellationToken);
                     await CreateSchemaAsync(cancellationToken);
                 }
                 catch (SqliteException ex) when (ex.SqliteErrorCode is 11 or 26)
@@ -76,6 +80,7 @@ namespace ApeRadar.History
                 );
                 CREATE TABLE IF NOT EXISTS Battles(
                     Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    SessionId INTEGER NULL,
                     BattleKey TEXT NOT NULL UNIQUE,
                     StartedAt TEXT NOT NULL,
                     Server TEXT NOT NULL,
@@ -156,6 +161,90 @@ namespace ApeRadar.History
                 INSERT OR IGNORE INTO SchemaMigrations(Version, AppliedAt) VALUES(1, strftime('%Y-%m-%dT%H:%M:%fZ','now'));
                 """;
             await ExecuteAsync(connection, null, sql, cancellationToken);
+
+            if (!await ColumnExistsAsync(connection, "Battles", "SessionId", cancellationToken))
+                await ExecuteAsync(connection, null, "ALTER TABLE Battles ADD COLUMN SessionId INTEGER NULL;", cancellationToken);
+
+            const string v2Sql = """
+                CREATE TABLE IF NOT EXISTS BattleSessions(
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Server TEXT NOT NULL,
+                    AccountId TEXT NOT NULL,
+                    AccountName TEXT NOT NULL,
+                    StartedAt TEXT NOT NULL,
+                    EndedAt TEXT NOT NULL,
+                    IsManual INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS IX_BattleSessions_AccountTime ON BattleSessions(Server, AccountId, StartedAt DESC);
+                CREATE INDEX IF NOT EXISTS IX_Battles_Session ON Battles(SessionId, StartedAt);
+                CREATE TABLE IF NOT EXISTS BattleAdvancedMetrics(
+                    BattleId INTEGER PRIMARY KEY,
+                    BattleDurationSeconds REAL NULL,
+                    Survived INTEGER NULL,
+                    SurvivalSeconds REAL NULL,
+                    PotentialDamage INTEGER NULL,
+                    DamageTaken INTEGER NULL,
+                    SurvivalAvailability INTEGER NOT NULL DEFAULT 0,
+                    PotentialDamageAvailability INTEGER NOT NULL DEFAULT 0,
+                    DamageTakenAvailability INTEGER NOT NULL DEFAULT 0,
+                    ParserSchemaVersion TEXT NOT NULL DEFAULT '',
+                    FOREIGN KEY(BattleId) REFERENCES Battles(Id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS BattleDamageBreakdowns(
+                    BattleId INTEGER NOT NULL,
+                    Direction INTEGER NOT NULL,
+                    RawTypeCode INTEGER NOT NULL,
+                    Category INTEGER NOT NULL,
+                    Damage INTEGER NOT NULL,
+                    Availability INTEGER NOT NULL,
+                    PRIMARY KEY(BattleId, Direction, RawTypeCode),
+                    FOREIGN KEY(BattleId) REFERENCES Battles(Id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS BattleReviews(
+                    BattleId INTEGER PRIMARY KEY,
+                    IsFavorite INTEGER NOT NULL DEFAULT 0,
+                    TagsJson TEXT NOT NULL DEFAULT '[]',
+                    Note TEXT NOT NULL DEFAULT '',
+                    UpdatedAt TEXT NOT NULL,
+                    FOREIGN KEY(BattleId) REFERENCES Battles(Id) ON DELETE CASCADE
+                );
+                INSERT OR IGNORE INTO SchemaMigrations(Version, AppliedAt) VALUES(2, strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+                """;
+            await ExecuteAsync(connection, null, v2Sql, cancellationToken);
+            await BackfillSessionsAsync(connection, cancellationToken);
+        }
+
+        private async Task BackupBeforeMigrationAsync(CancellationToken cancellationToken)
+        {
+            if (!File.Exists(DatabasePath)) return;
+            try
+            {
+                await using SqliteConnection connection = new(ConnectionString);
+                await connection.OpenAsync(cancellationToken);
+                await using SqliteCommand command = connection.CreateCommand();
+                command.CommandText = "SELECT COALESCE(MAX(Version),0) FROM SchemaMigrations";
+                int version = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+                if (version >= CurrentSchemaVersion) return;
+                await ExecuteAsync(connection, null, "PRAGMA wal_checkpoint(TRUNCATE);", cancellationToken);
+                await connection.CloseAsync();
+                SqliteConnection.ClearAllPools();
+                string backup = $"{DatabasePath}.pre-v{CurrentSchemaVersion}-{DateTimeOffset.Now:yyyyMMddHHmmss}.bak";
+                File.Copy(DatabasePath, backup, false);
+            }
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 1)
+            {
+                // A database created before SchemaMigrations existed will be upgraded normally.
+            }
+        }
+
+        private static async Task<bool> ColumnExistsAsync(SqliteConnection connection, string table, string column, CancellationToken cancellationToken)
+        {
+            await using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = $"PRAGMA table_info({table})";
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+                if (reader.GetString(reader.GetOrdinal("name")).Equals(column, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
         }
 
         public async Task<long> UpsertDraftAsync(BattleRecord battle, IReadOnlyCollection<BattlePlayerRecord> players, ShipStatSnapshot? snapshot, CancellationToken cancellationToken = default)
@@ -168,8 +257,8 @@ namespace ApeRadar.History
                 await connection.OpenAsync(cancellationToken);
                 await using SqliteTransaction transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
                 const string upsert = """
-                    INSERT INTO Battles(BattleKey,StartedAt,Server,Mode,MapName,AccountId,AccountName,ShipId,ShipName,Result,WinCount,Damage,Frags,BattleCount,Source,Completeness,ReplayHash,ReplayVersion,StatusMessage,UpdatedAt)
-                    VALUES($key,$started,$server,$mode,$map,$accountId,$accountName,$shipId,$shipName,$result,$wins,$damage,$frags,$count,$source,$complete,$hash,$version,$status,$updated)
+                    INSERT INTO Battles(SessionId,BattleKey,StartedAt,Server,Mode,MapName,AccountId,AccountName,ShipId,ShipName,Result,WinCount,Damage,Frags,BattleCount,Source,Completeness,ReplayHash,ReplayVersion,StatusMessage,UpdatedAt)
+                    VALUES($session,$key,$started,$server,$mode,$map,$accountId,$accountName,$shipId,$shipName,$result,$wins,$damage,$frags,$count,$source,$complete,$hash,$version,$status,$updated)
                     ON CONFLICT(BattleKey) DO UPDATE SET
                         Server=excluded.Server, Mode=excluded.Mode, MapName=excluded.MapName,
                         AccountId=excluded.AccountId, AccountName=excluded.AccountName,
@@ -181,6 +270,8 @@ namespace ApeRadar.History
                 command.CommandText = upsert;
                 AddBattleParameters(command, battle);
                 long battleId = Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+                if (!battle.SessionId.HasValue)
+                    battle.SessionId = await AssignSessionAsync(connection, transaction, battleId, battle, cancellationToken);
 
                 await ExecuteAsync(connection, transaction, "DELETE FROM BattlePlayers WHERE BattleId=$id", cancellationToken, ("$id", battleId));
                 foreach (BattlePlayerRecord player in players)
@@ -214,12 +305,17 @@ namespace ApeRadar.History
             await using SqliteCommand command = connection.CreateCommand();
             command.CommandText = """
                 SELECT * FROM Battles
-                WHERE Completeness IN ($pending,$unsupported)
-                  AND ($account='' OR lower(AccountName)=lower($account))
-                  AND ($ship='' OR ShipId=$ship)
-                  AND ($started='' OR abs(strftime('%s',StartedAt)-strftime('%s',$started)) <= 900)
-                ORDER BY abs(strftime('%s',StartedAt)-strftime('%s',$started)) LIMIT 1
+                WHERE ReplayHash=$hash OR BattleKey=$key OR (
+                    Completeness IN ($pending,$unsupported)
+                    AND ($account='' OR lower(AccountName)=lower($account))
+                    AND ($ship='' OR ShipId=$ship)
+                    AND ($started='' OR abs(strftime('%s',StartedAt)-strftime('%s',$started)) <= 900)
+                )
+                ORDER BY CASE WHEN ReplayHash=$hash THEN 0 WHEN BattleKey=$key THEN 1 ELSE 2 END,
+                         abs(strftime('%s',StartedAt)-strftime('%s',$started)) LIMIT 1
                 """;
+            command.Parameters.AddWithValue("$hash", replay.FileHash);
+            command.Parameters.AddWithValue("$key", replay.BattleKey);
             command.Parameters.AddWithValue("$pending", (int)BattleCompleteness.Pending);
             command.Parameters.AddWithValue("$unsupported", (int)BattleCompleteness.Unsupported);
             command.Parameters.AddWithValue("$account", replay.AccountName);
@@ -254,6 +350,14 @@ namespace ApeRadar.History
                     ("$source", (int)replay.Source), ("$complete", (int)completeness), ("$hash", replay.FileHash),
                     ("$version", replay.GameVersion), ("$message", replay.ErrorMessage), ("$updated", DateTimeOffset.UtcNow.UtcDateTime.ToString("O")), ("$id", battleId));
                 await UpsertReplayAsync(connection, transaction, battleId, replay, replayPath, cancellationToken);
+                replay.AdvancedMetrics.BattleId = battleId;
+                await UpsertAdvancedMetricsAsync(connection, transaction, replay.AdvancedMetrics, cancellationToken);
+                await ExecuteAsync(connection, transaction, "DELETE FROM BattleDamageBreakdowns WHERE BattleId=$id", cancellationToken, ("$id", battleId));
+                foreach (BattleDamageBreakdown breakdown in replay.DamageBreakdowns)
+                {
+                    breakdown.BattleId = battleId;
+                    await InsertDamageBreakdownAsync(connection, transaction, breakdown, cancellationToken);
+                }
                 if (replay.HasCompleteMetrics)
                     await ExecuteAsync(connection, transaction, "DELETE FROM PendingResultChecks WHERE BattleId=$id", cancellationToken, ("$id", battleId));
                 await transaction.CommitAsync(cancellationToken);
@@ -274,14 +378,15 @@ namespace ApeRadar.History
             finally { writeLock.Release(); }
         }
 
-        public async Task<bool> HasReplayAsync(string replayHash, CancellationToken cancellationToken = default)
+        public async Task<bool> HasReplayAsync(string replayHash, string parserVersion, CancellationToken cancellationToken = default)
         {
             await EnsureInitialized(cancellationToken);
             await using SqliteConnection connection = new(ConnectionString);
             await connection.OpenAsync(cancellationToken);
             await using SqliteCommand command = connection.CreateCommand();
-            command.CommandText = "SELECT 1 FROM ReplayFiles WHERE FileHash=$hash AND ParseStatus IN ($parsed,$partial) LIMIT 1";
+            command.CommandText = "SELECT 1 FROM ReplayFiles WHERE FileHash=$hash AND ParserVersion=$parser AND ParseStatus IN ($parsed,$partial) LIMIT 1";
             command.Parameters.AddWithValue("$hash", replayHash);
+            command.Parameters.AddWithValue("$parser", parserVersion);
             command.Parameters.AddWithValue("$parsed", (int)ReplayParseStatus.Parsed);
             command.Parameters.AddWithValue("$partial", (int)ReplayParseStatus.Partial);
             return await command.ExecuteScalarAsync(cancellationToken) != null;
@@ -411,9 +516,188 @@ namespace ApeRadar.History
         public Task MakePendingChecksDueAsync(CancellationToken cancellationToken = default) =>
             WriteAsync("UPDATE PendingResultChecks SET NextAttemptAt=$now", cancellationToken, ("$now", DateTimeOffset.UtcNow.UtcDateTime.ToString("O")));
 
+        public async Task<IReadOnlyList<BattleSession>> GetSessionsAsync(string? server = null, string? accountId = null, CancellationToken cancellationToken = default)
+        {
+            await EnsureInitialized(cancellationToken);
+            List<BattleSession> sessions = new();
+            await using SqliteConnection connection = new(ConnectionString);
+            await connection.OpenAsync(cancellationToken);
+            await using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT s.Id,s.Server,s.AccountId,s.AccountName,s.StartedAt,s.EndedAt,s.IsManual,
+                       COALESCE(SUM(MAX(1,b.BattleCount)),0) AS BattleCount
+                FROM BattleSessions s
+                LEFT JOIN Battles b ON b.SessionId=s.Id
+                WHERE ($server='' OR s.Server=$server) AND ($account='' OR s.AccountId=$account)
+                GROUP BY s.Id
+                HAVING COUNT(b.Id)>0
+                ORDER BY s.StartedAt DESC
+                """;
+            command.Parameters.AddWithValue("$server", server ?? "");
+            command.Parameters.AddWithValue("$account", accountId ?? "");
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken)) sessions.Add(ReadSession(reader));
+            return sessions;
+        }
+
+        public async Task<BattleSession?> GetLatestSessionAsync(string? server = null, string? accountId = null, CancellationToken cancellationToken = default) =>
+            (await GetSessionsAsync(server, accountId, cancellationToken)).FirstOrDefault();
+
+        public async Task<IReadOnlyList<BattleRecord>> GetSessionBattlesAsync(long sessionId, CancellationToken cancellationToken = default)
+        {
+            await EnsureInitialized(cancellationToken);
+            List<BattleRecord> battles = new();
+            await using SqliteConnection connection = new(ConnectionString);
+            await connection.OpenAsync(cancellationToken);
+            await using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT * FROM Battles WHERE SessionId=$id ORDER BY StartedAt";
+            command.Parameters.AddWithValue("$id", sessionId);
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken)) battles.Add(ReadBattle(reader));
+            return battles;
+        }
+
+        public async Task<IReadOnlyDictionary<long, BattleAdvancedMetrics>> GetAdvancedMetricsAsync(IEnumerable<long> battleIds, CancellationToken cancellationToken = default)
+        {
+            await EnsureInitialized(cancellationToken);
+            Dictionary<long, BattleAdvancedMetrics> result = new();
+            long[] ids = battleIds.Distinct().ToArray();
+            await using SqliteConnection connection = new(ConnectionString);
+            await connection.OpenAsync(cancellationToken);
+            foreach (long[] chunk in ids.Chunk(500))
+            {
+                await using SqliteCommand command = connection.CreateCommand();
+                List<string> names = new();
+                for (int i = 0; i < chunk.Length; i++)
+                {
+                    string name = $"$id{i}";
+                    names.Add(name);
+                    command.Parameters.AddWithValue(name, chunk[i]);
+                }
+                command.CommandText = $"SELECT * FROM BattleAdvancedMetrics WHERE BattleId IN ({string.Join(',', names)})";
+                await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    BattleAdvancedMetrics metric = ReadAdvancedMetrics(reader);
+                    result[metric.BattleId] = metric;
+                }
+            }
+            return result;
+        }
+
+        public async Task<IReadOnlyList<BattleDamageBreakdown>> GetDamageBreakdownsAsync(long battleId, CancellationToken cancellationToken = default)
+        {
+            await EnsureInitialized(cancellationToken);
+            List<BattleDamageBreakdown> result = new();
+            await using SqliteConnection connection = new(ConnectionString);
+            await connection.OpenAsync(cancellationToken);
+            await using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT BattleId,Direction,RawTypeCode,Category,Damage,Availability FROM BattleDamageBreakdowns WHERE BattleId=$id ORDER BY Direction,Damage DESC";
+            command.Parameters.AddWithValue("$id", battleId);
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken)) result.Add(new BattleDamageBreakdown
+            {
+                BattleId = reader.GetInt64(0), Direction = (DamageDirection)reader.GetInt32(1), RawTypeCode = reader.GetInt32(2),
+                Category = (DamageCategory)reader.GetInt32(3), Damage = reader.GetInt64(4), Availability = (MetricAvailability)reader.GetInt32(5)
+            });
+            return result;
+        }
+
+        public async Task<IReadOnlyList<BattlePlayerRecord>> GetBattlePlayersAsync(long battleId, CancellationToken cancellationToken = default)
+        {
+            await EnsureInitialized(cancellationToken);
+            List<BattlePlayerRecord> result = new();
+            await using SqliteConnection connection = new(ConnectionString);
+            await connection.OpenAsync(cancellationToken);
+            await using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT * FROM BattlePlayers WHERE BattleId=$id ORDER BY Relation,ShipTier DESC,AccountName";
+            command.Parameters.AddWithValue("$id", battleId);
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken)) result.Add(ReadBattlePlayer(reader));
+            return result;
+        }
+
+        public async Task<BattleReview?> GetBattleReviewAsync(long battleId, CancellationToken cancellationToken = default)
+        {
+            await EnsureInitialized(cancellationToken);
+            await using SqliteConnection connection = new(ConnectionString);
+            await connection.OpenAsync(cancellationToken);
+            await using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT BattleId,IsFavorite,TagsJson,Note,UpdatedAt FROM BattleReviews WHERE BattleId=$id";
+            command.Parameters.AddWithValue("$id", battleId);
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken)) return null;
+            return new BattleReview
+            {
+                BattleId = reader.GetInt64(0), IsFavorite = reader.GetInt32(1) != 0,
+                Tags = JsonSerializer.Deserialize<List<string>>(reader.GetString(2)) ?? new List<string>(),
+                Note = reader.GetString(3), UpdatedAt = ParseDate(reader.GetString(4))
+            };
+        }
+
+        public Task SaveBattleReviewAsync(BattleReview review, CancellationToken cancellationToken = default)
+        {
+            review.Note = (review.Note ?? "").Trim();
+            if (review.Note.Length > 4000) review.Note = review.Note[..4000];
+            review.Tags = review.Tags.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.Ordinal).Take(8).ToList();
+            review.UpdatedAt = DateTimeOffset.UtcNow;
+            return WriteAsync("""
+                INSERT INTO BattleReviews(BattleId,IsFavorite,TagsJson,Note,UpdatedAt) VALUES($id,$favorite,$tags,$note,$updated)
+                ON CONFLICT(BattleId) DO UPDATE SET IsFavorite=excluded.IsFavorite,TagsJson=excluded.TagsJson,Note=excluded.Note,UpdatedAt=excluded.UpdatedAt
+                """, cancellationToken, ("$id", review.BattleId), ("$favorite", review.IsFavorite ? 1 : 0),
+                ("$tags", JsonSerializer.Serialize(review.Tags)), ("$note", review.Note), ("$updated", review.UpdatedAt.UtcDateTime.ToString("O")));
+        }
+
+        public async Task MergeSessionsAsync(IReadOnlyCollection<long> sessionIds, CancellationToken cancellationToken = default)
+        {
+            long[] ids = sessionIds.Distinct().Order().ToArray();
+            if (ids.Length < 2) throw new ArgumentException("At least two sessions are required.", nameof(sessionIds));
+            await EnsureInitialized(cancellationToken);
+            await writeLock.WaitAsync(cancellationToken);
+            try
+            {
+                await using SqliteConnection connection = new(ConnectionString);
+                await connection.OpenAsync(cancellationToken);
+                await using SqliteTransaction transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+                List<BattleSession> sessions = await ReadSessionsByIdsAsync(connection, transaction, ids, cancellationToken);
+                if (sessions.Count != ids.Length || sessions.Select(x => (x.Server, x.AccountId)).Distinct().Count() != 1)
+                    throw new InvalidOperationException("Only sessions for the same server and account can be merged.");
+                BattleSession target = sessions.OrderBy(x => x.StartedAt).First();
+                foreach (long id in ids.Where(x => x != target.Id))
+                    await ExecuteAsync(connection, transaction, "UPDATE Battles SET SessionId=$target WHERE SessionId=$source; DELETE FROM BattleSessions WHERE Id=$source;", cancellationToken, ("$target", target.Id), ("$source", id));
+                await RefreshSessionBoundsAsync(connection, transaction, target.Id, true, cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+            finally { writeLock.Release(); }
+        }
+
+        public async Task<long> SplitSessionAsync(long sessionId, long firstBattleIdOfNewSession, CancellationToken cancellationToken = default)
+        {
+            await EnsureInitialized(cancellationToken);
+            await writeLock.WaitAsync(cancellationToken);
+            try
+            {
+                await using SqliteConnection connection = new(ConnectionString);
+                await connection.OpenAsync(cancellationToken);
+                await using SqliteTransaction transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+                BattleSession? source = (await ReadSessionsByIdsAsync(connection, transaction, new[] { sessionId }, cancellationToken)).SingleOrDefault();
+                BattleRecord? splitAt = await ReadBattleInSessionAsync(connection, transaction, sessionId, firstBattleIdOfNewSession, cancellationToken);
+                if (source == null || splitAt == null || splitAt.StartedAt <= source.StartedAt)
+                    throw new InvalidOperationException("The selected battle cannot be used to split this session.");
+                long newId = await InsertSessionAsync(connection, transaction, source.Server, source.AccountId, source.AccountName, splitAt.StartedAt, source.EndedAt, true, cancellationToken);
+                await ExecuteAsync(connection, transaction, "UPDATE Battles SET SessionId=$new WHERE SessionId=$old AND StartedAt >= $started", cancellationToken,
+                    ("$new", newId), ("$old", sessionId), ("$started", splitAt.StartedAt.UtcDateTime.ToString("O")));
+                await RefreshSessionBoundsAsync(connection, transaction, sessionId, true, cancellationToken);
+                await RefreshSessionBoundsAsync(connection, transaction, newId, true, cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+                return newId;
+            }
+            finally { writeLock.Release(); }
+        }
+
         public async Task DeleteAllAsync(CancellationToken cancellationToken = default)
         {
-            await WriteAsync("DELETE FROM Battles; DELETE FROM ReplayFiles; DELETE FROM PendingResultChecks;", cancellationToken);
+            await WriteAsync("DELETE FROM Battles; DELETE FROM ReplayFiles; DELETE FROM PendingResultChecks; DELETE FROM BattleSessions;", cancellationToken);
         }
 
         private async Task<IReadOnlyList<HistoryFilterOption>> GetOptionsAsync(string sql, (string, object?)[] parameters, CancellationToken cancellationToken)
@@ -455,6 +739,142 @@ namespace ApeRadar.History
                 ("$losses", snapshot.Losses), ("$damage", snapshot.Damage), ("$frags", snapshot.Frags));
         }
 
+        private static async Task UpsertAdvancedMetricsAsync(SqliteConnection connection, SqliteTransaction transaction, BattleAdvancedMetrics metrics, CancellationToken cancellationToken)
+        {
+            bool hasAnyMetric = metrics.BattleDurationSeconds.HasValue || metrics.Survived.HasValue || metrics.SurvivalSeconds.HasValue ||
+                                metrics.PotentialDamage.HasValue || metrics.DamageTaken.HasValue;
+            if (!hasAnyMetric) return;
+            await ExecuteAsync(connection, transaction, """
+                INSERT INTO BattleAdvancedMetrics(BattleId,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
+                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion)
+                VALUES($id,$duration,$survived,$survival,$potential,$taken,$survivalAvailability,$potentialAvailability,$takenAvailability,$schema)
+                ON CONFLICT(BattleId) DO UPDATE SET
+                    BattleDurationSeconds=excluded.BattleDurationSeconds,Survived=excluded.Survived,SurvivalSeconds=excluded.SurvivalSeconds,
+                    PotentialDamage=excluded.PotentialDamage,DamageTaken=excluded.DamageTaken,
+                    SurvivalAvailability=excluded.SurvivalAvailability,PotentialDamageAvailability=excluded.PotentialDamageAvailability,
+                    DamageTakenAvailability=excluded.DamageTakenAvailability,ParserSchemaVersion=excluded.ParserSchemaVersion
+                """, cancellationToken,
+                ("$id", metrics.BattleId), ("$duration", metrics.BattleDurationSeconds),
+                ("$survived", metrics.Survived.HasValue ? metrics.Survived.Value ? 1 : 0 : null),
+                ("$survival", metrics.SurvivalSeconds), ("$potential", metrics.PotentialDamage), ("$taken", metrics.DamageTaken),
+                ("$survivalAvailability", (int)metrics.SurvivalAvailability), ("$potentialAvailability", (int)metrics.PotentialDamageAvailability),
+                ("$takenAvailability", (int)metrics.DamageTakenAvailability), ("$schema", metrics.ParserSchemaVersion));
+        }
+
+        private static Task InsertDamageBreakdownAsync(SqliteConnection connection, SqliteTransaction transaction, BattleDamageBreakdown breakdown, CancellationToken cancellationToken) =>
+            ExecuteAsync(connection, transaction, """
+                INSERT INTO BattleDamageBreakdowns(BattleId,Direction,RawTypeCode,Category,Damage,Availability)
+                VALUES($battle,$direction,$raw,$category,$damage,$availability)
+                """, cancellationToken, ("$battle", breakdown.BattleId), ("$direction", (int)breakdown.Direction),
+                ("$raw", breakdown.RawTypeCode), ("$category", (int)breakdown.Category), ("$damage", breakdown.Damage), ("$availability", (int)breakdown.Availability));
+
+        private static async Task<long> AssignSessionAsync(SqliteConnection connection, SqliteTransaction transaction, long battleId, BattleRecord battle, CancellationToken cancellationToken)
+        {
+            await using SqliteCommand find = connection.CreateCommand();
+            find.Transaction = transaction;
+            find.CommandText = """
+                SELECT Id,EndedAt,IsManual FROM BattleSessions
+                WHERE Server=$server AND AccountId=$account AND EndedAt <= $started
+                ORDER BY EndedAt DESC LIMIT 1
+                """;
+            find.Parameters.AddWithValue("$server", battle.Server);
+            find.Parameters.AddWithValue("$account", battle.AccountId);
+            find.Parameters.AddWithValue("$started", battle.StartedAt.UtcDateTime.ToString("O"));
+            long? sessionId = null;
+            DateTimeOffset? endedAt = null;
+            await using (SqliteDataReader reader = await find.ExecuteReaderAsync(cancellationToken))
+            {
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    sessionId = reader.GetInt64(0);
+                    endedAt = ParseDate(reader.GetString(1));
+                }
+            }
+            if (!sessionId.HasValue || !endedAt.HasValue || battle.StartedAt - endedAt.Value > SessionGap)
+                sessionId = await InsertSessionAsync(connection, transaction, battle.Server, battle.AccountId, battle.AccountName, battle.StartedAt, battle.StartedAt, false, cancellationToken);
+            else
+                await ExecuteAsync(connection, transaction, "UPDATE BattleSessions SET EndedAt=$ended,AccountName=$name WHERE Id=$id", cancellationToken,
+                    ("$ended", battle.StartedAt.UtcDateTime.ToString("O")), ("$name", battle.AccountName), ("$id", sessionId.Value));
+            await ExecuteAsync(connection, transaction, "UPDATE Battles SET SessionId=$session WHERE Id=$battle", cancellationToken, ("$session", sessionId.Value), ("$battle", battleId));
+            return sessionId.Value;
+        }
+
+        private static async Task<long> InsertSessionAsync(SqliteConnection connection, SqliteTransaction transaction, string server, string accountId, string accountName, DateTimeOffset startedAt, DateTimeOffset endedAt, bool manual, CancellationToken cancellationToken)
+        {
+            await using SqliteCommand command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT INTO BattleSessions(Server,AccountId,AccountName,StartedAt,EndedAt,IsManual)
+                VALUES($server,$account,$name,$started,$ended,$manual) RETURNING Id
+                """;
+            command.Parameters.AddWithValue("$server", server);
+            command.Parameters.AddWithValue("$account", accountId);
+            command.Parameters.AddWithValue("$name", accountName);
+            command.Parameters.AddWithValue("$started", startedAt.UtcDateTime.ToString("O"));
+            command.Parameters.AddWithValue("$ended", endedAt.UtcDateTime.ToString("O"));
+            command.Parameters.AddWithValue("$manual", manual ? 1 : 0);
+            return Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+        }
+
+        private static async Task BackfillSessionsAsync(SqliteConnection connection, CancellationToken cancellationToken)
+        {
+            List<BattleRecord> unassigned = new();
+            await using (SqliteCommand command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT * FROM Battles WHERE SessionId IS NULL ORDER BY Server,AccountId,StartedAt";
+                await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken)) unassigned.Add(ReadBattle(reader));
+            }
+            if (unassigned.Count == 0) return;
+            await using SqliteTransaction transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+            foreach (BattleRecord battle in unassigned)
+                battle.SessionId = await AssignSessionAsync(connection, transaction, battle.Id, battle, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        private static async Task<List<BattleSession>> ReadSessionsByIdsAsync(SqliteConnection connection, SqliteTransaction transaction, IReadOnlyList<long> ids, CancellationToken cancellationToken)
+        {
+            await using SqliteCommand command = connection.CreateCommand();
+            command.Transaction = transaction;
+            List<string> names = new();
+            for (int i = 0; i < ids.Count; i++)
+            {
+                string name = $"$id{i}";
+                names.Add(name);
+                command.Parameters.AddWithValue(name, ids[i]);
+            }
+            command.CommandText = $"""
+                SELECT s.Id,s.Server,s.AccountId,s.AccountName,s.StartedAt,s.EndedAt,s.IsManual,
+                       COALESCE(SUM(MAX(1,b.BattleCount)),0) AS BattleCount
+                FROM BattleSessions s LEFT JOIN Battles b ON b.SessionId=s.Id
+                WHERE s.Id IN ({string.Join(',', names)}) GROUP BY s.Id
+                """;
+            List<BattleSession> result = new();
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken)) result.Add(ReadSession(reader));
+            return result;
+        }
+
+        private static async Task<BattleRecord?> ReadBattleInSessionAsync(SqliteConnection connection, SqliteTransaction transaction, long sessionId, long battleId, CancellationToken cancellationToken)
+        {
+            await using SqliteCommand command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "SELECT * FROM Battles WHERE Id=$battle AND SessionId=$session";
+            command.Parameters.AddWithValue("$battle", battleId);
+            command.Parameters.AddWithValue("$session", sessionId);
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            return await reader.ReadAsync(cancellationToken) ? ReadBattle(reader) : null;
+        }
+
+        private static Task RefreshSessionBoundsAsync(SqliteConnection connection, SqliteTransaction transaction, long sessionId, bool manual, CancellationToken cancellationToken) =>
+            ExecuteAsync(connection, transaction, """
+                UPDATE BattleSessions SET
+                    StartedAt=(SELECT MIN(StartedAt) FROM Battles WHERE SessionId=$id),
+                    EndedAt=(SELECT MAX(StartedAt) FROM Battles WHERE SessionId=$id),
+                    IsManual=$manual
+                WHERE Id=$id
+                """, cancellationToken, ("$id", sessionId), ("$manual", manual ? 1 : 0));
+
         private static async Task UpsertReplayAsync(SqliteConnection connection, SqliteTransaction? transaction, long? battleId, ReplayParseResult replay, string replayPath, CancellationToken cancellationToken)
         {
             await ExecuteAsync(connection, transaction, """
@@ -480,6 +900,7 @@ namespace ApeRadar.History
 
         private static void AddBattleParameters(SqliteCommand command, BattleRecord battle)
         {
+            command.Parameters.AddWithValue("$session", battle.SessionId ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("$key", battle.BattleKey);
             command.Parameters.AddWithValue("$started", battle.StartedAt.UtcDateTime.ToString("O"));
             command.Parameters.AddWithValue("$server", battle.Server);
@@ -505,6 +926,7 @@ namespace ApeRadar.History
         private static BattleRecord ReadBattle(SqliteDataReader reader) => new()
         {
             Id = reader.GetInt64(reader.GetOrdinal("Id")),
+            SessionId = reader.IsDBNull(reader.GetOrdinal("SessionId")) ? null : reader.GetInt64(reader.GetOrdinal("SessionId")),
             BattleKey = reader.GetString(reader.GetOrdinal("BattleKey")),
             StartedAt = ParseDate(reader.GetString(reader.GetOrdinal("StartedAt"))),
             Server = reader.GetString(reader.GetOrdinal("Server")), Mode = reader.GetString(reader.GetOrdinal("Mode")),
@@ -521,6 +943,47 @@ namespace ApeRadar.History
             StatusMessage = reader.IsDBNull(reader.GetOrdinal("StatusMessage")) ? null : reader.GetString(reader.GetOrdinal("StatusMessage")),
             UpdatedAt = ParseDate(reader.GetString(reader.GetOrdinal("UpdatedAt")))
         };
+
+        private static BattleSession ReadSession(SqliteDataReader reader) => new()
+        {
+            Id = reader.GetInt64(reader.GetOrdinal("Id")), Server = reader.GetString(reader.GetOrdinal("Server")),
+            AccountId = reader.GetString(reader.GetOrdinal("AccountId")), AccountName = reader.GetString(reader.GetOrdinal("AccountName")),
+            StartedAt = ParseDate(reader.GetString(reader.GetOrdinal("StartedAt"))), EndedAt = ParseDate(reader.GetString(reader.GetOrdinal("EndedAt"))),
+            IsManual = reader.GetInt32(reader.GetOrdinal("IsManual")) != 0,
+            BattleCount = Convert.ToInt32(reader.GetInt64(reader.GetOrdinal("BattleCount")), CultureInfo.InvariantCulture)
+        };
+
+        private static BattleAdvancedMetrics ReadAdvancedMetrics(SqliteDataReader reader) => new()
+        {
+            BattleId = reader.GetInt64(reader.GetOrdinal("BattleId")),
+            BattleDurationSeconds = reader.IsDBNull(reader.GetOrdinal("BattleDurationSeconds")) ? null : reader.GetDouble(reader.GetOrdinal("BattleDurationSeconds")),
+            Survived = reader.IsDBNull(reader.GetOrdinal("Survived")) ? null : reader.GetInt32(reader.GetOrdinal("Survived")) != 0,
+            SurvivalSeconds = reader.IsDBNull(reader.GetOrdinal("SurvivalSeconds")) ? null : reader.GetDouble(reader.GetOrdinal("SurvivalSeconds")),
+            PotentialDamage = reader.IsDBNull(reader.GetOrdinal("PotentialDamage")) ? null : reader.GetInt64(reader.GetOrdinal("PotentialDamage")),
+            DamageTaken = reader.IsDBNull(reader.GetOrdinal("DamageTaken")) ? null : reader.GetInt64(reader.GetOrdinal("DamageTaken")),
+            SurvivalAvailability = (MetricAvailability)reader.GetInt32(reader.GetOrdinal("SurvivalAvailability")),
+            PotentialDamageAvailability = (MetricAvailability)reader.GetInt32(reader.GetOrdinal("PotentialDamageAvailability")),
+            DamageTakenAvailability = (MetricAvailability)reader.GetInt32(reader.GetOrdinal("DamageTakenAvailability")),
+            ParserSchemaVersion = reader.GetString(reader.GetOrdinal("ParserSchemaVersion"))
+        };
+
+        private static BattlePlayerRecord ReadBattlePlayer(SqliteDataReader reader) => new()
+        {
+            PlayerKey = reader.GetString(reader.GetOrdinal("PlayerKey")), AccountId = reader.GetString(reader.GetOrdinal("AccountId")),
+            AccountName = reader.GetString(reader.GetOrdinal("AccountName")), Relation = reader.GetString(reader.GetOrdinal("Relation")),
+            ShipId = reader.GetString(reader.GetOrdinal("ShipId")), ShipName = reader.GetString(reader.GetOrdinal("ShipName")),
+            ShipType = reader.GetString(reader.GetOrdinal("ShipType")), ShipTier = reader.GetInt32(reader.GetOrdinal("ShipTier")),
+            IsHidden = reader.GetInt32(reader.GetOrdinal("IsHidden")) != 0, IsDataStale = reader.GetInt32(reader.GetOrdinal("IsDataStale")) != 0,
+            AccountBattles = GetNullableDouble(reader, "AccountBattles"), AccountWinrate = GetNullableDouble(reader, "AccountWinrate"),
+            AccountPr = GetNullableDouble(reader, "AccountPr"), ShipBattles = GetNullableDouble(reader, "ShipBattles"),
+            ShipWinrate = GetNullableDouble(reader, "ShipWinrate"), ShipPr = GetNullableDouble(reader, "ShipPr")
+        };
+
+        private static double? GetNullableDouble(SqliteDataReader reader, string name)
+        {
+            int ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? null : reader.GetDouble(ordinal);
+        }
 
         private static ShipStatSnapshot ReadSnapshot(SqliteDataReader reader) => new()
         {

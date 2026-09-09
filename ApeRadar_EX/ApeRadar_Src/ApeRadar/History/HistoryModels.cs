@@ -1,5 +1,6 @@
 using ApeRadar.Models;
 using System;
+using System.Collections.Generic;
 
 namespace ApeRadar.History
 {
@@ -7,10 +8,14 @@ namespace ApeRadar.History
     internal enum BattleResult { Win, Loss, Draw, UnknownNonWin, Unknown }
     internal enum BattleCompleteness { Complete, Partial, Pending, Unsupported, Failed }
     internal enum ReplayParseStatus { Parsed, Partial, Unsupported, Invalid, Pending }
+    internal enum MetricAvailability { Unavailable, Stable, Experimental }
+    internal enum DamageDirection { Dealt, Received }
+    internal enum DamageCategory { Unknown, Artillery, Secondary, Torpedo, Fire, Flooding, Bomb, Aircraft, DepthCharge, Other }
 
     internal sealed class BattleRecord
     {
         public long Id { get; set; }
+        public long? SessionId { get; set; }
         public string BattleKey { get; set; } = "";
         public DateTimeOffset StartedAt { get; set; }
         public string Server { get; set; } = "";
@@ -30,6 +35,51 @@ namespace ApeRadar.History
         public string? ReplayHash { get; set; }
         public string? ReplayVersion { get; set; }
         public string? StatusMessage { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+    }
+
+    internal sealed class BattleSession
+    {
+        public long Id { get; set; }
+        public string Server { get; set; } = "";
+        public string AccountId { get; set; } = "";
+        public string AccountName { get; set; } = "";
+        public DateTimeOffset StartedAt { get; set; }
+        public DateTimeOffset EndedAt { get; set; }
+        public bool IsManual { get; set; }
+        public int BattleCount { get; set; }
+    }
+
+    internal sealed class BattleAdvancedMetrics
+    {
+        public long BattleId { get; set; }
+        public double? BattleDurationSeconds { get; set; }
+        public bool? Survived { get; set; }
+        public double? SurvivalSeconds { get; set; }
+        public long? PotentialDamage { get; set; }
+        public long? DamageTaken { get; set; }
+        public MetricAvailability SurvivalAvailability { get; set; }
+        public MetricAvailability PotentialDamageAvailability { get; set; }
+        public MetricAvailability DamageTakenAvailability { get; set; }
+        public string ParserSchemaVersion { get; set; } = "";
+    }
+
+    internal sealed class BattleDamageBreakdown
+    {
+        public long BattleId { get; set; }
+        public DamageDirection Direction { get; set; }
+        public int RawTypeCode { get; set; }
+        public DamageCategory Category { get; set; }
+        public long Damage { get; set; }
+        public MetricAvailability Availability { get; set; }
+    }
+
+    internal sealed class BattleReview
+    {
+        public long BattleId { get; set; }
+        public bool IsFavorite { get; set; }
+        public List<string> Tags { get; set; } = new();
+        public string Note { get; set; } = "";
         public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     }
 
@@ -112,6 +162,8 @@ namespace ApeRadar.History
         public BattleMetricSource Source { get; init; } = BattleMetricSource.MetadataOnly;
         public string ErrorCode { get; init; } = "";
         public string ErrorMessage { get; init; } = "";
+        public BattleAdvancedMetrics AdvancedMetrics { get; init; } = new();
+        public IReadOnlyList<BattleDamageBreakdown> DamageBreakdowns { get; init; } = Array.Empty<BattleDamageBreakdown>();
         public bool HasCompleteMetrics => Status == ReplayParseStatus.Parsed && Damage.HasValue && Frags.HasValue && Result != BattleResult.Unknown;
     }
 
@@ -141,6 +193,36 @@ namespace ApeRadar.History
         public double? AverageFragsRating { get; init; }
         public double? AveragePr { get; init; }
         public double CompletenessRate { get; init; }
+        public double? SurvivalRate { get; init; }
+        public double? AverageSurvivalSeconds { get; init; }
+        public double? AveragePotentialDamage { get; init; }
+        public double? AverageDamageTaken { get; init; }
+        public double? AverageDamagePerMinute { get; init; }
+        public double? AverageTradeRatio { get; init; }
+        public int SurvivalSampleCount { get; init; }
+        public int PotentialDamageSampleCount { get; init; }
+        public int DamageTakenSampleCount { get; init; }
+    }
+
+    internal sealed class SessionSummary
+    {
+        public BattleSession Session { get; init; } = new();
+        public HistorySummary Metrics { get; init; } = new();
+        public int PendingBattles { get; init; }
+        public IReadOnlyList<BattleRecord> Battles { get; init; } = Array.Empty<BattleRecord>();
+    }
+
+    internal enum ImprovementInsightKind { Positive, Attention, Information }
+
+    internal sealed class ImprovementInsight
+    {
+        public ImprovementInsightKind Kind { get; init; }
+        public string Metric { get; init; } = "";
+        public double CurrentValue { get; init; }
+        public double BaselineValue { get; init; }
+        public int CurrentSampleCount { get; init; }
+        public int BaselineSampleCount { get; init; }
+        public string Message { get; init; } = "";
     }
 
     internal sealed class HistoryTrendPoint

@@ -136,7 +136,7 @@ namespace ApeRadar.History
                     PublishProgress();
                     return;
                 }
-                if (await repository.HasReplayAsync(replay.FileHash, cancellationToken))
+                if (await repository.HasReplayAsync(replay.FileHash, replay.ParserVersion, cancellationToken))
                 {
                     Interlocked.Increment(ref skipped);
                     PublishProgress();

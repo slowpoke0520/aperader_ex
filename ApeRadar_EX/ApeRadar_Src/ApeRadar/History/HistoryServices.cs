@@ -8,6 +8,8 @@ namespace ApeRadar.History
     {
         public static IHistoryRepository Repository { get; } = new SqliteHistoryRepository();
         public static IHistoryAnalysisService Analysis { get; } = new HistoryAnalysisService();
+        public static ISessionAnalysisService SessionAnalysis { get; } = new SessionAnalysisService(Analysis);
+        public static IImprovementInsightService Insights { get; } = new ImprovementInsightService(Analysis);
         public static IBattleTrackingCoordinator Coordinator { get; private set; } = CreateCoordinator();
         private static readonly SemaphoreSlim initializationLock = new(1, 1);
         private static bool initialized;

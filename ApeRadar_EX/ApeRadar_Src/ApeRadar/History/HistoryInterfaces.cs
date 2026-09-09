@@ -13,7 +13,7 @@ namespace ApeRadar.History
         Task<BattleRecord?> FindDraftForReplayAsync(ReplayParseResult replay, CancellationToken cancellationToken = default);
         Task CompleteFromReplayAsync(long battleId, ReplayParseResult replay, string replayPath, CancellationToken cancellationToken = default);
         Task RecordReplayFailureAsync(ReplayParseResult replay, string replayPath, CancellationToken cancellationToken = default);
-        Task<bool> HasReplayAsync(string replayHash, CancellationToken cancellationToken = default);
+        Task<bool> HasReplayAsync(string replayHash, string parserVersion, CancellationToken cancellationToken = default);
         Task<BattleRecord?> GetBattleAsync(long battleId, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<BattleRecord>> GetBattlesAsync(HistoryQuery query, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<HistoryFilterOption>> GetServersAsync(CancellationToken cancellationToken = default);
@@ -25,6 +25,16 @@ namespace ApeRadar.History
         Task ResolveFromApiAsync(long battleId, ShipStatSnapshot before, ShipStatSnapshot after, CancellationToken cancellationToken = default);
         Task MarkPendingAttemptAsync(PendingResultCheck check, bool exhausted, CancellationToken cancellationToken = default);
         Task MakePendingChecksDueAsync(CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<BattleSession>> GetSessionsAsync(string? server = null, string? accountId = null, CancellationToken cancellationToken = default);
+        Task<BattleSession?> GetLatestSessionAsync(string? server = null, string? accountId = null, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<BattleRecord>> GetSessionBattlesAsync(long sessionId, CancellationToken cancellationToken = default);
+        Task<IReadOnlyDictionary<long, BattleAdvancedMetrics>> GetAdvancedMetricsAsync(IEnumerable<long> battleIds, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<BattleDamageBreakdown>> GetDamageBreakdownsAsync(long battleId, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<BattlePlayerRecord>> GetBattlePlayersAsync(long battleId, CancellationToken cancellationToken = default);
+        Task<BattleReview?> GetBattleReviewAsync(long battleId, CancellationToken cancellationToken = default);
+        Task SaveBattleReviewAsync(BattleReview review, CancellationToken cancellationToken = default);
+        Task MergeSessionsAsync(IReadOnlyCollection<long> sessionIds, CancellationToken cancellationToken = default);
+        Task<long> SplitSessionAsync(long sessionId, long firstBattleIdOfNewSession, CancellationToken cancellationToken = default);
         Task DeleteAllAsync(CancellationToken cancellationToken = default);
     }
 
@@ -63,5 +73,21 @@ namespace ApeRadar.History
         double? CalculateBattlePr(BattleRecord battle);
         double? CalculateBattleDamageRating(BattleRecord battle);
         double? CalculateBattleFragsRating(BattleRecord battle);
+    }
+
+    internal interface ISessionAnalysisService
+    {
+        SessionSummary CalculateSession(BattleSession session, IReadOnlyList<BattleRecord> battles, IReadOnlyDictionary<long, BattleAdvancedMetrics> advancedMetrics, bool includeExperimental = false);
+        IReadOnlyList<HistoryTrendPoint> CalculateAdvancedTrend(IReadOnlyList<BattleRecord> battles, IReadOnlyDictionary<long, BattleAdvancedMetrics> advancedMetrics, string metric, int rollingWindow, bool includeExperimental);
+    }
+
+    internal interface IImprovementInsightService
+    {
+        IReadOnlyList<ImprovementInsight> CreateInsights(
+            IReadOnlyList<BattleRecord> currentBattles,
+            IReadOnlyDictionary<long, BattleAdvancedMetrics> currentAdvanced,
+            IReadOnlyList<BattleRecord> baselineBattles,
+            IReadOnlyDictionary<long, BattleAdvancedMetrics> baselineAdvanced,
+            bool includeExperimental);
     }
 }
