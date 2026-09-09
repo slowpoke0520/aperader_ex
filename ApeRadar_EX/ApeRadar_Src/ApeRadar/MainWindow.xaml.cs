@@ -643,13 +643,24 @@ namespace ApeRadar
                 if (session == null)
                 {
                     TxtMainSessionBattles.Text = TxtMainSessionWinrate.Text = TxtMainSessionDamage.Text = TxtMainSessionPr.Text = "-";
+                    TxtMainSessionResultLabel.Text = FindResource("HistorySessionObservedResults") as string ?? "Observed results";
                     return;
                 }
                 IReadOnlyList<BattleRecord> battles = await HistoryServices.Repository.GetSessionBattlesAsync(session.Id);
                 IReadOnlyDictionary<long, BattleAdvancedMetrics> advanced = await HistoryServices.Repository.GetAdvancedMetricsAsync(battles.Select(x => x.Id));
                 SessionSummary summary = HistoryServices.SessionAnalysis.CalculateSession(session, battles, advanced);
-                TxtMainSessionBattles.Text = summary.Metrics.RecordedBattles.ToString(CultureInfo.CurrentCulture);
-                TxtMainSessionWinrate.Text = summary.Metrics.Winrate?.ToString("P1") ?? "-";
+                int total = summary.Metrics.RecordedBattles;
+                int resolved = battles.Where(x => x.WinCount.HasValue).Sum(x => Math.Max(1, x.BattleCount));
+                int wins = (int)Math.Round(battles.Where(x => x.WinCount.HasValue).Sum(x => x.WinCount ?? 0), MidpointRounding.AwayFromZero);
+                int nonWins = Math.Max(0, resolved - wins);
+                int pending = Math.Max(0, total - resolved);
+                TxtMainSessionBattles.Text = total.ToString(CultureInfo.CurrentCulture);
+                TxtMainSessionResultLabel.Text = total is > 0 and < 5
+                    ? FindResource("HistorySessionObservedResults") as string ?? "Observed results"
+                    : FindResource("HistoryWinrate") as string ?? "Win rate";
+                TxtMainSessionWinrate.Text = total is > 0 and < 5
+                    ? string.Format(FindResource("HistorySessionSmallResultFormat") as string ?? "{0} wins · {1} non-wins · {2} pending", wins, nonWins, pending)
+                    : summary.Metrics.Winrate?.ToString("P1") ?? "-";
                 TxtMainSessionDamage.Text = summary.Metrics.AverageDamage?.ToString("N0") ?? "-";
                 TxtMainSessionPr.Text = summary.Metrics.AveragePr?.ToString("N0") ?? "-";
             }

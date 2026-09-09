@@ -17,6 +17,8 @@ using System.Windows;
 
 namespace ApeRadar.ViewModels
 {
+    internal enum HistorySampleTier { None, VerySmall, Short, Established }
+
     internal sealed class HistoryViewModel : INotifyPropertyChanged, IDisposable
     {
         private readonly IHistoryRepository repository;
@@ -121,7 +123,10 @@ namespace ApeRadar.ViewModels
         public string CompletenessText { get; private set; } = "0%";
         public string CurrentSessionTitle { get; private set; } = "-";
         public string CurrentSessionBattlesText { get; private set; } = "0";
+        public string CurrentSessionResultLabel { get; private set; } = "-";
         public string CurrentSessionWinrateText { get; private set; } = "-";
+        public string CurrentSessionSampleText { get; private set; } = "-";
+        public string CurrentSessionSampleHint { get; private set; } = "";
         public string CurrentSessionDamageText { get; private set; } = "-";
         public string CurrentSessionPrText { get; private set; } = "-";
         public string CurrentSessionSurvivalText { get; private set; } = "-";
@@ -129,6 +134,7 @@ namespace ApeRadar.ViewModels
         public string CurrentSessionPendingText { get; private set; } = "0";
         public string BattleDetailTitle { get; private set; } = "-";
         public string BattleDetailMetrics { get; private set; } = "-";
+        public string ChartGuidanceText { get; private set; } = "";
         public string PrDataVersionText => PRUtils.GetExpectedValuesDateString();
 
         public async Task InitializeAsync()
@@ -376,33 +382,57 @@ namespace ApeRadar.ViewModels
             OnPropertyChanged(nameof(BattleDetailMetrics));
         }
 
-        private void ApplyCurrentSession(SessionSummary summary)
+        internal void ApplyCurrentSession(SessionSummary summary)
         {
             HistorySummary metrics = summary.Metrics;
+            int total = metrics.RecordedBattles;
+            int resolved = summary.Battles.Where(x => x.WinCount.HasValue).Sum(x => Math.Max(1, x.BattleCount));
+            int wins = (int)Math.Round(summary.Battles.Where(x => x.WinCount.HasValue).Sum(x => x.WinCount ?? 0), MidpointRounding.AwayFromZero);
+            int nonWins = Math.Max(0, resolved - wins);
+            int pending = Math.Max(0, total - resolved);
             CurrentSessionTitle = $"{summary.Session.StartedAt.ToLocalTime():yyyy-MM-dd HH:mm} · {summary.Session.AccountName}";
-            CurrentSessionBattlesText = metrics.RecordedBattles.ToString(CultureInfo.CurrentCulture);
-            CurrentSessionWinrateText = metrics.Winrate?.ToString("P2") ?? "-";
+            CurrentSessionBattlesText = total.ToString(CultureInfo.CurrentCulture);
+            CurrentSessionResultLabel = total is > 0 and < 5
+                ? Resource("HistorySessionObservedResults", "Observed results")
+                : Resource("HistoryWinrate", "Win rate");
+            CurrentSessionWinrateText = total is > 0 and < 5
+                ? string.Format(Resource("HistorySessionSmallResultFormat", "{0} wins · {1} non-wins · {2} pending"), wins, nonWins, pending)
+                : metrics.Winrate?.ToString("P1") ?? "-";
             CurrentSessionDamageText = metrics.AverageDamage?.ToString("N0") ?? "-";
             CurrentSessionPrText = metrics.AveragePr?.ToString("N0") ?? "-";
-            CurrentSessionSurvivalText = metrics.SurvivalRate.HasValue ? $"{metrics.SurvivalRate:P1} ({metrics.SurvivalSampleCount}/{metrics.RecordedBattles})" : "-";
-            CurrentSessionPotentialText = metrics.AveragePotentialDamage.HasValue ? $"{metrics.AveragePotentialDamage:N0} ({metrics.PotentialDamageSampleCount}/{metrics.RecordedBattles})" : "-";
+            CurrentSessionSurvivalText = metrics.SurvivalRate.HasValue ? $"{metrics.SurvivalRate:P1} ({metrics.SurvivalSampleCount}/{total})" : "-";
+            CurrentSessionPotentialText = metrics.AveragePotentialDamage.HasValue ? $"{metrics.AveragePotentialDamage:N0} ({metrics.PotentialDamageSampleCount}/{total})" : "-";
             CurrentSessionPendingText = summary.PendingBattles.ToString(CultureInfo.CurrentCulture);
+            (CurrentSessionSampleText, CurrentSessionSampleHint) = ClassifySample(total) switch
+            {
+                HistorySampleTier.None => (Resource("HistorySampleNone", "No session data"), Resource("HistorySampleNoneHint", "Play a Random Battle to start this session.")),
+                HistorySampleTier.VerySmall => (string.Format(Resource("HistorySampleVerySmall", "Very small sample ({0} battles)"), total), Resource("HistorySampleVerySmallHint", "Only observed results are shown. Wait for at least 5 battles before judging short-term performance.")),
+                HistorySampleTier.Short => (string.Format(Resource("HistorySampleShort", "Short sample ({0} battles)"), total), Resource("HistorySampleShortHint", "You can inspect fluctuations, but averages and win rate can still move sharply.")),
+                _ => (string.Format(Resource("HistorySampleEstablished", "Established sample ({0} battles)"), total), Resource("HistorySampleEstablishedHint", "The session summary is more stable; compare it with the same-ship personal baseline."))
+            };
             OnPropertyChanged(nameof(CurrentSessionTitle)); OnPropertyChanged(nameof(CurrentSessionBattlesText));
+            OnPropertyChanged(nameof(CurrentSessionResultLabel));
             OnPropertyChanged(nameof(CurrentSessionWinrateText)); OnPropertyChanged(nameof(CurrentSessionDamageText));
             OnPropertyChanged(nameof(CurrentSessionPrText)); OnPropertyChanged(nameof(CurrentSessionSurvivalText));
             OnPropertyChanged(nameof(CurrentSessionPotentialText)); OnPropertyChanged(nameof(CurrentSessionPendingText));
+            OnPropertyChanged(nameof(CurrentSessionSampleText)); OnPropertyChanged(nameof(CurrentSessionSampleHint));
         }
 
         private void ClearSessionDisplay()
         {
             SessionBattles.Clear(); Insights.Clear();
             CurrentSessionTitle = "-"; CurrentSessionBattlesText = "0"; CurrentSessionWinrateText = "-";
+            CurrentSessionResultLabel = Resource("HistorySessionObservedResults", "Observed results");
             CurrentSessionDamageText = "-"; CurrentSessionPrText = "-"; CurrentSessionSurvivalText = "-";
             CurrentSessionPotentialText = "-"; CurrentSessionPendingText = "0";
+            CurrentSessionSampleText = Resource("HistorySampleNone", "No session data");
+            CurrentSessionSampleHint = Resource("HistorySampleNoneHint", "Play a Random Battle to start this session.");
             OnPropertyChanged(nameof(CurrentSessionTitle)); OnPropertyChanged(nameof(CurrentSessionBattlesText));
+            OnPropertyChanged(nameof(CurrentSessionResultLabel));
             OnPropertyChanged(nameof(CurrentSessionWinrateText)); OnPropertyChanged(nameof(CurrentSessionDamageText));
             OnPropertyChanged(nameof(CurrentSessionPrText)); OnPropertyChanged(nameof(CurrentSessionSurvivalText));
             OnPropertyChanged(nameof(CurrentSessionPotentialText)); OnPropertyChanged(nameof(CurrentSessionPendingText));
+            OnPropertyChanged(nameof(CurrentSessionSampleText)); OnPropertyChanged(nameof(CurrentSessionSampleHint));
         }
 
         private string FormatBattleMetrics(HistoryRowViewModel row, BattleAdvancedMetrics? metric)
@@ -479,7 +509,16 @@ namespace ApeRadar.ViewModels
             IReadOnlyList<HistoryTrendPoint> points = metric is "Winrate" or "Damage" or "Frags" or "PR"
                 ? analysis.CalculateTrend(battles, metric, window)
                 : sessionAnalysis.CalculateAdvancedTrend(battles, advanced, metric, window, ShowExperimentalMetrics);
-            ChartSeries = new ISeries[] { new LineSeries<double> { Values = points.Select(x => x.Value).ToArray(), GeometrySize = 6, LineSmoothness = 0.25, Fill = null, Name = SelectedMetric?.Display } };
+            ChartGuidanceText = points.Count switch
+            {
+                < 3 => Resource("HistoryChartNeedThree", "Fewer than 3 valid points are available, so no trend line is drawn."),
+                < 10 => string.Format(Resource("HistoryChartShortSample", "Only {0} valid points are available. This curve is highly volatile and is for reference only."), points.Count),
+                _ => ""
+            };
+            OnPropertyChanged(nameof(ChartGuidanceText));
+            ChartSeries = !ShouldRenderTrend(points.Count)
+                ? Array.Empty<ISeries>()
+                : new ISeries[] { new LineSeries<double> { Values = points.Select(x => x.Value).ToArray(), GeometrySize = 6, LineSmoothness = points.Count < 6 ? 0 : 0.25, Fill = null, Name = SelectedMetric?.Display } };
             ChartXAxes = new[]
             {
                 new Axis
@@ -516,6 +555,14 @@ namespace ApeRadar.ViewModels
         }
 
         private static string? EmptyToNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+        internal static HistorySampleTier ClassifySample(int battleCount) => battleCount switch
+        {
+            <= 0 => HistorySampleTier.None,
+            < 5 => HistorySampleTier.VerySmall,
+            < 20 => HistorySampleTier.Short,
+            _ => HistorySampleTier.Established
+        };
+        internal static bool ShouldRenderTrend(int validPointCount) => validPointCount >= 3;
         private static string Resource(string key, string fallback) => Application.Current.TryFindResource(key) as string ?? fallback;
         private bool Set<T>(ref T field, T value, [CallerMemberName] string name = "")
         {

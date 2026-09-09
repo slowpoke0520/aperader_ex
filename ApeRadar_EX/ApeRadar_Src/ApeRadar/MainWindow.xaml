@@ -629,7 +629,7 @@
                 <WrapPanel>
                     <TextBlock Text="{DynamicResource MainSessionTitle}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <TextBlock Text="{DynamicResource MainSessionBattles}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionBattles" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
-                    <TextBlock Text="{DynamicResource HistoryWinrate}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionWinrate" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
+                    <TextBlock x:Name="TxtMainSessionResultLabel" Text="{DynamicResource HistoryWinrate}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionWinrate" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
                     <TextBlock Text="{DynamicResource HistoryAverageDamage}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionDamage" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
                     <TextBlock Text="PR" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionPr" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,0,0"/>
                 </WrapPanel>
