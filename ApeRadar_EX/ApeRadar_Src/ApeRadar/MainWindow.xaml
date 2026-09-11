@@ -461,7 +461,7 @@
             <RowDefinition Height="60"/>
             <RowDefinition Height="39*" MinHeight="390"/>
             <RowDefinition Height="8*" MinHeight="80"/>
-            <RowDefinition Height="60"/>
+            <RowDefinition Height="100"/>
             <RowDefinition Height="60"/>
             <RowDefinition Height="10"/>
         </Grid.RowDefinitions>
@@ -589,8 +589,9 @@
         <Grid Grid.Row="2" Grid.Column="2">
             <TextBox x:Name="TxtOutputText" HorizontalAlignment="Stretch" Margin="5" TextWrapping="Wrap" VerticalAlignment="Stretch" VerticalScrollBarVisibility="Auto" IsEnabled="{Binding Source={x:Static p:Settings.Default}, Path=OutputTextUnlock}" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=OutputTextFontSize}"/>
         </Grid>
-        <Grid Grid.Row="3" Grid.Column="1" Grid.RowSpan="2">
-            <DataGrid x:Name="DataGridNotificationMessages" Margin="5,10,0,0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single" HeadersVisibility="Column" ItemsSource="{Binding Source={x:Static utils:NotificationMessageUtils.NotificationMessageCollection}}" CanUserReorderColumns="False" CanUserSortColumns="False" Height="100" HorizontalAlignment="Left" VerticalAlignment="Top">
+        <Grid x:Name="MainFooterTop" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="7*"/><ColumnDefinition Width="5*"/></Grid.ColumnDefinitions>
+            <DataGrid x:Name="DataGridNotificationMessages" Grid.Column="0" Margin="5" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single" HeadersVisibility="Column" ItemsSource="{Binding Source={x:Static utils:NotificationMessageUtils.NotificationMessageCollection}}" CanUserReorderColumns="False" CanUserSortColumns="False" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                 <DataGrid.Resources>
                     <DataTemplate x:Key="TimeHeaderTemplate">
                         <TextBlock Text="{DynamicResource DataGridHeaderTime}" FontSize="11"/>
@@ -606,24 +607,22 @@
                     </DataTemplate>
                 </DataGrid.Resources>
                 <DataGrid.Columns>
-                    <DataGridTemplateColumn HeaderTemplate="{StaticResource TimeHeaderTemplate}" CellTemplate="{StaticResource TimeTemplate}" MinWidth="120"/>
-                    <DataGridTemplateColumn HeaderTemplate="{StaticResource MessageHeaderTemplate}" CellTemplate="{StaticResource MessageTemplate}" MinWidth="570"/>
+                    <DataGridTemplateColumn HeaderTemplate="{StaticResource TimeHeaderTemplate}" CellTemplate="{StaticResource TimeTemplate}" Width="135"/>
+                    <DataGridTemplateColumn HeaderTemplate="{StaticResource MessageHeaderTemplate}" CellTemplate="{StaticResource MessageTemplate}" Width="*" MinWidth="220"/>
                 </DataGrid.Columns>
             </DataGrid>
-        </Grid>
-        <Grid Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2">
-            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button x:Name="BtnRefresh" Content="{DynamicResource BtnRefresh}" HorizontalAlignment="Left" Height="40" Margin="10,5,5,5" VerticalAlignment="Center" Width="80" Click="BtnRefresh_Click"/>
-                <Button x:Name="BtnOpen" Content="{DynamicResource BtnOpen}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnOpen_Click"/>
-                <Button x:Name="BtnHistory" Content="{DynamicResource BtnHistory}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="90" Click="BtnHistory_Click"/>
-                <Button x:Name="BtnSoftwareUpdate" Content="{DynamicResource BtnSoftwareUpdate}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnSoftwareUpdate_Click"/>
-                <Button x:Name="BtnConfig" Content="{DynamicResource BtnConfig}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnConfig_Click"/>
-                <Button x:Name="BtnScreenshot" Content="{DynamicResource BtnScreenshot}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnScreenshot_Click"/>
+            <WrapPanel x:Name="MainFooterButtons" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button x:Name="BtnRefresh" Content="{DynamicResource BtnRefresh}" HorizontalAlignment="Left" Height="40" Margin="4" VerticalAlignment="Center" Width="80" Click="BtnRefresh_Click"/>
+                <Button x:Name="BtnOpen" Content="{DynamicResource BtnOpen}" HorizontalAlignment="Left" Height="40" Margin="4" VerticalAlignment="Center" Width="80" Click="BtnOpen_Click"/>
+                <Button x:Name="BtnHistory" Content="{DynamicResource BtnHistory}" HorizontalAlignment="Left" Height="40" Margin="4" VerticalAlignment="Center" Width="80" Click="BtnHistory_Click"/>
+                <Button x:Name="BtnSoftwareUpdate" Content="{DynamicResource BtnSoftwareUpdate}" HorizontalAlignment="Left" Height="40" Margin="4" VerticalAlignment="Center" Width="80" Click="BtnSoftwareUpdate_Click"/>
+                <Button x:Name="BtnConfig" Content="{DynamicResource BtnConfig}" HorizontalAlignment="Left" Height="40" Margin="4" VerticalAlignment="Center" Width="80" Click="BtnConfig_Click"/>
+                <Button x:Name="BtnScreenshot" Content="{DynamicResource BtnScreenshot}" HorizontalAlignment="Left" Height="40" Margin="4" VerticalAlignment="Center" Width="80" Click="BtnScreenshot_Click"/>
             </WrapPanel>
         </Grid>
-        <Grid Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <Border Grid.Column="0" x:Name="CurrentSessionSummaryCard" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="5,0,8,0" Padding="10,4"
+        <Grid x:Name="MainFooterBottom" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="7*"/><ColumnDefinition Width="5*"/></Grid.ColumnDefinitions>
+            <Border Grid.Column="0" x:Name="CurrentSessionSummaryCard" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="5,0,8,0" Padding="10,4" MaxWidth="760"
                     BorderBrush="#CCD6E2" BorderThickness="1" CornerRadius="5" Background="#F8FAFD" Cursor="Hand"
                     MouseLeftButtonDown="CurrentSessionSummaryCard_MouseLeftButtonDown" ToolTip="{DynamicResource MainSessionOpenHint}">
                 <WrapPanel>
@@ -634,7 +633,7 @@
                     <TextBlock Text="PR" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionPr" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,0,0"/>
                 </WrapPanel>
             </Border>
-            <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,0,10,0">
+            <StackPanel x:Name="MainFooterAbout" Grid.Column="1" Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,0,10,0">
                 <TextBlock HorizontalAlignment="Right" FontSize="11">
                     <Run Text="{DynamicResource WindowTitleApeRadar}"/>
                     <Run Text="{Binding Source={x:Static p:Settings.Default}, Mode=OneWay,Path=SoftwareVersion}"/>

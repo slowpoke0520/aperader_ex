@@ -162,9 +162,18 @@ namespace ApeRadar
             }
         }
 
-        public MainWindow()
+        public MainWindow() : this(initializeRuntime: true)
+        {
+        }
+
+        internal MainWindow(bool initializeRuntime)
         {
             InitializeComponent();
+
+            if (!initializeRuntime)
+            {
+                return;
+            }
 
             if (Properties.Settings.Default.DebugMode)
             {

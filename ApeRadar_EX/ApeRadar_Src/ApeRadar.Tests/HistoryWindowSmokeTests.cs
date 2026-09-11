@@ -48,6 +48,7 @@ public sealed class HistoryWindowSmokeTests
                         }
                     }
                     window.Close();
+                    ValidateMainWindowLayout(language);
                 }
                 app.Shutdown();
             }
@@ -87,6 +88,46 @@ public sealed class HistoryWindowSmokeTests
         }
     }
 
+    private static void ValidateMainWindowLayout(string language)
+    {
+        MainWindow window = new(initializeRuntime: false)
+        {
+            WindowState = WindowState.Normal,
+            ShowInTaskbar = false
+        };
+        window.Show();
+        foreach ((double width, double height) in new[] { (1180d, 760d), (1366d, 768d), (1920d, 1040d) })
+        {
+            window.Width = width;
+            window.Height = height;
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+            FrameworkElement messages = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("DataGridNotificationMessages"));
+            FrameworkElement buttons = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("MainFooterButtons"));
+            FrameworkElement summary = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("CurrentSessionSummaryCard"));
+            FrameworkElement about = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("MainFooterAbout"));
+            AssertElementsDoNotOverlap(window, messages, buttons, width, height);
+            AssertElementsDoNotOverlap(window, messages, summary, width, height);
+            AssertElementsDoNotOverlap(window, summary, about, width, height);
+
+            if (Math.Abs(width - 1366) < 0.1)
+            {
+                SaveWindowSnapshot(window, $"main-{language}-{width:0}x{height:0}.png");
+            }
+        }
+        window.Close();
+    }
+
+    private static void AssertElementsDoNotOverlap(Window window, FrameworkElement firstElement, FrameworkElement secondElement, double width, double height)
+    {
+        Rect first = firstElement.TransformToAncestor(window).TransformBounds(new Rect(firstElement.RenderSize));
+        Rect second = secondElement.TransformToAncestor(window).TransformBounds(new Rect(secondElement.RenderSize));
+        Rect overlap = Rect.Intersect(first, second);
+        Assert.False(overlap.Width > 0.5 && overlap.Height > 0.5,
+            $"{firstElement.Name} overlaps {secondElement.Name} at {width}x{height}.");
+    }
+
     private static SessionSummary CreateOneBattleSession()
     {
         BattleRecord battle = new()
@@ -107,6 +148,13 @@ public sealed class HistoryWindowSmokeTests
     {
         string? directory = Environment.GetEnvironmentVariable("APERADAR_UI_SNAPSHOT_DIR");
         if (string.IsNullOrWhiteSpace(directory) || (Math.Abs(width - 860) > 0.1 && Math.Abs(width - 1000) > 0.1)) return;
+        SaveWindowSnapshot(window, $"history-{language}-{width:0}x{height:0}-tab-{tab}.png");
+    }
+
+    private static void SaveWindowSnapshot(Window window, string fileName)
+    {
+        string? directory = Environment.GetEnvironmentVariable("APERADAR_UI_SNAPSHOT_DIR");
+        if (string.IsNullOrWhiteSpace(directory)) return;
         Directory.CreateDirectory(directory);
         int bitmapWidth = Math.Max(1, (int)Math.Ceiling(window.ActualWidth));
         int bitmapHeight = Math.Max(1, (int)Math.Ceiling(window.ActualHeight));
@@ -114,7 +162,7 @@ public sealed class HistoryWindowSmokeTests
         bitmap.Render(window);
         PngBitmapEncoder encoder = new();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using FileStream stream = File.Create(Path.Combine(directory, $"history-{language}-{width:0}x{height:0}-tab-{tab}.png"));
+        using FileStream stream = File.Create(Path.Combine(directory, fileName));
         encoder.Save(stream);
     }
 }
