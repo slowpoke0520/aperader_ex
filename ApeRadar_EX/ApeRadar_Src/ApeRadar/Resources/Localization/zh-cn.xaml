@@ -36,7 +36,7 @@
     <system:String x:Key="BtnDefault">默认</system:String>
     <system:String x:Key="BtnInsert">插入</system:String>
     <system:String x:Key="BtnBrowse">浏览</system:String>
-    <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">检查软件更新</TextBlock>
+    <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">检查并更新</TextBlock>
     <TextBlock x:Key="BtnUpdateShipList" TextAlignment="Center">更新船名列表</TextBlock>
     <system:String x:Key="BtnRefresh">刷新</system:String>
     <system:String x:Key="BtnSoftwareUpdate">软件更新</system:String>
@@ -504,12 +504,16 @@
     <system:String x:Key="ListItemNote">备注</system:String>
 
     <system:String x:Key="ChkBoxSecondaryServerEnabled">敌方玩家来自不同的服务器（跨服CW专用）</system:String>
+    <system:String x:Key="LabelSoftwareUpdateChannel">更新渠道</system:String>
+    <system:String x:Key="ToolTipSoftwareUpdateChannel">稳定版只接收正式 Release；开发版可接收预发布版本和正式版本，可能包含尚未充分验证的新功能。</system:String>
+    <system:String x:Key="ComboBoxItemSoftwareUpdateChannelStable">稳定版</system:String>
+    <system:String x:Key="ComboBoxItemSoftwareUpdateChannelDevelopment">开发版</system:String>
     <system:String x:Key="ChkBoxCheckForUpdatesOnStartup">软件启动时自动检查更新</system:String>
-    <system:String x:Key="ToolTipCheckForUpdatesOnStartup">开启后，软件启动时会在后台检查 GitHub Release 是否有新版本；关闭后仍可通过“检查软件更新”手动检查。</system:String>
+    <system:String x:Key="ToolTipCheckForUpdatesOnStartup">开启后，软件启动时会按所选更新渠道在后台检查新版本；只提醒，不会自动安装。关闭后仍可点击“检查并更新”。</system:String>
     <system:String x:Key="ChkBoxShowExperimentalReplayMetrics">显示实验性 Replay 指标</system:String>
     <system:String x:Key="ToolTipShowExperimentalReplayMetrics">开启后显示尚未覆盖所有游戏版本验证的承受伤害和伤害分类。实验值会明确标记，缺失值不会按 0 计算。</system:String>
     <system:String x:Key="BtnViewChangelog">查看更新日志</system:String>
-    <system:String x:Key="TextViewChangelogHint">打开所有版本的更新说明</system:String>
+    <system:String x:Key="TextViewChangelogHint">打开稳定版与开发版的更新说明</system:String>
     <system:String x:Key="ChkBoxIncludePlayerNamesOnlyIfDuplicateShipExists">仅当存在重复船时附带玩家名称</system:String>
     <system:String x:Key="ChkBoxExcludeYourself">输出文本中排除自己</system:String>
     <system:String x:Key="ChkBoxUnlockOutputTextbox">解锁输出文本框</system:String>
@@ -532,6 +536,7 @@
     <system:String x:Key="NotificationMessagePeriod">。</system:String>
     <system:String x:Key="NotificationMessageSoftwareUpdateDownloading">正在启动更新程序，下载和安装进度将在新窗口中显示…</system:String>
     <system:String x:Key="NotificationMessageSoftwareUpdateAlreadyRunning">软件更新检查正在进行，请稍候。</system:String>
+    <system:String x:Key="NotificationMessageSoftwareUpdateAvailable">{1}渠道发现新版本 {0}，点击“软件更新”即可安装。</system:String>
     <system:String x:Key="NotificationMessageShiplistUpdateDownloading">正在下载船名列表更新，请稍候…</system:String>
     <system:String x:Key="NotificationMessageSoftwareUpdateComplete">软件更新完成，即将关闭。重新运行即可使用最新版本。</system:String>
     <system:String x:Key="NotificationMessageShiplistUpdateComplete">船名列表更新完成。</system:String>

@@ -35,6 +35,9 @@
     <Setting Name="CheckForUpdatesOnStartup" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
+    <Setting Name="SoftwareUpdateChannel" Type="System.String" Scope="User">
+      <Value Profile="(Default)">STABLE</Value>
+    </Setting>
     <Setting Name="ShowExperimentalReplayMetrics" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>

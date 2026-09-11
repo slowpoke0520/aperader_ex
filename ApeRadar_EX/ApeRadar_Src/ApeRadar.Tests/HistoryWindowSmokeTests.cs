@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ApeRadar.History;
+using ApeRadar.Utils;
 using ApeRadar.ViewModels;
 using Xunit;
 
@@ -49,6 +50,7 @@ public sealed class HistoryWindowSmokeTests
                     }
                     window.Close();
                     ValidateMainWindowLayout(language);
+                    ValidateConfigWindowLayout(language);
                 }
                 app.Shutdown();
             }
@@ -56,7 +58,7 @@ public sealed class HistoryWindowSmokeTests
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(20)), "The history window constructor did not complete in time.");
+        Assert.True(thread.Join(TimeSpan.FromSeconds(60)), "The history window constructor did not complete in time.");
         Assert.Null(error);
     }
 
@@ -114,6 +116,36 @@ public sealed class HistoryWindowSmokeTests
             if (Math.Abs(width - 1366) < 0.1)
             {
                 SaveWindowSnapshot(window, $"main-{language}-{width:0}x{height:0}.png");
+            }
+        }
+        window.Close();
+    }
+
+    private static void ValidateConfigWindowLayout(string language)
+    {
+        ConfigWindow window = new(initializeRuntime: false)
+        {
+            WindowState = WindowState.Normal,
+            ShowInTaskbar = false
+        };
+        window.ConfigTabs.SelectedIndex = window.ConfigTabs.Items.Count - 1;
+        window.ComboBoxSoftwareUpdateChannel.SelectedValue = SoftwareReleaseSelector.StableSettingValue;
+        window.Show();
+        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
+        Assert.Equal(2, window.ComboBoxSoftwareUpdateChannel.Items.Count);
+        Assert.Equal(1, Grid.GetRow(window.UpdateChannelLabelPanel));
+        Assert.Equal(1, Grid.GetRow(Assert.IsType<Grid>(window.ComboBoxSoftwareUpdateChannel.Parent)));
+        Assert.Equal(3, Grid.GetColumn(Assert.IsType<Grid>(window.ComboBoxSoftwareUpdateChannel.Parent)));
+        Assert.Equal(200, window.ComboBoxSoftwareUpdateChannel.Width);
+        foreach ((double width, double height) in new[] { (900d, 560d), (1100d, 700d) })
+        {
+            window.Width = width;
+            window.Height = height;
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            if (Math.Abs(width - 1100) < 0.1)
+            {
+                SaveWindowSnapshot(window, $"config-advanced-{language}-{width:0}x{height:0}.png");
             }
         }
         window.Close();

@@ -14,6 +14,8 @@ namespace ApeRadar
 {
     partial class ConfigWindow : Window
     {
+        private readonly bool initializeRuntime;
+
         private void LoadSettings()
         {
             ComboBoxGamePath.Text = Properties.Settings.Default.GamePath;
@@ -62,6 +64,7 @@ namespace ApeRadar
             TxtDelimiter.Text = Properties.Settings.Default.OutputTextDelimiter;
             ComboBoxServer.SelectedValue = Properties.Settings.Default.Server;
             ComboBoxShipNameLanguage.SelectedValue = Properties.Settings.Default.ShipNameLanguage;
+            ComboBoxSoftwareUpdateChannel.SelectedValue = SoftwareReleaseSelector.NormalizeChannelSetting(Properties.Settings.Default.SoftwareUpdateChannel);
             ChkBoxCheckForUpdatesOnStartup.IsChecked = Properties.Settings.Default.CheckForUpdatesOnStartup;
             ChkBoxShowExperimentalReplayMetrics.IsChecked = Properties.Settings.Default.ShowExperimentalReplayMetrics;
             LabelShipListVersionDateStr.Content = $"{ShipInfoUtils.GetShipInfoVersion()} ({ShipInfoUtils.GetShipInfoDate()})";
@@ -134,6 +137,8 @@ namespace ApeRadar
                     Properties.Settings.Default.OutputTextDelimiter = TxtDelimiter.Text;
                     Properties.Settings.Default.Server = ComboBoxServer.SelectedValue.ToString();
                     Properties.Settings.Default.ShipNameLanguage = ComboBoxShipNameLanguage.SelectedValue.ToString();
+                    Properties.Settings.Default.SoftwareUpdateChannel = ComboBoxSoftwareUpdateChannel.SelectedValue?.ToString()
+                        ?? SoftwareReleaseSelector.StableSettingValue;
                     Properties.Settings.Default.CheckForUpdatesOnStartup = ChkBoxCheckForUpdatesOnStartup.IsChecked ?? false;
                     Properties.Settings.Default.ShowExperimentalReplayMetrics = ChkBoxShowExperimentalReplayMetrics.IsChecked ?? false;
                     Properties.Settings.Default.OutputTextUnlock = ChkBoxTextOutputUnlocked.IsChecked ?? false;
@@ -245,9 +250,15 @@ namespace ApeRadar
             }
         }
 
-        public ConfigWindow()
+        public ConfigWindow() : this(initializeRuntime: true)
         {
+        }
+
+        internal ConfigWindow(bool initializeRuntime)
+        {
+            this.initializeRuntime = initializeRuntime;
             InitializeComponent();
+            if (!initializeRuntime) return;
             LoadSettings();
             AutoDetectGamePath();
             RefreshWatchList();
@@ -289,7 +300,7 @@ namespace ApeRadar
 
         private void ConfigWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            LoadSettings();
+            if (initializeRuntime) LoadSettings();
         }
 
         private void ChkBoxTextOutputUnlocked_Checked(object sender, RoutedEventArgs e)

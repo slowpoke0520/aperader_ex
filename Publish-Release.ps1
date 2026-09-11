@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidatePattern('^\d+\.\d+\.\d+-ex\.\d+$')]
+    [ValidatePattern('^\d+\.\d+\.\d+-ex\.\d+(?:-(?:dev|alpha|beta|rc)\.\d+)?$')]
     [string]$Version,
 
     [string]$ReleaseDate = (Get-Date -Format 'yyyyMMdd')

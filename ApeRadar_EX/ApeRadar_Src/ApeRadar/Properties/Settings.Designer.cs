@@ -40,7 +40,7 @@ namespace ApeRadar.Properties {
                 return ((string)(this["SoftwareDate"]));
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -136,7 +136,7 @@ namespace ApeRadar.Properties {
                 this["MaximumRetryAttemptsOnError"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
@@ -643,6 +643,17 @@ namespace ApeRadar.Properties {
             }
         }
         
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("STABLE")]
+        public string SoftwareUpdateChannel {
+            get {
+                return ((string)(this["SoftwareUpdateChannel"]));
+            }
+            set {
+                this["SoftwareUpdateChannel"] = value;
+            }
+        }
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]

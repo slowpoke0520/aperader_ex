@@ -36,7 +36,7 @@
     <system:String x:Key="BtnDefault">Default</system:String>
     <system:String x:Key="BtnInsert">Insert</system:String>
     <system:String x:Key="BtnBrowse">Browse</system:String>
-    <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">Check App<LineBreak/>Update</TextBlock>
+    <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">Check &amp;<LineBreak/>Update</TextBlock>
     <TextBlock x:Key="BtnUpdateShipList" TextAlignment="Center">Update<LineBreak/>Ship List</TextBlock>
     <system:String x:Key="BtnRefresh">Refresh</system:String>
     <system:String x:Key="BtnSoftwareUpdate">Update app</system:String>
@@ -504,12 +504,16 @@
     <system:String x:Key="ListItemNote">Note</system:String>
 
     <system:String x:Key="ChkBoxSecondaryServerEnabled">Enemies from Different Server (for Cross-Server CW Only)</system:String>
+    <system:String x:Key="LabelSoftwareUpdateChannel">Update channel</system:String>
+    <system:String x:Key="ToolTipSoftwareUpdateChannel">Stable receives official Releases only. Development also receives prereleases, which may contain features that have not been fully verified.</system:String>
+    <system:String x:Key="ComboBoxItemSoftwareUpdateChannelStable">Stable</system:String>
+    <system:String x:Key="ComboBoxItemSoftwareUpdateChannelDevelopment">Development</system:String>
     <system:String x:Key="ChkBoxCheckForUpdatesOnStartup">Check for Updates on Startup</system:String>
-    <system:String x:Key="ToolTipCheckForUpdatesOnStartup">When enabled, ApeRadar checks GitHub Releases in the background at startup. You can still check manually with Check App Update when disabled.</system:String>
+    <system:String x:Key="ToolTipCheckForUpdatesOnStartup">Checks the selected channel at startup and only notifies you; it never installs automatically. You can still use Check &amp; Update when disabled.</system:String>
     <system:String x:Key="ChkBoxShowExperimentalReplayMetrics">Show experimental Replay metrics</system:String>
     <system:String x:Key="ToolTipShowExperimentalReplayMetrics">Shows damage-taken and breakdown values that are not yet verified across every game version. Experimental values are labelled and missing values never count as zero.</system:String>
     <system:String x:Key="BtnViewChangelog">View changelog</system:String>
-    <system:String x:Key="TextViewChangelogHint">Open release notes for all versions</system:String>
+    <system:String x:Key="TextViewChangelogHint">Open release notes for stable and development builds</system:String>
     <system:String x:Key="ChkBoxIncludePlayerNamesOnlyIfDuplicateShipExists">Include Player Names only if Duplicate Ships Exists</system:String>
     <system:String x:Key="ChkBoxExcludeYourself">Exclude Yourself</system:String>
     <system:String x:Key="ChkBoxUnlockOutputTextbox">Unlock Output Textbox</system:String>
@@ -532,6 +536,7 @@
     <system:String x:Key="NotificationMessagePeriod">.</system:String>
     <system:String x:Key="NotificationMessageSoftwareUpdateDownloading">Starting the updater. Download and installation progress will appear in a new window...</system:String>
     <system:String x:Key="NotificationMessageSoftwareUpdateAlreadyRunning">A software update check is already running.</system:String>
+    <system:String x:Key="NotificationMessageSoftwareUpdateAvailable">Version {0} is available on the {1} channel. Click Update app to install it.</system:String>
     <system:String x:Key="NotificationMessageShiplistUpdateDownloading">Downloading shiplist update, please wait...</system:String>
     <system:String x:Key="NotificationMessageSoftwareUpdateComplete">Software update complete and will be closed. Run again to use the latest version.</system:String>
     <system:String x:Key="NotificationMessageShiplistUpdateComplete">Shiplist update complete.</system:String>
