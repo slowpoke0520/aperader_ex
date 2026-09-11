@@ -115,7 +115,7 @@ ApeRadar EX 是《战舰世界》玩家战绩查看工具 ApeRadar 的社区增�
 - **更新船名列表**：更新 `Resources/Json/ships.json`，用于识别新版本加入或修改的舰船。
 - **更新 PR 数据**：更新 `Resources/Json/expected_values.json`，用于计算 PR。
 
-软件更新会保留 `WatchList.json`、玩家缓存、遭遇历史、窗口位置、日志、截图，以及已经单独更新的船名列表和 PR 数据。安装新版本前会备份将被替换的程序文件；安装或启动验证失败时，更新器会恢复原版本并尝试重新启动它。错误详情写入 `%LocalAppData%\ApeRadar EX\Update\UpdateError.log`。
+软件更新会保留 `WatchList.json`、玩家缓存、遭遇历史、窗口位置、日志和截图。船名列表与 PR 数据按版本选择：本机数据比安装包更新时保留本机文件，本机数据较旧或同版本时使用安装包文件。安装新版本前会备份将被替换的程序文件；安装或启动验证失败时，更新器会恢复原版本并尝试重新启动它。错误详情写入 `%LocalAppData%\ApeRadar EX\Update\UpdateError.log`。
 
 > **从 2.1.1-ex.7 / 2.1.1-ex.8 升级的特别说明：** 这两个版本自带的旧更新器存在主程序未完全退出后仍继续覆盖文件的问题，因此它们无法靠自身可靠地安装首个修复版本。请先从 GitHub Releases 手动下载一次新的完整压缩包，退出所有 ApeRadar 窗口后解压覆盖；完成这一次升级后，后续版本即可使用带进度和回滚保护的软件内更新。
 
@@ -132,6 +132,7 @@ ApeRadar EX 是《战舰世界》玩家战绩查看工具 ApeRadar 的社区增�
 | `%LocalAppData%\ApeRadar EX\History\history.db` | 对局、时段、阵容、高级指标、复盘备注、Replay 状态、单船快照和待补查任务 |
 | `Resources/Json/ships.json` | 舰船名称与基础信息 |
 | `Resources/Json/expected_values.json` | PR 期望值数据 |
+| `Resources/Json/release_data.json` | 发布包内置数据的版本、来源提交与 SHA-256 |
 
 建议升级或迁移程序前备份 `WatchList.json`。
 
@@ -186,6 +187,8 @@ git push origin v2.1.1-ex.10
 ```
 
 GitHub Actions 会自动构建并创建 Release。发布脚本会先运行测试，再分别生成主程序和单文件独立更新器。当前游戏版本的真实 Replay 端到端验证未通过时，不应推送正式版本标签。更完整的流程参见 [发布更新说明](./发布更新说明.md)。
+
+每次运行发布脚本都会先执行 `Update-ReleaseData.ps1`：从 `wowsinfo/data` 选择版本号最高的正式服非 PT 标签生成中英文船名列表，并从 `wowsinfo/WoWs-Info-Seven` 的 `API` 分支固定最新 PR 文件提交。脚本会检查版本防回退、舰船数量、必需字段、可用 PR 条目和发布目录文件哈希；网络、格式或校验失败会终止发布，不会用旧数据继续打包。生成的 `ships.json`、`expected_values.json` 与 `release_data.json` 应随发布提交一起提交，确保源码与发布包可追溯。
 
 ## 数据来源与声明
 

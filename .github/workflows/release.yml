@@ -20,6 +20,8 @@ jobs:
 
       - name: Build update package
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
           .\Publish-Release.ps1 -Version $version

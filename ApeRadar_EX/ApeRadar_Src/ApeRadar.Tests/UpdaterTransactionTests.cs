@@ -20,10 +20,10 @@ public sealed class UpdaterTransactionTests : IDisposable
         Write(install, "ApeRadar.dll", "old managed file");
         Write(source, "WatchList.json", "release default");
         Write(install, "WatchList.json", "user watch list");
-        Write(source, Path.Combine("Resources", "Json", "ships.json"), "release ships");
-        Write(install, Path.Combine("Resources", "Json", "ships.json"), "newer user ships");
-        Write(source, Path.Combine("Resources", "Json", "expected_values.json"), "release PR data");
-        Write(install, Path.Combine("Resources", "Json", "expected_values.json"), "newer user PR data");
+        Write(source, Path.Combine("Resources", "Json", "ships.json"), "{\"date\":\"20260910\",\"ships\":{}}");
+        Write(install, Path.Combine("Resources", "Json", "ships.json"), "{\"date\":\"20260911\",\"ships\":{}}");
+        Write(source, Path.Combine("Resources", "Json", "expected_values.json"), "{\"time\":200,\"data\":{}}");
+        Write(install, Path.Combine("Resources", "Json", "expected_values.json"), "{\"time\":201,\"data\":{}}");
         Write(source, "PlayerDataCache.json", "release cache default");
 
         using UpdateFileTransaction transaction = new(source, install, backup, new UpdateStrings("ZH_CN"));
@@ -32,9 +32,28 @@ public sealed class UpdaterTransactionTests : IDisposable
 
         Assert.Equal("new managed file", Read(install, "ApeRadar.dll"));
         Assert.Equal("user watch list", Read(install, "WatchList.json"));
-        Assert.Equal("newer user ships", Read(install, Path.Combine("Resources", "Json", "ships.json")));
-        Assert.Equal("newer user PR data", Read(install, Path.Combine("Resources", "Json", "expected_values.json")));
+        Assert.Contains("20260911", Read(install, Path.Combine("Resources", "Json", "ships.json")));
+        Assert.Contains("201", Read(install, Path.Combine("Resources", "Json", "expected_values.json")));
         Assert.Equal("release cache default", Read(install, "PlayerDataCache.json"));
+    }
+
+    [Fact]
+    public void Apply_ReplacesOlderInstalledShipAndPrData()
+    {
+        string source = Directory.CreateDirectory(Path.Combine(root, "source")).FullName;
+        string install = Directory.CreateDirectory(Path.Combine(root, "install")).FullName;
+        string backup = Path.Combine(root, "backup");
+        Write(source, Path.Combine("Resources", "Json", "ships.json"), "{\"date\":\"20260910\",\"marker\":\"release\"}");
+        Write(install, Path.Combine("Resources", "Json", "ships.json"), "{\"date\":\"20260901\",\"marker\":\"installed\"}");
+        Write(source, Path.Combine("Resources", "Json", "expected_values.json"), "{\"time\":200,\"marker\":\"release\"}");
+        Write(install, Path.Combine("Resources", "Json", "expected_values.json"), "{\"time\":199,\"marker\":\"installed\"}");
+
+        using UpdateFileTransaction transaction = new(source, install, backup, new UpdateStrings("ZH_CN"));
+        transaction.Apply();
+        transaction.Commit();
+
+        Assert.Contains("release", Read(install, Path.Combine("Resources", "Json", "ships.json")));
+        Assert.Contains("release", Read(install, Path.Combine("Resources", "Json", "expected_values.json")));
     }
 
     [Fact]

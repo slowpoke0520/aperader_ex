@@ -18,10 +18,12 @@ $appConfigFile = Join-Path $projectDir 'App.config'
 $publishDir = Join-Path $projectDir 'bin\Release\net8.0-windows\win-x64\publish'
 $updaterPublishDir = Join-Path (Split-Path $updaterProject) 'bin\Release\net8.0-windows\win-x64\publish'
 $artifactsDir = Join-Path $repoRoot 'artifacts'
-$packageRoot = Join-Path $artifactsDir 'package\ApeRadar'
+$packageStagingDir = Join-Path $artifactsDir "package-$([Guid]::NewGuid().ToString('N'))"
+$packageRoot = Join-Path $packageStagingDir 'ApeRadar'
 $archivePath = Join-Path $artifactsDir 'ApeRadar-win-x64.zip'
 $assemblyVersion = $Version.Split('-')[0] + '.0'
 $changeLogFile = Join-Path $repoRoot 'CHANGELOG.md'
+$releaseDataScript = Join-Path $repoRoot 'Update-ReleaseData.ps1'
 
 if (-not (Test-Path -LiteralPath $changeLogFile)) {
     throw 'CHANGELOG.md is required before publishing'
@@ -31,6 +33,12 @@ $escapedVersion = [regex]::Escape($Version)
 if ($changeLog -notmatch "(?m)^## \[$escapedVersion\]") {
     throw "CHANGELOG.md does not contain a release section for $Version"
 }
+
+if (-not (Test-Path -LiteralPath $releaseDataScript)) {
+    throw 'Update-ReleaseData.ps1 is required before publishing'
+}
+Write-Host 'Refreshing and validating release data...'
+& $releaseDataScript -ProjectJsonDirectory (Join-Path $projectDir 'Resources\Json')
 
 function Update-TextFile([string]$Path, [scriptblock]$Transform) {
     $content = [IO.File]::ReadAllText($Path)
@@ -86,15 +94,33 @@ dotnet publish $updaterProject --configuration Release --runtime win-x64 --self-
 if ($LASTEXITCODE -ne 0) { throw 'updater publish failed' }
 Copy-Item -LiteralPath (Join-Path $updaterPublishDir 'ApeRadar.Updater.exe') -Destination $publishDir -Force
 
-if (Test-Path -LiteralPath $packageRoot) {
-    Remove-Item -LiteralPath $packageRoot -Recurse -Force
+foreach ($dataFileName in @('ships.json', 'expected_values.json', 'release_data.json')) {
+    $sourceDataFile = Join-Path $projectDir "Resources\Json\$dataFileName"
+    $publishedDataFile = Join-Path $publishDir "Resources\Json\$dataFileName"
+    if (-not (Test-Path -LiteralPath $publishedDataFile) -or
+        (Get-FileHash -LiteralPath $sourceDataFile -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $publishedDataFile -Algorithm SHA256).Hash) {
+        throw "Published data verification failed: $dataFileName"
+    }
 }
+
 if (Test-Path -LiteralPath $archivePath) {
     Remove-Item -LiteralPath $archivePath -Force
 }
-New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
-Copy-Item -Path (Join-Path $publishDir '*') -Destination $packageRoot -Recurse -Force
-Compress-Archive -Path (Join-Path $artifactsDir 'package\ApeRadar') -DestinationPath $archivePath -CompressionLevel Optimal
+$resolvedArtifactsDir = [IO.Path]::GetFullPath($artifactsDir).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+$resolvedStagingDir = [IO.Path]::GetFullPath($packageStagingDir)
+if (-not $resolvedStagingDir.StartsWith($resolvedArtifactsDir, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Unsafe release package staging path'
+}
+try {
+    New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
+    Copy-Item -Path (Join-Path $publishDir '*') -Destination $packageRoot -Recurse -Force
+    Compress-Archive -Path $packageRoot -DestinationPath $archivePath -CompressionLevel Optimal
+}
+finally {
+    if (Test-Path -LiteralPath $resolvedStagingDir) {
+        Remove-Item -LiteralPath $resolvedStagingDir -Recurse -Force
+    }
+}
 
 Write-Host "Release package created: $archivePath"
 Write-Host "Create and push tag v$Version to publish it automatically."
