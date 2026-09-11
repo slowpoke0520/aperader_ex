@@ -34,7 +34,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("20260909")]
+        [global::System.Configuration.DefaultSettingValueAttribute("20260911")]
         public string SoftwareDate {
             get {
                 return ((string)(this["SoftwareDate"]));
