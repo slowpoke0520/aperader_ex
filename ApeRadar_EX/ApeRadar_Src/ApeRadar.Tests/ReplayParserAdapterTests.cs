@@ -42,6 +42,30 @@ public sealed class ReplayParserAdapterTests : IDisposable
     }
 
     [Fact]
+    public async Task ReconnectSegments_WithSameRosterUseSameFallbackBattleKey()
+    {
+        Directory.CreateDirectory(directory);
+        string first = Path.Combine(directory, "first.wowsreplay");
+        string second = Path.Combine(directory, "second.wowsreplay");
+        const string firstHeader = """
+            {"matchGroup":"pvp","playerName":"Tester","dateTime":"11.09.2026 12:00:00","mapName":"ocean","vehicles":[{"name":"Tester","shipId":101},{"name":"Other","shipId":202}]}
+            """;
+        const string secondHeader = """
+            {"matchGroup":"pvp","playerName":"Tester","dateTime":"11.09.2026 12:08:00","mapName":"ocean","vehicles":[{"name":"Other","shipId":202},{"name":"Tester","shipId":101}]}
+            """;
+        await WriteReplayStubAsync(first, firstHeader);
+        await WriteReplayStubAsync(second, secondHeader);
+
+        using NodsoftReplayParserAdapter parser = new();
+        ReplayParseResult firstResult = await parser.ParseAsync(first);
+        ReplayParseResult secondResult = await parser.ParseAsync(second);
+
+        Assert.NotEqual(firstResult.FileHash, secondResult.FileHash);
+        Assert.Equal(firstResult.RosterSignature, secondResult.RosterSignature);
+        Assert.Equal(firstResult.BattleKey, secondResult.BattleKey);
+    }
+
+    [Fact]
     public void DamageStats_KeepEnemyPotentialAndExperimentalReceivedDamageSeparate()
     {
         BattleHistoryReplay replay = new();
@@ -73,6 +97,35 @@ public sealed class ReplayParserAdapterTests : IDisposable
     }
 
     [Fact]
+    public void EarlyExitAfterDeath_KeepsDamageAndFragsRecordedBeforeExit()
+    {
+        const uint ownShipId = 101;
+        BattleHistoryReplay replay = new() { DamageStatsSeen = true };
+        replay.EnemyDamageByType[1] = 75_500;
+        replay.VehicleDeaths.Add(new VehicleDeathEvent(202, ownShipId, 0, 180));
+        replay.VehicleDeaths.Add(new VehicleDeathEvent(ownShipId, 303, 0, 420));
+
+        bool found = NodsoftReplayParserAdapter.TryFindEarlyExitMetrics(replay, ownShipId, out long? damage, out double? frags);
+
+        Assert.True(found);
+        Assert.Equal(75_500, damage);
+        Assert.Equal(1, frags);
+    }
+
+    [Fact]
+    public void DisconnectWhileAlive_DoesNotTreatPartialMetricsAsFinal()
+    {
+        BattleHistoryReplay replay = new() { DamageStatsSeen = true };
+        replay.EnemyDamageByType[1] = 12_000;
+
+        bool found = NodsoftReplayParserAdapter.TryFindEarlyExitMetrics(replay, 101, out long? damage, out double? frags);
+
+        Assert.False(found);
+        Assert.Null(damage);
+        Assert.Null(frags);
+    }
+
+    [Fact]
     public async Task LocalReplayDirectory_WhenConfigured_ParsesWithoutLeakingFixturesIntoTheRepository()
     {
         string? replayDirectory = Environment.GetEnvironmentVariable("APERADAR_REPLAY_TEST_DIR");
@@ -85,7 +138,7 @@ public sealed class ReplayParserAdapterTests : IDisposable
         {
             ReplayParseResult result = await parser.ParseAsync(file);
             string types = string.Join(',', result.DamageBreakdowns.Where(x => x.Direction == DamageDirection.Dealt).Select(x => $"{x.RawTypeCode}:{x.Damage}"));
-            output.WriteLine($"{Path.GetFileName(file)} | {result.Status} | {result.ErrorCode} | survival={result.AdvancedMetrics.Survived} | potential={result.AdvancedMetrics.PotentialDamage} | taken={result.AdvancedMetrics.DamageTaken} | dealtTypes={types}");
+            output.WriteLine($"{Path.GetFileName(file)} | {result.Status} | {result.ErrorCode} | damage={result.Damage} | frags={result.Frags} | survival={result.AdvancedMetrics.Survived} | potential={result.AdvancedMetrics.PotentialDamage} | taken={result.AdvancedMetrics.DamageTaken} | dealtTypes={types} | error={result.ErrorMessage}");
             if (result.ErrorCode != "NotRandomBattle") randomBattles.Add(result);
         }
         Assert.NotEmpty(randomBattles);
@@ -95,5 +148,15 @@ public sealed class ReplayParserAdapterTests : IDisposable
     public void Dispose()
     {
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
+    }
+
+    private static async Task WriteReplayStubAsync(string path, string json)
+    {
+        byte[] header = Encoding.UTF8.GetBytes(json);
+        await using FileStream stream = File.Create(path);
+        await stream.WriteAsync(new byte[8]);
+        await stream.WriteAsync(BitConverter.GetBytes(header.Length));
+        await stream.WriteAsync(header);
+        await stream.WriteAsync(new byte[] { 1, 2, 3, 4 });
     }
 }

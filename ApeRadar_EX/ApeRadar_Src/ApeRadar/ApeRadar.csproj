@@ -40,7 +40,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.20" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Nodsoft.WowsReplaysUnpack" Version="3.0.40-beta" />
+    <PackageReference Include="Nodsoft.WowsReplaysUnpack" Version="3.0.45-beta" />
     <PackageReference Include="Razorvine.Pickle" Version="1.5.0" />
     <PackageReference Include="RestoreWindowPlace" Version="2.1.0" />
   </ItemGroup>

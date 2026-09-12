@@ -12,8 +12,9 @@ namespace ApeRadar.History
 {
     internal sealed class SqliteHistoryRepository : IHistoryRepository
     {
-        private const int CurrentSchemaVersion = 2;
+        private const int CurrentSchemaVersion = 3;
         private static readonly TimeSpan SessionGap = TimeSpan.FromMinutes(45);
+        private const int ReconnectMergeWindowSeconds = 20 * 60;
         private readonly SemaphoreSlim writeLock = new(1, 1);
         private bool initialized;
 
@@ -90,6 +91,7 @@ namespace ApeRadar.History
                     AccountName TEXT NOT NULL,
                     ShipId TEXT NOT NULL,
                     ShipName TEXT NOT NULL,
+                    RosterSignature TEXT NOT NULL DEFAULT '',
                     Result INTEGER NOT NULL,
                     WinCount REAL NULL,
                     Damage INTEGER NULL,
@@ -211,6 +213,18 @@ namespace ApeRadar.History
                 INSERT OR IGNORE INTO SchemaMigrations(Version, AppliedAt) VALUES(2, strftime('%Y-%m-%dT%H:%M:%fZ','now'));
                 """;
             await ExecuteAsync(connection, null, v2Sql, cancellationToken);
+            if (!await ColumnExistsAsync(connection, "Battles", "RosterSignature", cancellationToken))
+                await ExecuteAsync(connection, null, "ALTER TABLE Battles ADD COLUMN RosterSignature TEXT NOT NULL DEFAULT '';", cancellationToken);
+            await ExecuteAsync(connection, null, """
+                UPDATE Battles SET RosterSignature=COALESCE((
+                    SELECT group_concat(RosterEntry,'|') FROM (
+                        SELECT lower(AccountName) || ':' || ShipId AS RosterEntry
+                        FROM BattlePlayers WHERE BattleId=Battles.Id
+                        ORDER BY lower(AccountName),ShipId
+                    )
+                ),'') WHERE RosterSignature='';
+                INSERT OR IGNORE INTO SchemaMigrations(Version, AppliedAt) VALUES(3, strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+                """, cancellationToken);
             await BackfillSessionsAsync(connection, cancellationToken);
         }
 
@@ -250,19 +264,30 @@ namespace ApeRadar.History
         public async Task<long> UpsertDraftAsync(BattleRecord battle, IReadOnlyCollection<BattlePlayerRecord> players, ShipStatSnapshot? snapshot, CancellationToken cancellationToken = default)
         {
             await EnsureInitialized(cancellationToken);
+            string rosterSignature = CreateRosterSignature(players);
+            if (!string.IsNullOrWhiteSpace(rosterSignature)) battle.RosterSignature = rosterSignature;
             await writeLock.WaitAsync(cancellationToken);
             try
             {
                 await using SqliteConnection connection = new(ConnectionString);
                 await connection.OpenAsync(cancellationToken);
                 await using SqliteTransaction transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+                BattleRecord? reconnect = await FindReconnectCandidateAsync(connection, transaction, battle, cancellationToken);
+                if (reconnect != null)
+                {
+                    battle.BattleKey = reconnect.BattleKey;
+                    battle.StartedAt = reconnect.StartedAt;
+                    battle.SessionId = reconnect.SessionId;
+                }
                 const string upsert = """
-                    INSERT INTO Battles(SessionId,BattleKey,StartedAt,Server,Mode,MapName,AccountId,AccountName,ShipId,ShipName,Result,WinCount,Damage,Frags,BattleCount,Source,Completeness,ReplayHash,ReplayVersion,StatusMessage,UpdatedAt)
-                    VALUES($session,$key,$started,$server,$mode,$map,$accountId,$accountName,$shipId,$shipName,$result,$wins,$damage,$frags,$count,$source,$complete,$hash,$version,$status,$updated)
+                    INSERT INTO Battles(SessionId,BattleKey,StartedAt,Server,Mode,MapName,AccountId,AccountName,ShipId,ShipName,RosterSignature,Result,WinCount,Damage,Frags,BattleCount,Source,Completeness,ReplayHash,ReplayVersion,StatusMessage,UpdatedAt)
+                    VALUES($session,$key,$started,$server,$mode,$map,$accountId,$accountName,$shipId,$shipName,$roster,$result,$wins,$damage,$frags,$count,$source,$complete,$hash,$version,$status,$updated)
                     ON CONFLICT(BattleKey) DO UPDATE SET
                         Server=excluded.Server, Mode=excluded.Mode, MapName=excluded.MapName,
                         AccountId=excluded.AccountId, AccountName=excluded.AccountName,
-                        ShipId=excluded.ShipId, ShipName=excluded.ShipName, UpdatedAt=excluded.UpdatedAt
+                        ShipId=excluded.ShipId, ShipName=excluded.ShipName,
+                        RosterSignature=CASE WHEN excluded.RosterSignature<>'' THEN excluded.RosterSignature ELSE Battles.RosterSignature END,
+                        UpdatedAt=excluded.UpdatedAt
                     RETURNING Id;
                     """;
                 await using SqliteCommand command = connection.CreateCommand();
@@ -306,21 +331,31 @@ namespace ApeRadar.History
             command.CommandText = """
                 SELECT * FROM Battles
                 WHERE ReplayHash=$hash OR BattleKey=$key OR (
-                    Completeness IN ($pending,$unsupported)
+                    (Completeness=$pending OR EXISTS(
+                        SELECT 1 FROM ReplayFiles
+                        WHERE BattleId=Battles.Id AND ErrorCode IN ('BattleNotFinished','BattleExitedAfterDeath')
+                    ))
+                    AND Source IN ($metadata,$derived)
                     AND ($account='' OR lower(AccountName)=lower($account))
                     AND ($ship='' OR ShipId=$ship)
-                    AND ($started='' OR abs(strftime('%s',StartedAt)-strftime('%s',$started)) <= 900)
+                    AND ($map='' OR MapName='' OR lower(MapName)=lower($map))
+                    AND ($roster='' OR RosterSignature='' OR RosterSignature=$roster)
+                    AND ($started='' OR abs(strftime('%s',StartedAt)-strftime('%s',$started)) <= $mergeWindow)
                 )
-                ORDER BY CASE WHEN ReplayHash=$hash THEN 0 WHEN BattleKey=$key THEN 1 ELSE 2 END,
-                         abs(strftime('%s',StartedAt)-strftime('%s',$started)) LIMIT 1
+                ORDER BY CASE WHEN ReplayHash=$hash THEN 0 WHEN BattleKey=$key THEN 1 WHEN ReplayHash IS NOT NULL THEN 2 ELSE 3 END,
+                         StartedAt LIMIT 1
                 """;
             command.Parameters.AddWithValue("$hash", replay.FileHash);
             command.Parameters.AddWithValue("$key", replay.BattleKey);
             command.Parameters.AddWithValue("$pending", (int)BattleCompleteness.Pending);
-            command.Parameters.AddWithValue("$unsupported", (int)BattleCompleteness.Unsupported);
+            command.Parameters.AddWithValue("$metadata", (int)BattleMetricSource.MetadataOnly);
+            command.Parameters.AddWithValue("$derived", (int)BattleMetricSource.ReplayDerived);
             command.Parameters.AddWithValue("$account", replay.AccountName);
             command.Parameters.AddWithValue("$ship", replay.ShipId);
+            command.Parameters.AddWithValue("$map", replay.MapName);
+            command.Parameters.AddWithValue("$roster", replay.RosterSignature);
             command.Parameters.AddWithValue("$started", replay.StartedAt?.UtcDateTime.ToString("O") ?? "");
+            command.Parameters.AddWithValue("$mergeWindow", ReconnectMergeWindowSeconds);
             await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
             return await reader.ReadAsync(cancellationToken) ? ReadBattle(reader) : null;
         }
@@ -343,13 +378,16 @@ namespace ApeRadar.History
                 };
                 await ExecuteAsync(connection, transaction, """
                     UPDATE Battles SET Result=$result,WinCount=$wins,Damage=$damage,Frags=$frags,Source=$source,Completeness=$complete,
+                        RosterSignature=CASE WHEN $roster<>'' THEN $roster ELSE RosterSignature END,
                         ReplayHash=$hash,ReplayVersion=$version,StatusMessage=$message,UpdatedAt=$updated WHERE Id=$id
                     """, cancellationToken,
                     ("$result", (int)replay.Result), ("$wins", replay.Result == BattleResult.Win ? 1 : replay.Result is BattleResult.Loss or BattleResult.Draw or BattleResult.UnknownNonWin ? 0 : null),
                     ("$damage", replay.Damage), ("$frags", replay.Frags),
                     ("$source", (int)replay.Source), ("$complete", (int)completeness), ("$hash", replay.FileHash),
-                    ("$version", replay.GameVersion), ("$message", replay.ErrorMessage), ("$updated", DateTimeOffset.UtcNow.UtcDateTime.ToString("O")), ("$id", battleId));
+                    ("$roster", replay.RosterSignature), ("$version", replay.GameVersion), ("$message", replay.ErrorMessage),
+                    ("$updated", DateTimeOffset.UtcNow.UtcDateTime.ToString("O")), ("$id", battleId));
                 await UpsertReplayAsync(connection, transaction, battleId, replay, replayPath, cancellationToken);
+                await DeleteReconnectDraftsAsync(connection, transaction, battleId, cancellationToken);
                 replay.AdvancedMetrics.BattleId = battleId;
                 await UpsertAdvancedMetricsAsync(connection, transaction, replay.AdvancedMetrics, cancellationToken);
                 await ExecuteAsync(connection, transaction, "DELETE FROM BattleDamageBreakdowns WHERE BattleId=$id", cancellationToken, ("$id", battleId));
@@ -910,6 +948,7 @@ namespace ApeRadar.History
             command.Parameters.AddWithValue("$accountName", battle.AccountName);
             command.Parameters.AddWithValue("$shipId", battle.ShipId);
             command.Parameters.AddWithValue("$shipName", battle.ShipName);
+            command.Parameters.AddWithValue("$roster", battle.RosterSignature);
             command.Parameters.AddWithValue("$result", (int)battle.Result);
             command.Parameters.AddWithValue("$wins", battle.WinCount ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("$damage", battle.Damage ?? (object)DBNull.Value);
@@ -932,7 +971,8 @@ namespace ApeRadar.History
             Server = reader.GetString(reader.GetOrdinal("Server")), Mode = reader.GetString(reader.GetOrdinal("Mode")),
             MapName = reader.GetString(reader.GetOrdinal("MapName")), AccountId = reader.GetString(reader.GetOrdinal("AccountId")),
             AccountName = reader.GetString(reader.GetOrdinal("AccountName")), ShipId = reader.GetString(reader.GetOrdinal("ShipId")),
-            ShipName = reader.GetString(reader.GetOrdinal("ShipName")), Result = (BattleResult)reader.GetInt32(reader.GetOrdinal("Result")),
+            ShipName = reader.GetString(reader.GetOrdinal("ShipName")), RosterSignature = reader.GetString(reader.GetOrdinal("RosterSignature")),
+            Result = (BattleResult)reader.GetInt32(reader.GetOrdinal("Result")),
             WinCount = reader.IsDBNull(reader.GetOrdinal("WinCount")) ? null : reader.GetDouble(reader.GetOrdinal("WinCount")),
             Damage = reader.IsDBNull(reader.GetOrdinal("Damage")) ? null : reader.GetInt64(reader.GetOrdinal("Damage")),
             Frags = reader.IsDBNull(reader.GetOrdinal("Frags")) ? null : reader.GetDouble(reader.GetOrdinal("Frags")),
@@ -985,6 +1025,76 @@ namespace ApeRadar.History
             return reader.IsDBNull(ordinal) ? null : reader.GetDouble(ordinal);
         }
 
+        private static async Task<BattleRecord?> FindReconnectCandidateAsync(SqliteConnection connection, SqliteTransaction transaction, BattleRecord battle, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(battle.RosterSignature)) return null;
+            await using SqliteCommand command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                SELECT * FROM Battles
+                WHERE BattleKey<>$key
+                  AND Completeness IN ($pending,$partial,$unsupported,$failed)
+                  AND Source IN ($metadata,$derived)
+                  AND EXISTS(
+                      SELECT 1 FROM ReplayFiles
+                      WHERE BattleId=Battles.Id AND ErrorCode IN ('BattleNotFinished','BattleExitedAfterDeath')
+                  )
+                  AND (Server=$server OR Server='AUTO' OR $server='AUTO')
+                  AND lower(AccountName)=lower($account)
+                  AND ShipId=$ship
+                  AND ($map='' OR MapName='' OR lower(MapName)=lower($map))
+                  AND RosterSignature=$roster
+                  AND strftime('%s',$started)-strftime('%s',StartedAt) BETWEEN 0 AND $mergeWindow
+                ORDER BY CASE WHEN ReplayHash IS NOT NULL THEN 0 ELSE 1 END, StartedAt
+                LIMIT 1
+                """;
+            command.Parameters.AddWithValue("$key", battle.BattleKey);
+            command.Parameters.AddWithValue("$pending", (int)BattleCompleteness.Pending);
+            command.Parameters.AddWithValue("$partial", (int)BattleCompleteness.Partial);
+            command.Parameters.AddWithValue("$unsupported", (int)BattleCompleteness.Unsupported);
+            command.Parameters.AddWithValue("$failed", (int)BattleCompleteness.Failed);
+            command.Parameters.AddWithValue("$metadata", (int)BattleMetricSource.MetadataOnly);
+            command.Parameters.AddWithValue("$derived", (int)BattleMetricSource.ReplayDerived);
+            command.Parameters.AddWithValue("$server", battle.Server);
+            command.Parameters.AddWithValue("$account", battle.AccountName);
+            command.Parameters.AddWithValue("$ship", battle.ShipId);
+            command.Parameters.AddWithValue("$map", battle.MapName);
+            command.Parameters.AddWithValue("$roster", battle.RosterSignature);
+            command.Parameters.AddWithValue("$started", battle.StartedAt.UtcDateTime.ToString("O"));
+            command.Parameters.AddWithValue("$mergeWindow", ReconnectMergeWindowSeconds);
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            return await reader.ReadAsync(cancellationToken) ? ReadBattle(reader) : null;
+        }
+
+        private static async Task DeleteReconnectDraftsAsync(SqliteConnection connection, SqliteTransaction transaction, long battleId, CancellationToken cancellationToken)
+        {
+            await ExecuteAsync(connection, transaction, """
+                DELETE FROM Battles
+                WHERE Id<>$id
+                  AND ReplayHash IS NULL
+                  AND Source=$metadata
+                  AND Completeness=$pending
+                  AND StatusMessage='WaitingForReplay'
+                  AND RosterSignature<>''
+                  AND RosterSignature=(SELECT RosterSignature FROM Battles WHERE Id=$id)
+                  AND lower(AccountName)=lower((SELECT AccountName FROM Battles WHERE Id=$id))
+                  AND ShipId=(SELECT ShipId FROM Battles WHERE Id=$id)
+                  AND (MapName='' OR (SELECT MapName FROM Battles WHERE Id=$id)='' OR lower(MapName)=lower((SELECT MapName FROM Battles WHERE Id=$id)))
+                  AND abs(strftime('%s',StartedAt)-strftime('%s',(SELECT StartedAt FROM Battles WHERE Id=$id))) <= $mergeWindow
+                  AND EXISTS(
+                      SELECT 1 FROM ReplayFiles
+                      WHERE BattleId=$id AND ErrorCode IN ('BattleNotFinished','BattleExitedAfterDeath')
+                  );
+                DELETE FROM BattleSessions WHERE NOT EXISTS(SELECT 1 FROM Battles WHERE Battles.SessionId=BattleSessions.Id);
+                UPDATE BattleSessions SET
+                    StartedAt=(SELECT MIN(StartedAt) FROM Battles WHERE SessionId=BattleSessions.Id),
+                    EndedAt=(SELECT MAX(StartedAt) FROM Battles WHERE SessionId=BattleSessions.Id)
+                WHERE EXISTS(SELECT 1 FROM Battles WHERE Battles.SessionId=BattleSessions.Id);
+                """, cancellationToken,
+                ("$id", battleId), ("$metadata", (int)BattleMetricSource.MetadataOnly),
+                ("$pending", (int)BattleCompleteness.Pending), ("$mergeWindow", ReconnectMergeWindowSeconds));
+        }
+
         private static ShipStatSnapshot ReadSnapshot(SqliteDataReader reader) => new()
         {
             Id = reader.GetInt64(reader.GetOrdinal("Id")), BattleId = reader.GetInt64(reader.GetOrdinal("BattleId")),
@@ -994,6 +1104,12 @@ namespace ApeRadar.History
             Losses = reader.IsDBNull(reader.GetOrdinal("Losses")) ? null : reader.GetDouble(reader.GetOrdinal("Losses")),
             Damage = reader.GetDouble(reader.GetOrdinal("Damage")), Frags = reader.GetDouble(reader.GetOrdinal("Frags"))
         };
+
+        private static string CreateRosterSignature(IEnumerable<BattlePlayerRecord> players) => string.Join("|", players
+            .Where(x => !string.IsNullOrWhiteSpace(x.AccountName) && !string.IsNullOrWhiteSpace(x.ShipId))
+            .Select(x => $"{x.AccountName.Trim().ToLowerInvariant()}:{x.ShipId.Trim()}")
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(x => x, StringComparer.Ordinal));
 
         private static DateTimeOffset ParseDate(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
         private static void TryMoveSidecar(string source, string destination)

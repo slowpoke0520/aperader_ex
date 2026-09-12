@@ -22,7 +22,7 @@ namespace ApeRadar.History
 {
     internal sealed class NodsoftReplayParserAdapter : IReplayParser, IDisposable
     {
-        internal const string AdvancedSchemaVersion = "2";
+        internal const string AdvancedSchemaVersion = "3";
         private readonly ServiceProvider services;
         private readonly IReplayUnpackerFactory factory;
 
@@ -58,14 +58,18 @@ namespace ApeRadar.History
                 ReplayMetrics metrics = FindResultMetrics(replay, header.AccountName);
                 BattleAdvancedMetrics advanced = FindAdvancedMetrics(replay);
                 IReadOnlyList<BattleDamageBreakdown> breakdowns = FindDamageBreakdowns(replay);
+                bool exitedAfterDeath = !replay.BattleEnded && advanced.Survived == false;
                 bool complete = metrics.Damage.HasValue && metrics.Frags.HasValue && metrics.Result != BattleResult.Unknown;
                 string errorCode = complete
                     ? ""
+                    : exitedAfterDeath ? "BattleExitedAfterDeath"
                     : !replay.BattleEnded ? "BattleNotFinished"
                     : !string.IsNullOrWhiteSpace(GetMetricError(replay)) ? "ReplayMetricsInvalid"
                     : "BattleResultsMissing";
                 string errorMessage = complete
                     ? ""
+                    : exitedAfterDeath
+                        ? "The player ship was destroyed before the recording ended. Damage and frags at exit were retained; the final result will be checked after the battle can finish."
                     : !replay.BattleEnded
                         ? "Replay metadata was imported, but the recording ended before the battle result was received."
                         : !string.IsNullOrWhiteSpace(GetMetricError(replay))
@@ -83,12 +87,14 @@ namespace ApeRadar.History
                     MapName = header.MapName,
                     AccountName = header.AccountName,
                     ShipId = header.ShipId,
+                    RosterSignature = header.RosterSignature,
                     Result = metrics.Result,
                     Damage = metrics.Damage,
                     Frags = metrics.Frags,
                     Source = metrics.Source,
                     ErrorCode = errorCode,
                     ErrorMessage = errorMessage,
+                    ExitedAfterDeath = exitedAfterDeath,
                     AdvancedMetrics = advanced,
                     DamageBreakdowns = breakdowns
                 };
@@ -112,7 +118,8 @@ namespace ApeRadar.History
         {
             Status = status, FileHash = hash, GameVersion = header.GameVersion, ParserVersion = ParserVersion,
             BattleKey = header.BattleKey, StartedAt = header.StartedAt, Mode = header.Mode, MapName = header.MapName,
-            AccountName = header.AccountName, ShipId = header.ShipId, Source = BattleMetricSource.MetadataOnly,
+            AccountName = header.AccountName, ShipId = header.ShipId, RosterSignature = header.RosterSignature,
+            Source = BattleMetricSource.MetadataOnly,
             ErrorCode = errorCode, ErrorMessage = errorMessage
         };
 
@@ -135,10 +142,15 @@ namespace ApeRadar.History
                 }
             }
 
+            uint? ownShipId = FindOwnShipId(replay);
             if (!replay.BattleEnded)
-                return new ReplayMetrics(null, null, BattleResult.Unknown, BattleMetricSource.MetadataOnly);
+            {
+                if (!TryFindEarlyExitMetrics(replay, ownShipId, out long? exitDamage, out double? exitFrags))
+                    return new ReplayMetrics(null, null, BattleResult.Unknown, BattleMetricSource.MetadataOnly);
+                return new ReplayMetrics(exitDamage, exitFrags, BattleResult.Unknown, BattleMetricSource.ReplayDerived);
+            }
 
-            BattleResult derivedResult = FindBattleResult(replay, out uint? ownShipId);
+            BattleResult derivedResult = FindBattleResult(replay, out ownShipId);
             long? derivedDamage = FindDamage(replay);
             double? derivedFrags = ownShipId.HasValue && string.IsNullOrWhiteSpace(replay.VehicleDeathsError)
                 ? replay.VehicleDeaths.LongCount(x => x.KillerId == ownShipId.Value)
@@ -151,10 +163,22 @@ namespace ApeRadar.History
 
         internal static long? FindDamage(BattleHistoryReplay replay)
         {
-            if (!string.IsNullOrWhiteSpace(replay.DamageStatsError)) return null;
+            if (!replay.DamageStatsSeen || !string.IsNullOrWhiteSpace(replay.DamageStatsError)) return null;
             double damage = replay.EnemyDamageByType.Values.Sum();
             if (double.IsNaN(damage) || double.IsInfinity(damage) || damage < 0 || damage > long.MaxValue) return null;
             return checked((long)Math.Round(damage, MidpointRounding.AwayFromZero));
+        }
+
+        internal static bool TryFindEarlyExitMetrics(BattleHistoryReplay replay, uint? ownShipId, out long? damage, out double? frags)
+        {
+            damage = null;
+            frags = null;
+            if (!ownShipId.HasValue || !replay.VehicleDeaths.Any(x => x.VictimId == ownShipId.Value)) return false;
+
+            damage = FindDamage(replay);
+            if (string.IsNullOrWhiteSpace(replay.VehicleDeathsError))
+                frags = replay.VehicleDeaths.LongCount(x => x.KillerId == ownShipId.Value);
+            return true;
         }
 
         internal static BattleAdvancedMetrics FindAdvancedMetrics(BattleHistoryReplay replay)
@@ -399,10 +423,12 @@ namespace ApeRadar.History
             string mode = GetString(root, "matchGroup", "gameType");
             string account = GetString(root, "playerName");
             string shipId = "";
+            List<string> rosterEntries = new();
             if (root.TryGetProperty("vehicles", out JsonElement vehicles) && vehicles.ValueKind == JsonValueKind.Array)
             {
                 JsonElement self = vehicles.EnumerateArray().FirstOrDefault(x => GetString(x, "name").Equals(account, StringComparison.OrdinalIgnoreCase));
                 shipId = GetString(self, "shipId");
+                rosterEntries.AddRange(vehicles.EnumerateArray().Select(x => CreateRosterEntry(GetString(x, "name"), GetString(x, "shipId"))));
             }
             DateTimeOffset? started = null;
             string date = GetString(root, "dateTime");
@@ -410,12 +436,20 @@ namespace ApeRadar.History
             string map = GetString(root, "mapDisplayName", "mapName", "name");
             string version = GetString(root, "clientVersionFromExe", "clientVersionFromXml");
             string arenaId = GetString(root, "arenaUniqueId", "arenaUniqueID", "arenaId");
-            string keySeed = $"{started:O}|{map}|{account}|{shipId}";
+            string rosterSignature = string.Join("|", rosterEntries.Where(x => x.Length > 1).OrderBy(x => x, StringComparer.Ordinal));
+            string keySeed = string.IsNullOrWhiteSpace(rosterSignature)
+                ? $"{started:O}|{map}|{account}|{shipId}"
+                : $"{mode}|{map}|{account}|{shipId}|{rosterSignature}";
             string key = !string.IsNullOrWhiteSpace(arenaId)
                 ? $"arena:{arenaId}"
                 : $"replay:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(keySeed)))}";
-            return new ReplayHeader(mode, map, account, shipId, version, started, key);
+            return new ReplayHeader(mode, map, account, shipId, version, started, key, rosterSignature);
         }
+
+        private static string CreateRosterEntry(string accountName, string shipId) =>
+            string.IsNullOrWhiteSpace(accountName) || string.IsNullOrWhiteSpace(shipId)
+                ? ""
+                : $"{accountName.Trim().ToLowerInvariant()}:{shipId.Trim()}";
 
         private static string GetString(JsonElement element, params string[] names)
         {
@@ -429,7 +463,7 @@ namespace ApeRadar.History
 
         private readonly record struct ReplayMetrics(long? Damage, double? Frags, BattleResult Result, BattleMetricSource Source);
 
-        private sealed record ReplayHeader(string Mode, string MapName, string AccountName, string ShipId, string GameVersion, DateTimeOffset? StartedAt, string BattleKey)
+        private sealed record ReplayHeader(string Mode, string MapName, string AccountName, string ShipId, string GameVersion, DateTimeOffset? StartedAt, string BattleKey, string RosterSignature)
         {
             public ReplayHeader Merge(ArenaInfo? arena, string? mapName, Version? version)
             {

@@ -124,6 +124,117 @@ public sealed class HistoryRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ReconnectDraft_UsesOriginalBattleInsteadOfCreatingASecondBattle()
+    {
+        SqliteHistoryRepository repository = new(DatabasePath);
+        DateTimeOffset started = new(2026, 9, 11, 12, 0, 0, TimeSpan.Zero);
+        BattleRecord original = CreateBattle();
+        original.StartedAt = started;
+        BattlePlayerRecord[] roster = CreateRoster();
+        long originalId = await repository.UpsertDraftAsync(original, roster, Snapshot(100, 52, 6_000_000, 80));
+        await repository.CompleteFromReplayAsync(originalId, new ReplayParseResult
+        {
+            Status = ReplayParseStatus.Partial, FileHash = "segment-1", ParserVersion = "test", GameVersion = "15.8",
+            BattleKey = "segment-key-1", StartedAt = started, Mode = "random", MapName = "Map",
+            AccountName = "Tester", ShipId = "101", Damage = 45_000, Frags = 1,
+            Source = BattleMetricSource.ReplayDerived, ErrorCode = "BattleNotFinished"
+        }, "segment-1.wowsreplay");
+
+        BattleRecord reconnect = CreateBattle();
+        reconnect.BattleKey = "reconnect-segment";
+        reconnect.StartedAt = started.AddMinutes(8);
+        long reconnectId = await repository.UpsertDraftAsync(reconnect, roster, Snapshot(100, 52, 6_000_000, 80));
+
+        Assert.Equal(originalId, reconnectId);
+        BattleRecord stored = Assert.Single(await repository.GetBattlesAsync(new HistoryQuery()));
+        Assert.Equal(started, stored.StartedAt);
+        Assert.Equal("battle-1", stored.BattleKey);
+    }
+
+    [Fact]
+    public async Task ReconnectReplaySegment_MatchesExistingPartialBattle()
+    {
+        SqliteHistoryRepository repository = new(DatabasePath);
+        DateTimeOffset started = new(2026, 9, 11, 12, 0, 0, TimeSpan.Zero);
+        BattleRecord original = CreateBattle();
+        original.StartedAt = started;
+        long id = await repository.UpsertDraftAsync(original, CreateRoster(), null);
+        await repository.CompleteFromReplayAsync(id, new ReplayParseResult
+        {
+            Status = ReplayParseStatus.Partial, FileHash = "segment-1", ParserVersion = "test", GameVersion = "15.8",
+            BattleKey = "segment-key-1", StartedAt = started, Mode = "random", MapName = "Map",
+            AccountName = "Tester", ShipId = "101", RosterSignature = "other:202|tester:101", Damage = 45_000, Frags = 1,
+            Source = BattleMetricSource.ReplayDerived, ErrorCode = "BattleNotFinished"
+        }, "segment-1.wowsreplay");
+
+        ReplayParseResult second = new()
+        {
+            Status = ReplayParseStatus.Parsed, FileHash = "segment-2", ParserVersion = "test", GameVersion = "15.8",
+            BattleKey = "segment-key-2", StartedAt = started.AddMinutes(9), Mode = "random", MapName = "Map",
+            AccountName = "Tester", ShipId = "101", RosterSignature = "other:202|tester:101", Damage = 90_000, Frags = 2,
+            Result = BattleResult.Win, Source = BattleMetricSource.ReplayDerived
+        };
+
+        BattleRecord matched = Assert.IsType<BattleRecord>(await repository.FindDraftForReplayAsync(second));
+        Assert.Equal(id, matched.Id);
+        await repository.CompleteFromReplayAsync(matched.Id, second, "segment-2.wowsreplay");
+
+        BattleRecord stored = Assert.Single(await repository.GetBattlesAsync(new HistoryQuery()));
+        Assert.Equal(BattleResult.Win, stored.Result);
+        Assert.Equal(90_000, stored.Damage);
+    }
+
+    [Fact]
+    public async Task DifferentRoster_IsNotMergedEvenWhenShipMapAndTimeAreClose()
+    {
+        SqliteHistoryRepository repository = new(DatabasePath);
+        DateTimeOffset started = new(2026, 9, 11, 12, 0, 0, TimeSpan.Zero);
+        BattleRecord original = CreateBattle(); original.StartedAt = started;
+        long id = await repository.UpsertDraftAsync(original, CreateRoster(), null);
+        await repository.CompleteFromReplayAsync(id, new ReplayParseResult
+        {
+            Status = ReplayParseStatus.Partial, FileHash = "old-segment", ParserVersion = "test", GameVersion = "15.8",
+            BattleKey = "old-key", StartedAt = started, Mode = "random", MapName = "Map",
+            AccountName = "Tester", ShipId = "101", RosterSignature = "other:202|tester:101",
+            Source = BattleMetricSource.ReplayDerived, ErrorCode = "BattleNotFinished"
+        }, "old.wowsreplay");
+
+        ReplayParseResult nextBattle = new()
+        {
+            Status = ReplayParseStatus.Partial, FileHash = "new-segment", ParserVersion = "test", GameVersion = "15.8",
+            BattleKey = "new-key", StartedAt = started.AddMinutes(12), Mode = "random", MapName = "Map",
+            AccountName = "Tester", ShipId = "101", RosterSignature = "newplayer:303|tester:101",
+            Source = BattleMetricSource.ReplayDerived, ErrorCode = "BattleNotFinished"
+        };
+
+        Assert.Null(await repository.FindDraftForReplayAsync(nextBattle));
+    }
+
+    [Fact]
+    public async Task ReplayImport_RemovesReconnectDraftCreatedBeforeFirstSegmentWasParsed()
+    {
+        SqliteHistoryRepository repository = new(DatabasePath);
+        DateTimeOffset started = new(2026, 9, 11, 12, 0, 0, TimeSpan.Zero);
+        BattlePlayerRecord[] roster = CreateRoster();
+        BattleRecord original = CreateBattle(); original.StartedAt = started; original.StatusMessage = "WaitingForReplay";
+        BattleRecord reconnect = CreateBattle(); reconnect.BattleKey = "reconnect-draft"; reconnect.StartedAt = started.AddMinutes(8); reconnect.StatusMessage = "WaitingForReplay";
+        long originalId = await repository.UpsertDraftAsync(original, roster, null);
+        await repository.UpsertDraftAsync(reconnect, roster, null);
+        Assert.Equal(2, (await repository.GetBattlesAsync(new HistoryQuery())).Count);
+
+        await repository.CompleteFromReplayAsync(originalId, new ReplayParseResult
+        {
+            Status = ReplayParseStatus.Partial, FileHash = "segment-1", ParserVersion = "test", GameVersion = "15.8",
+            BattleKey = "segment-key-1", StartedAt = started, Mode = "random", MapName = "Map",
+            AccountName = "Tester", ShipId = "101", Damage = 45_000, Frags = 1,
+            Source = BattleMetricSource.ReplayDerived, ErrorCode = "BattleNotFinished"
+        }, "segment-1.wowsreplay");
+
+        BattleRecord stored = Assert.Single(await repository.GetBattlesAsync(new HistoryQuery()));
+        Assert.Equal(originalId, stored.Id);
+    }
+
+    [Fact]
     public async Task NewParserVersion_ReprocessesExistingBattleWithoutLosingRoster()
     {
         SqliteHistoryRepository repository = new(DatabasePath);
@@ -265,7 +376,7 @@ public sealed class HistoryRepositoryTests : IDisposable
         BattleRecord battle = Assert.Single(await repository.GetBattlesAsync(new HistoryQuery()));
         Assert.NotNull(battle.SessionId);
         Assert.Single(await repository.GetSessionsAsync());
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v2-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v3-*.bak"));
     }
 
     private static BattleRecord CreateBattle() => new()
@@ -279,6 +390,12 @@ public sealed class HistoryRepositoryTests : IDisposable
         CapturedAt = DateTimeOffset.UtcNow, Provider = "test", AccountId = "1", ShipId = "101",
         Battles = battles, Wins = wins, Losses = battles - wins, Damage = damage, Frags = frags
     };
+
+    private static BattlePlayerRecord[] CreateRoster() =>
+    [
+        new() { PlayerKey = "ASIA:1", AccountId = "1", AccountName = "Tester", Relation = "0", ShipId = "101", ShipName = "Yamato" },
+        new() { PlayerKey = "ASIA:2", AccountId = "2", AccountName = "Other", Relation = "1", ShipId = "202", ShipName = "Other ship" }
+    ];
 
     public void Dispose()
     {

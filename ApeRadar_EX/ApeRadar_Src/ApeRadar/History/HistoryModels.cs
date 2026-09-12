@@ -25,6 +25,7 @@ namespace ApeRadar.History
         public string AccountName { get; set; } = "";
         public string ShipId { get; set; } = "";
         public string ShipName { get; set; } = "";
+        public string RosterSignature { get; set; } = "";
         public BattleResult Result { get; set; } = BattleResult.Unknown;
         public double? WinCount { get; set; }
         public long? Damage { get; set; }
@@ -156,12 +157,14 @@ namespace ApeRadar.History
         public string MapName { get; init; } = "";
         public string AccountName { get; init; } = "";
         public string ShipId { get; init; } = "";
+        public string RosterSignature { get; init; } = "";
         public BattleResult Result { get; init; } = BattleResult.Unknown;
         public long? Damage { get; init; }
         public double? Frags { get; init; }
         public BattleMetricSource Source { get; init; } = BattleMetricSource.MetadataOnly;
         public string ErrorCode { get; init; } = "";
         public string ErrorMessage { get; init; } = "";
+        public bool ExitedAfterDeath { get; init; }
         public BattleAdvancedMetrics AdvancedMetrics { get; init; } = new();
         public IReadOnlyList<BattleDamageBreakdown> DamageBreakdowns { get; init; } = Array.Empty<BattleDamageBreakdown>();
         public bool HasCompleteMetrics => Status == ReplayParseStatus.Parsed && Damage.HasValue && Frags.HasValue && Result != BattleResult.Unknown;

@@ -12,6 +12,8 @@ namespace ApeRadar.History
 {
     internal sealed class ReplayMonitor : IReplayMonitor
     {
+        private static readonly TimeSpan MaximumRandomBattleDuration = TimeSpan.FromMinutes(20);
+        private static readonly TimeSpan ResultPublicationBuffer = TimeSpan.FromMinutes(1);
         private readonly IHistoryRepository repository;
         private readonly IReplayParser parser;
         private readonly ConcurrentDictionary<string, CandidateState> candidates = new(StringComparer.OrdinalIgnoreCase);
@@ -159,6 +161,7 @@ namespace ApeRadar.History
                         AccountName = replay.AccountName,
                         ShipId = replay.ShipId,
                         ShipName = ResolveShipName(replay.ShipId),
+                        RosterSignature = replay.RosterSignature,
                         Completeness = BattleCompleteness.Pending
                     };
                     battle.Id = await repository.UpsertDraftAsync(battle, Array.Empty<BattlePlayerRecord>(), null, cancellationToken);
@@ -173,7 +176,7 @@ namespace ApeRadar.History
                         {
                             BattleId = battle.Id,
                             Attempt = 0,
-                            NextAttemptAt = DateTimeOffset.UtcNow.AddMinutes(1),
+                            NextAttemptAt = CalculateNextResultCheckAt(battle, replay, DateTimeOffset.UtcNow),
                             LastError = replay.ErrorCode
                         }, cancellationToken);
                     }
@@ -202,6 +205,15 @@ namespace ApeRadar.History
             }
             catch (IOException) { return false; }
             catch (UnauthorizedAccessException) { return false; }
+        }
+
+        internal static DateTimeOffset CalculateNextResultCheckAt(BattleRecord battle, ReplayParseResult replay, DateTimeOffset now)
+        {
+            bool battleIsStillRunning = replay.ErrorCode is "BattleNotFinished" or "BattleExitedAfterDeath";
+            if (!battleIsStillRunning) return now.Add(ResultPublicationBuffer);
+
+            DateTimeOffset notBefore = battle.StartedAt.Add(MaximumRandomBattleDuration).Add(ResultPublicationBuffer);
+            return notBefore > now ? notBefore : now;
         }
 
         private static DateTime GetLastWriteTimeUtcSafe(string path)
