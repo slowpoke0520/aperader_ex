@@ -282,10 +282,11 @@ namespace ApeRadar
                 _ = CheckForStartupUpdates();
             }
 
-            WinrateChart.TooltipTextPaint = new SolidColorPaint { Color = SKColors.Black, FontFamily = WinrateChart.FontFamily.Source };
+            string chartFontFamily = ChartFontUtils.Resolve(WinrateChart.FontFamily);
+            WinrateChart.TooltipTextPaint = new SolidColorPaint { Color = SKColors.Black, FontFamily = chartFontFamily };
             WinrateChart.XAxes = new Axis[] { new Axis { IsVisible = false } };
-            WinrateChart.YAxes = new Axis[] { new Axis { Labeler = d => { return d.ToString("p1"); }, CrosshairPaint = new SolidColorPaint(SKColors.Gray) } };
-            KDEChart.XAxes = new Axis[] { new Axis { Labeler = d => { return d.ToString("p1"); }, SeparatorsPaint = new SolidColorPaint(SKColors.LightGray), CrosshairPaint = new SolidColorPaint(SKColors.Gray) } };
+            WinrateChart.YAxes = new Axis[] { new Axis { Labeler = d => { return d.ToString("p1"); }, LabelsPaint = new SolidColorPaint { Color = SKColors.Black, FontFamily = chartFontFamily }, CrosshairPaint = new SolidColorPaint(SKColors.Gray) } };
+            KDEChart.XAxes = new Axis[] { new Axis { Labeler = d => { return d.ToString("p1"); }, LabelsPaint = new SolidColorPaint { Color = SKColors.Black, FontFamily = chartFontFamily }, SeparatorsPaint = new SolidColorPaint(SKColors.LightGray), CrosshairPaint = new SolidColorPaint(SKColors.Gray) } };
             KDEChart.YAxes = new Axis[] { new Axis { IsVisible = false } };
 
             SwitchLanguage(LanguageExt.GetLanguageByName(Properties.Settings.Default.Language));

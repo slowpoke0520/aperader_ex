@@ -517,7 +517,7 @@
     <system:String x:Key="SoftwareUpdateStatusInitial">Current {0} · not checked yet</system:String>
     <system:String x:Key="SoftwareUpdateStatusChecking">Checking for updates to {0}…</system:String>
     <system:String x:Key="SoftwareUpdateStatusUpToDate">Current {0} · up to date · {2}</system:String>
-    <system:String x:Key="SoftwareUpdateStatusAvailable">Current {0} · available {1} · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusAvailable">Current {0} · available {1} · published {3} · checked {2}</system:String>
     <system:String x:Key="SoftwareUpdateStatusStarted">Updating from {0} to {1}</system:String>
     <system:String x:Key="SoftwareUpdateStatusAlreadyRunning">Update check already running · {2}</system:String>
     <system:String x:Key="SoftwareUpdateStatusNetworkError">Network connection failed · last check {2}</system:String>

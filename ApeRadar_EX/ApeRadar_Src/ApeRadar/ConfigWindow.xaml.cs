@@ -105,7 +105,8 @@ namespace ApeRadar
             TxtSoftwareUpdateStatus.Text = string.Format(format,
                 result.CurrentVersion,
                 result.AvailableVersion ?? "-",
-                result.CheckedAt.ToLocalTime().ToString("g"));
+                result.CheckedAt.ToLocalTime().ToString("g"),
+                result.PublishedAt?.ToLocalTime().ToString("g") ?? "-");
             TxtSoftwareUpdateStatus.ToolTip = string.IsNullOrWhiteSpace(result.ReleaseNotes) ? null : result.ReleaseNotes;
         }
 
