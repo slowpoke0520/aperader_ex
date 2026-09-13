@@ -119,6 +119,7 @@ public sealed class HistoryWindowSmokeTests
             window.Height = height;
             window.UpdateLayout();
             window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            double renderedWidth = window.ActualWidth;
 
             FrameworkElement messages = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("DataGridNotificationMessages"));
             FrameworkElement buttons = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("MainFooterButtons"));
@@ -128,10 +129,10 @@ public sealed class HistoryWindowSmokeTests
             AssertElementsDoNotOverlap(window, messages, summary, width, height);
             AssertElementsDoNotOverlap(window, summary, about, width, height);
             FrameworkElement analysis = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("AnalysisPanel"));
-            Assert.Equal(width >= 1440 ? Visibility.Visible : Visibility.Collapsed, analysis.Visibility);
-            Assert.Equal(width < 1100 ? 2 : 3, window.DataGridAlliesList.Columns.Count);
-            Assert.Equal(width < 900 ? Visibility.Collapsed : Visibility.Visible, about.Visibility);
-            if (width < 1100)
+            Assert.Equal(renderedWidth >= 1440 ? Visibility.Visible : Visibility.Collapsed, analysis.Visibility);
+            Assert.Equal(renderedWidth < 1100 ? 2 : 3, window.DataGridAlliesList.Columns.Count);
+            Assert.Equal(renderedWidth < 900 ? Visibility.Collapsed : Visibility.Visible, about.Visibility);
+            if (renderedWidth < 1100)
             {
                 Assert.InRange(window.DataGridAlliesList.Columns[1].ActualWidth, 181, 183);
                 Assert.InRange(window.DataGridEnemiesList.Columns[1].ActualWidth, 181, 183);
