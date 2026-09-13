@@ -73,6 +73,23 @@ namespace ApeRadar.Models
         public double Karma { get; set; }
         public double PR { get; set; }
         public double ShipPR { get; set; }
+        public double TierWins { get; set; }
+        public double TierBattles { get; set; }
+        public double TierWinrate { get; set; }
+        public double TierPR { get; set; }
+        public bool IsTierSampleSmall { get; set; }
+        public string TierSampleMarker => IsTierSampleSmall && TierBattles >= 0 ? " ⚠" : "";
+        public int TierReferenceMin { get; set; }
+        public int TierReferenceMax { get; set; }
+        public double TierReferenceBattles { get; set; }
+        public double TierReferenceWinrate { get; set; }
+        public double TierReferencePR { get; set; }
+        public bool HasTierReference { get; set; }
+        public int MostPlayedTier { get; set; }
+        public double MostPlayedTierBattles { get; set; }
+        public double MostPlayedTierShare { get; set; }
+        public bool HasRecognizedTierData => MostPlayedTier > 0;
+        public bool IsLowTierBiased { get; set; }
         public string Note { get; set; }
         public bool IsDataStale { get; set; }
 
@@ -200,6 +217,7 @@ namespace ApeRadar.Models
             Karma = -1;
             PR = -1;
             ShipPR = -1;
+            ResetTierPerformance();
             Note = "";
             IsCustomMarked = false;
             RecentEncounterCount = 0;
@@ -273,6 +291,7 @@ namespace ApeRadar.Models
             Karma = -1;
             PR = -1;
             ShipPR = -1;
+            ResetTierPerformance();
             Note = "";
             IsCustomMarked = false;
             RecentEncounterCount = 0;
@@ -315,6 +334,21 @@ namespace ApeRadar.Models
             Karma = other.Karma;
             PR = other.PR;
             ShipPR = other.ShipPR;
+            TierWins = other.TierWins;
+            TierBattles = other.TierBattles;
+            TierWinrate = other.TierWinrate;
+            TierPR = other.TierPR;
+            IsTierSampleSmall = other.IsTierSampleSmall;
+            TierReferenceMin = other.TierReferenceMin;
+            TierReferenceMax = other.TierReferenceMax;
+            TierReferenceBattles = other.TierReferenceBattles;
+            TierReferenceWinrate = other.TierReferenceWinrate;
+            TierReferencePR = other.TierReferencePR;
+            HasTierReference = other.HasTierReference;
+            MostPlayedTier = other.MostPlayedTier;
+            MostPlayedTierBattles = other.MostPlayedTierBattles;
+            MostPlayedTierShare = other.MostPlayedTierShare;
+            IsLowTierBiased = other.IsLowTierBiased;
             ShipWins = other.ShipWins;
             ShipWins_Solo = other.ShipWins_Solo;
             ShipWins_Div2 = other.ShipWins_Div2;
@@ -347,9 +381,28 @@ namespace ApeRadar.Models
             IsDataStale = other.IsDataStale;
         }
 
+        private void ResetTierPerformance()
+        {
+            TierWins = -1;
+            TierBattles = -1;
+            TierWinrate = -1;
+            TierPR = -1;
+            IsTierSampleSmall = false;
+            TierReferenceMin = 0;
+            TierReferenceMax = 0;
+            TierReferenceBattles = -1;
+            TierReferenceWinrate = -1;
+            TierReferencePR = -1;
+            HasTierReference = false;
+            MostPlayedTier = 0;
+            MostPlayedTierBattles = -1;
+            MostPlayedTierShare = -1;
+            IsLowTierBiased = false;
+        }
+
         override public string ToString()
         {
-            return $"Name={Name}, ID={ID}, Server={ServerExt.GetNameByServer(Server)}, Relation={Relation}, ShipID={ShipID}, ShipName={ShipName}, ShipType={ShipType}, ShipTier={ShipTier}, ClanID={ClanID}, ClanTag={ClanTag}, IsHidden={IsHidden}, Wins={Wins}, Wins_Solo={Wins_Solo}, Wins_Div2={Wins_Div2}, Wins_Div3={Wins_Div3}, Battles={Battles}, Battles_Solo={Battles_Solo}, Battles_Div2={Battles_Div2}, Battles_Div3={Battles_Div3}, TotalExp={TotalExp}, TotalExp_Solo={TotalExp_Solo}, TotalExp_Div2={TotalExp_Div2}, TotalExp_Div3={TotalExp_Div3}, AvgExpPerBattle={AvgExpPerBattle}, AvgExpPerBattle_Solo={AvgExpPerBattle_Solo}, AvgExpPerBattle_Div2={AvgExpPerBattle_Div2}, AvgExpPerBattle_Div3={AvgExpPerBattle_Div3}, AccountWinrate={AccountWinrate}, AccountWinrate_Solo={AccountWinrate_Solo}, AccountWinrate_Div2={AccountWinrate_Div2}, AccountWinrate_Div3={AccountWinrate_Div3}, ShipWins={ShipWins}, ShipWins_Solo={ShipWins_Solo}, ShipWins_Div2={ShipWins_Div2}, ShipWins_Div3={ShipWins_Div3}, ShipBattles={ShipBattles}, ShipBattles_Solo={ShipBattles_Solo}, ShipBattles_Div2={ShipBattles_Div2}, ShipBattles_Div3={ShipBattles_Div3}, ShipTotalDmg={ShipTotalDmg}, ShipTotalDmg_Solo={ShipTotalDmg_Solo}, ShipTotalDmg_Div2={ShipTotalDmg_Div2}, ShipTotalDmg_Div3={ShipTotalDmg_Div3}, ShipAvgDmgPerBattle={ShipAvgDmgPerBattle}, ShipAvgDmgPerBattle_Solo={ShipAvgDmgPerBattle_Solo}, ShipAvgDmgPerBattle_Div2={ShipAvgDmgPerBattle_Div2}, ShipAvgDmgPerBattle_Div3={ShipAvgDmgPerBattle_Div3}, ShipTotalExp={ShipTotalExp}, ShipTotalExp_Solo={ShipTotalExp_Solo}, ShipTotalExp_Div2={ShipTotalExp_Div2}, ShipTotalExp_Div3={ShipTotalExp_Div3}, ShipAvgExpPerBattle={ShipAvgExpPerBattle}, ShipAvgExpPerBattle_Solo={ShipAvgExpPerBattle_Solo}, ShipAvgExpPerBattle_Div2={ShipAvgExpPerBattle_Div2}, ShipAvgExpPerBattle_Div3={ShipAvgExpPerBattle_Div3}, ShipWinrate={ShipWinrate}, ShipWinrate_Solo={ShipWinrate_Solo}, ShipWinrate_Div2={ShipWinrate_Div2}, ShipWinrate_Div3={ShipWinrate_Div3}, WeightedWinrate={WeightedWinrate}, Karma={Karma}, PR={PR}, Note={Note}, WatchStatus={WatchStatusExt.GetNameByStatus(WatchStatus)}";
+            return $"Name={Name}, ID={ID}, Server={ServerExt.GetNameByServer(Server)}, Relation={Relation}, ShipID={ShipID}, ShipName={ShipName}, ShipType={ShipType}, ShipTier={ShipTier}, ClanID={ClanID}, ClanTag={ClanTag}, IsHidden={IsHidden}, Wins={Wins}, Wins_Solo={Wins_Solo}, Wins_Div2={Wins_Div2}, Wins_Div3={Wins_Div3}, Battles={Battles}, Battles_Solo={Battles_Solo}, Battles_Div2={Battles_Div2}, Battles_Div3={Battles_Div3}, TotalExp={TotalExp}, TotalExp_Solo={TotalExp_Solo}, TotalExp_Div2={TotalExp_Div2}, TotalExp_Div3={TotalExp_Div3}, AvgExpPerBattle={AvgExpPerBattle}, AvgExpPerBattle_Solo={AvgExpPerBattle_Solo}, AvgExpPerBattle_Div2={AvgExpPerBattle_Div2}, AvgExpPerBattle_Div3={AvgExpPerBattle_Div3}, AccountWinrate={AccountWinrate}, AccountWinrate_Solo={AccountWinrate_Solo}, AccountWinrate_Div2={AccountWinrate_Div2}, AccountWinrate_Div3={AccountWinrate_Div3}, ShipWins={ShipWins}, ShipWins_Solo={ShipWins_Solo}, ShipWins_Div2={ShipWins_Div2}, ShipWins_Div3={ShipWins_Div3}, ShipBattles={ShipBattles}, ShipBattles_Solo={ShipBattles_Solo}, ShipBattles_Div2={ShipBattles_Div2}, ShipBattles_Div3={ShipBattles_Div3}, ShipTotalDmg={ShipTotalDmg}, ShipTotalDmg_Solo={ShipTotalDmg_Solo}, ShipTotalDmg_Div2={ShipTotalDmg_Div2}, ShipTotalDmg_Div3={ShipTotalDmg_Div3}, ShipAvgDmgPerBattle={ShipAvgDmgPerBattle}, ShipAvgDmgPerBattle_Solo={ShipAvgDmgPerBattle_Solo}, ShipAvgDmgPerBattle_Div2={ShipAvgDmgPerBattle_Div2}, ShipAvgDmgPerBattle_Div3={ShipAvgDmgPerBattle_Div3}, ShipTotalExp={ShipTotalExp}, ShipTotalExp_Solo={ShipTotalExp_Solo}, ShipTotalExp_Div2={ShipTotalExp_Div2}, ShipTotalExp_Div3={ShipTotalExp_Div3}, ShipAvgExpPerBattle={ShipAvgExpPerBattle}, ShipAvgExpPerBattle_Solo={ShipAvgExpPerBattle_Solo}, ShipAvgExpPerBattle_Div2={ShipAvgExpPerBattle_Div2}, ShipAvgExpPerBattle_Div3={ShipAvgExpPerBattle_Div3}, ShipWinrate={ShipWinrate}, ShipWinrate_Solo={ShipWinrate_Solo}, ShipWinrate_Div2={ShipWinrate_Div2}, ShipWinrate_Div3={ShipWinrate_Div3}, TierBattles={TierBattles}, TierWinrate={TierWinrate}, MostPlayedTier={MostPlayedTier}, WeightedWinrate={WeightedWinrate}, Karma={Karma}, PR={PR}, Note={Note}, WatchStatus={WatchStatusExt.GetNameByStatus(WatchStatus)}";
         }
     }
 }

@@ -8,6 +8,7 @@
     <system:String x:Key="DataGridHeaderStatisticsAccount">账号</system:String>
     <system:String x:Key="DataGridHeaderStatisticsWeighted">加权</system:String>
     <system:String x:Key="DataGridHeaderStatisticsShip">单船</system:String>
+    <system:String x:Key="DataGridHeaderStatisticsTier">同阶</system:String>
     <system:String x:Key="DataGridHeaderStatisticsPR">PR</system:String>
     <system:String x:Key="DataGridHeaderTag">成分</system:String>
     <system:String x:Key="DataGridHeaderServer">服务器</system:String>
@@ -19,6 +20,7 @@
     <system:String x:Key="DataGridToolTipAccount">账号</system:String>
     <system:String x:Key="DataGridToolTipWeighted">加权</system:String>
     <system:String x:Key="DataGridToolTipShip">单船</system:String>
+    <system:String x:Key="DataGridToolTipTier">同阶</system:String>
     <system:String x:Key="DataGridToolTipPR">PR</system:String>
     <system:String x:Key="DataGridToolTipBattles">场次</system:String>
     <system:String x:Key="DataGridToolTipWinrate">胜率</system:String>
@@ -512,6 +514,17 @@
     <system:String x:Key="ToolTipCheckForUpdatesOnStartup">开启后，软件启动时会按所选更新渠道在后台检查新版本；只提醒，不会自动安装。关闭后仍可点击“检查并更新”。</system:String>
     <system:String x:Key="ChkBoxShowExperimentalReplayMetrics">显示实验性 Replay 指标</system:String>
     <system:String x:Key="ToolTipShowExperimentalReplayMetrics">开启后显示尚未覆盖所有游戏版本验证的承受伤害和伤害分类。实验值会明确标记，缺失值不会按 0 计算。</system:String>
+    <system:String x:Key="ChkBoxShowTierPerformanceStats">在玩家列表显示同阶战绩</system:String>
+    <system:String x:Key="ToolTipShowTierPerformanceStats">显示玩家在当前舰船等级的总场次、胜率和 PR。同阶不足 50 场时会警告，并在悬浮详情中提供邻近等级参考；不会增加 API 请求。</system:String>
+    <system:String x:Key="TierStatsTitle">层级战绩</system:String>
+    <system:String x:Key="TierStatsExactPrefix">当前等级：</system:String>
+    <system:String x:Key="TierStatsReferencePrefix">邻近等级参考：</system:String>
+    <system:String x:Key="TierStatsMostPlayedPrefix">主要等级：</system:String>
+    <system:String x:Key="TierStatsBattlesSuffix"> 场</system:String>
+    <system:String x:Key="TierStatsSharePrefix">，占已识别场次 </system:String>
+    <system:String x:Key="TierStatsSmallSample">⚠ 同阶不足 50 场，胜率和 PR 波动可能很大。</system:String>
+    <system:String x:Key="TierStatsLowTierBias">⚠ 已识别对局中至少 60% 位于 1–5 级，总胜率可能高估其高等级表现。</system:String>
+    <system:String x:Key="TierStatsReferenceNotice">参考值只用于补充判断，不会替代同阶数据。</system:String>
     <system:String x:Key="BtnViewChangelog">查看更新日志</system:String>
     <system:String x:Key="TextViewChangelogHint">打开稳定版与开发版的更新说明</system:String>
     <system:String x:Key="ChkBoxIncludePlayerNamesOnlyIfDuplicateShipExists">仅当存在重复船时附带玩家名称</system:String>

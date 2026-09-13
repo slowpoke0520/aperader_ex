@@ -8,6 +8,7 @@
     <system:String x:Key="DataGridHeaderStatisticsAccount">Account</system:String>
     <system:String x:Key="DataGridHeaderStatisticsWeighted">Weighted</system:String>
     <system:String x:Key="DataGridHeaderStatisticsShip">Ship</system:String>
+    <system:String x:Key="DataGridHeaderStatisticsTier">Tier</system:String>
     <system:String x:Key="DataGridHeaderStatisticsPR">PR</system:String>
     <system:String x:Key="DataGridHeaderTag">Tag</system:String>
     <system:String x:Key="DataGridHeaderServer">Server</system:String>
@@ -19,6 +20,7 @@
     <system:String x:Key="DataGridToolTipAccount">Account</system:String>
     <system:String x:Key="DataGridToolTipWeighted">Weighted</system:String>
     <system:String x:Key="DataGridToolTipShip">Ship</system:String>
+    <system:String x:Key="DataGridToolTipTier">Same tier</system:String>
     <system:String x:Key="DataGridToolTipPR">PR</system:String>
     <system:String x:Key="DataGridToolTipBattles">Battles</system:String>
     <system:String x:Key="DataGridToolTipWinrate">Winrate</system:String>
@@ -512,6 +514,17 @@
     <system:String x:Key="ToolTipCheckForUpdatesOnStartup">Checks the selected channel at startup and only notifies you; it never installs automatically. You can still use Check &amp; Update when disabled.</system:String>
     <system:String x:Key="ChkBoxShowExperimentalReplayMetrics">Show experimental Replay metrics</system:String>
     <system:String x:Key="ToolTipShowExperimentalReplayMetrics">Shows damage-taken and breakdown values that are not yet verified across every game version. Experimental values are labelled and missing values never count as zero.</system:String>
+    <system:String x:Key="ChkBoxShowTierPerformanceStats">Show same-tier performance in player list</system:String>
+    <system:String x:Key="ToolTipShowTierPerformanceStats">Shows total battles, win rate, and PR at the tier of each player's current ship. Fewer than 50 same-tier battles are flagged and nearby tiers appear only as tooltip context. This adds no API requests.</system:String>
+    <system:String x:Key="TierStatsTitle">Tier performance</system:String>
+    <system:String x:Key="TierStatsExactPrefix">Current tier: </system:String>
+    <system:String x:Key="TierStatsReferencePrefix">Nearby-tier reference: </system:String>
+    <system:String x:Key="TierStatsMostPlayedPrefix">Most-played tier: </system:String>
+    <system:String x:Key="TierStatsBattlesSuffix"> battles</system:String>
+    <system:String x:Key="TierStatsSharePrefix">, share of recognized battles </system:String>
+    <system:String x:Key="TierStatsSmallSample">⚠ Fewer than 50 same-tier battles; win rate and PR may fluctuate sharply.</system:String>
+    <system:String x:Key="TierStatsLowTierBias">⚠ At least 60% of recognized battles are at tiers 1–5; overall win rate may overstate high-tier performance.</system:String>
+    <system:String x:Key="TierStatsReferenceNotice">The reference is supplemental context and never replaces same-tier data.</system:String>
     <system:String x:Key="BtnViewChangelog">View changelog</system:String>
     <system:String x:Key="TextViewChangelogHint">Open release notes for stable and development builds</system:String>
     <system:String x:Key="ChkBoxIncludePlayerNamesOnlyIfDuplicateShipExists">Include Player Names only if Duplicate Ships Exists</system:String>

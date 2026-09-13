@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ApeRadar.History;
+using ApeRadar.Models;
 using ApeRadar.Utils;
 using ApeRadar.ViewModels;
 using Xunit;
@@ -92,11 +93,21 @@ public sealed class HistoryWindowSmokeTests
 
     private static void ValidateMainWindowLayout(string language)
     {
+        bool previousTierPerformanceSetting = ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats;
+        ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats = true;
         MainWindow window = new(initializeRuntime: false)
         {
             WindowState = WindowState.Normal,
             ShowInTaskbar = false
         };
+        window.DataGridAlliesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("AlliesNameColumn")));
+        window.DataGridAlliesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("AlliesStatisticsColumn")));
+        window.DataGridAlliesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("AlliesTagColumn")));
+        window.DataGridEnemiesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("EnemiesNameColumn")));
+        window.DataGridEnemiesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("EnemiesStatisticsColumn")));
+        window.DataGridEnemiesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("EnemiesTagColumn")));
+        window.DataGridAlliesList.ItemsSource = new[] { CreateTierPerformancePlayer("Allied sample", "0") };
+        window.DataGridEnemiesList.ItemsSource = new[] { CreateTierPerformancePlayer("Enemy sample", "2") };
         window.Show();
         foreach ((double width, double height) in new[] { (1180d, 760d), (1366d, 768d), (1920d, 1040d) })
         {
@@ -119,6 +130,38 @@ public sealed class HistoryWindowSmokeTests
             }
         }
         window.Close();
+        ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats = previousTierPerformanceSetting;
+    }
+
+    private static Player CreateTierPerformancePlayer(string name, string relation)
+    {
+        return new Player(name, relation, Server.ASIA, WatchStatus.NONE)
+        {
+            Relation = relation,
+            ShipName = "Sample ship",
+            ShipTier = 11,
+            Battles = 5_000,
+            AccountWinrate = 0.60,
+            WeightedWinrate = 0.55,
+            ShipBattles = 20,
+            ShipWinrate = 0.50,
+            PR = 1_700,
+            ShipPR = 1_250,
+            TierBattles = 12,
+            TierWinrate = 0.5833,
+            TierPR = 1_480,
+            IsTierSampleSmall = true,
+            TierReferenceMin = 10,
+            TierReferenceMax = 11,
+            TierReferenceBattles = 420,
+            TierReferenceWinrate = 0.535,
+            TierReferencePR = 1_320,
+            HasTierReference = true,
+            MostPlayedTier = 5,
+            MostPlayedTierBattles = 4_000,
+            MostPlayedTierShare = 0.80,
+            IsLowTierBiased = true,
+        };
     }
 
     private static void ValidateConfigWindowLayout(string language)
@@ -137,12 +180,17 @@ public sealed class HistoryWindowSmokeTests
         Assert.Equal(1, Grid.GetRow(Assert.IsType<Grid>(window.ComboBoxSoftwareUpdateChannel.Parent)));
         Assert.Equal(3, Grid.GetColumn(Assert.IsType<Grid>(window.ComboBoxSoftwareUpdateChannel.Parent)));
         Assert.Equal(200, window.ComboBoxSoftwareUpdateChannel.Width);
+        CheckBox tierPerformanceCheckBox = Assert.IsType<CheckBox>(window.FindName("ChkBoxShowTierPerformanceStats"));
+        StackPanel tierPerformancePanel = Assert.IsType<StackPanel>(tierPerformanceCheckBox.Parent);
+        Grid tierPerformanceCell = Assert.IsType<Grid>(tierPerformancePanel.Parent);
+        Assert.Equal(7, Grid.GetRow(tierPerformanceCell));
         foreach ((double width, double height) in new[] { (900d, 560d), (1100d, 700d) })
         {
             window.Width = width;
             window.Height = height;
             window.UpdateLayout();
             window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            AssertChildrenDoNotOverlap(window, window.AdvancedOptionsGrid);
             if (Math.Abs(width - 1100) < 0.1)
             {
                 SaveWindowSnapshot(window, $"config-advanced-{language}-{width:0}x{height:0}.png");

@@ -39,6 +39,21 @@ namespace ApeRadar.Utils
         public double Karma { get; set; }
         public double PR { get; set; }
         public double ShipPR { get; set; }
+        public double TierWins { get; set; } = -1;
+        public double TierBattles { get; set; } = -1;
+        public double TierWinrate { get; set; } = -1;
+        public double TierPR { get; set; } = -1;
+        public bool IsTierSampleSmall { get; set; }
+        public int TierReferenceMin { get; set; }
+        public int TierReferenceMax { get; set; }
+        public double TierReferenceBattles { get; set; } = -1;
+        public double TierReferenceWinrate { get; set; } = -1;
+        public double TierReferencePR { get; set; } = -1;
+        public bool HasTierReference { get; set; }
+        public int MostPlayedTier { get; set; }
+        public double MostPlayedTierBattles { get; set; } = -1;
+        public double MostPlayedTierShare { get; set; } = -1;
+        public bool IsLowTierBiased { get; set; }
 
         //current ship data
         public double ShipWins { get; set; }
@@ -107,6 +122,21 @@ namespace ApeRadar.Utils
                 Karma = p.Karma,
                 PR = p.PR,
                 ShipPR = p.ShipPR,
+                TierWins = p.TierWins,
+                TierBattles = p.TierBattles,
+                TierWinrate = p.TierWinrate,
+                TierPR = p.TierPR,
+                IsTierSampleSmall = p.IsTierSampleSmall,
+                TierReferenceMin = p.TierReferenceMin,
+                TierReferenceMax = p.TierReferenceMax,
+                TierReferenceBattles = p.TierReferenceBattles,
+                TierReferenceWinrate = p.TierReferenceWinrate,
+                TierReferencePR = p.TierReferencePR,
+                HasTierReference = p.HasTierReference,
+                MostPlayedTier = p.MostPlayedTier,
+                MostPlayedTierBattles = p.MostPlayedTierBattles,
+                MostPlayedTierShare = p.MostPlayedTierShare,
+                IsLowTierBiased = p.IsLowTierBiased,
                 ShipWins = p.ShipWins,
                 ShipWins_Solo = p.ShipWins_Solo,
                 ShipWins_Div2 = p.ShipWins_Div2,
@@ -167,6 +197,21 @@ namespace ApeRadar.Utils
             p.Karma = Karma;
             p.PR = PR;
             p.ShipPR = ShipPR;
+            p.TierWins = TierWins;
+            p.TierBattles = TierBattles;
+            p.TierWinrate = TierWinrate;
+            p.TierPR = TierPR;
+            p.IsTierSampleSmall = IsTierSampleSmall;
+            p.TierReferenceMin = TierReferenceMin;
+            p.TierReferenceMax = TierReferenceMax;
+            p.TierReferenceBattles = TierReferenceBattles;
+            p.TierReferenceWinrate = TierReferenceWinrate;
+            p.TierReferencePR = TierReferencePR;
+            p.HasTierReference = HasTierReference;
+            p.MostPlayedTier = MostPlayedTier;
+            p.MostPlayedTierBattles = MostPlayedTierBattles;
+            p.MostPlayedTierShare = MostPlayedTierShare;
+            p.IsLowTierBiased = IsLowTierBiased;
             p.ShipWins = ShipWins;
             p.ShipWins_Solo = ShipWins_Solo;
             p.ShipWins_Div2 = ShipWins_Div2;

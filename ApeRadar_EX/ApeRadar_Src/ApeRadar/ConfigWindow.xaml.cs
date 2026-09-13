@@ -67,6 +67,7 @@ namespace ApeRadar
             ComboBoxSoftwareUpdateChannel.SelectedValue = SoftwareReleaseSelector.NormalizeChannelSetting(Properties.Settings.Default.SoftwareUpdateChannel);
             ChkBoxCheckForUpdatesOnStartup.IsChecked = Properties.Settings.Default.CheckForUpdatesOnStartup;
             ChkBoxShowExperimentalReplayMetrics.IsChecked = Properties.Settings.Default.ShowExperimentalReplayMetrics;
+            ChkBoxShowTierPerformanceStats.IsChecked = Properties.Settings.Default.ShowTierPerformanceStats;
             LabelShipListVersionDateStr.Content = $"{ShipInfoUtils.GetShipInfoVersion()} ({ShipInfoUtils.GetShipInfoDate()})";
             if (PRUtils.GetExpectedValuesTime() <= 0)
             {
@@ -141,8 +142,14 @@ namespace ApeRadar
                         ?? SoftwareReleaseSelector.StableSettingValue;
                     Properties.Settings.Default.CheckForUpdatesOnStartup = ChkBoxCheckForUpdatesOnStartup.IsChecked ?? false;
                     Properties.Settings.Default.ShowExperimentalReplayMetrics = ChkBoxShowExperimentalReplayMetrics.IsChecked ?? false;
+                    bool tierPerformanceSettingChanged = Properties.Settings.Default.ShowTierPerformanceStats != (ChkBoxShowTierPerformanceStats.IsChecked ?? false);
+                    Properties.Settings.Default.ShowTierPerformanceStats = ChkBoxShowTierPerformanceStats.IsChecked ?? false;
                     Properties.Settings.Default.OutputTextUnlock = ChkBoxTextOutputUnlocked.IsChecked ?? false;
                     Properties.Settings.Default.Save();
+                    if (tierPerformanceSettingChanged)
+                    {
+                        PlayerDataCache.Clear();
+                    }
                     if (Properties.Settings.Default.DebugMode)
                     {
                         LogUtils.SetLogLevel(log4net.Core.Level.Debug);

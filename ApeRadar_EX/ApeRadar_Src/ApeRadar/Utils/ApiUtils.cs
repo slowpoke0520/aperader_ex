@@ -354,6 +354,7 @@ namespace ApeRadar.Utils
                     if (JObjectWgPublicApiPlayerShipsPvpData["status"]!.Value<string>() == "ok" && JArrayWgPublicApiPlayerShipsData != null)
                     {
                         List<(string, double, double, double, double)> playerShipsForPR = new();
+                        List<TierShipStatistics> playerShipsByTier = new();
                         foreach (JToken JTokenShip in JArrayWgPublicApiPlayerShipsData)
                         {
                             string shipId = JTokenShip["ship_id"]?.Value<string>() ?? "-1";
@@ -366,8 +367,10 @@ namespace ApeRadar.Utils
                             double frags = JTokenShip["pvp"]!["frags"]?.Value<double>() ?? 0;
                             double wins = JTokenShip["pvp"]!["wins"]?.Value<double>() ?? 0;
                             playerShipsForPR.Add((shipId, battles, damageDealt, frags, wins));
+                            playerShipsByTier.Add(new TierShipStatistics(shipId, ShipInfoUtils.GetShipTierByID(shipId), battles, wins, damageDealt, frags));
                         }
                         p.PR = PRUtils.CalculateAccountPR(playerShipsForPR);
+                        TierPerformanceUtils.ApplyTo(p, playerShipsByTier);
                     }
 
                     //current ship solo/div2/div3 data from the modes response
@@ -833,6 +836,7 @@ namespace ApeRadar.Utils
                     if (JObjectVortexApiPlayerShipsAllData["status"]!.Value<string>() == "ok" && JObjectVortexApiPlayerShipsAllData["data"]![p.ID] != null && JObjectVortexApiPlayerShipsAllData["data"]![p.ID]!["statistics"] is JObject JObjectVortexPlayerShipsStatistics)
                     {
                         List<(string, double, double, double, double)> playerShipsForPR = new();
+                        List<TierShipStatistics> playerShipsByTier = new();
                         foreach (JProperty JPropertyShip in JObjectVortexPlayerShipsStatistics.Children<JProperty>())
                         {
                             JToken? JTokenPvp = JPropertyShip.Value["pvp"];
@@ -845,8 +849,10 @@ namespace ApeRadar.Utils
                             double frags = JTokenPvp["frags"]?.Value<double>() ?? 0;
                             double wins = JTokenPvp["wins"]?.Value<double>() ?? 0;
                             playerShipsForPR.Add((JPropertyShip.Name, battles, damageDealt, frags, wins));
+                            playerShipsByTier.Add(new TierShipStatistics(JPropertyShip.Name, ShipInfoUtils.GetShipTierByID(JPropertyShip.Name), battles, wins, damageDealt, frags));
                         }
                         p.PR = PRUtils.CalculateAccountPR(playerShipsForPR);
+                        TierPerformanceUtils.ApplyTo(p, playerShipsByTier);
                     }
 
                     PlayerDataCache.Set(server, p.ID, p.ShipID, PlayerDataSnapshot.FromPlayer(p));

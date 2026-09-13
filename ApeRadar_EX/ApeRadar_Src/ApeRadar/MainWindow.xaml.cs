@@ -565,8 +565,9 @@ namespace ApeRadar
             }
         }
 
-        private void BtnConfig_Click(object sender, RoutedEventArgs e)
+        private async void BtnConfig_Click(object sender, RoutedEventArgs e)
         {
+            bool tierPerformanceWasEnabled = Properties.Settings.Default.ShowTierPerformanceStats;
             ConfigWindow configWindow = new()
             {
                 Owner = this
@@ -574,6 +575,15 @@ namespace ApeRadar
             configWindow.ShowDialog();
             _ = InitializeHistoryAsync();
             ForceUpdateDataGridColumnWidth();
+
+            if (!tierPerformanceWasEnabled && Properties.Settings.Default.ShowTierPerformanceStats)
+            {
+                string latestFileName = FileUtils.GetLatestTempArenaInfoFile(false);
+                if (latestFileName != "")
+                {
+                    await ReadPlayersListAndGetDataFromServer(latestFileName, true);
+                }
+            }
         }
 
         private async void BtnSoftwareUpdate_Click(object sender, RoutedEventArgs e)
