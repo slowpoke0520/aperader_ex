@@ -77,6 +77,7 @@ namespace ApeRadar
         private async void Server_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!ready || filterRefreshInProgress) return;
+            viewModel.ResetPage();
             filterRefreshInProgress = true;
             try { await RunSafeAsync(() => viewModel.RefreshDependentFiltersAsync(true, false)); }
             finally { filterRefreshInProgress = false; }
@@ -85,6 +86,7 @@ namespace ApeRadar
         private async void Account_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!ready || filterRefreshInProgress) return;
+            viewModel.ResetPage();
             filterRefreshInProgress = true;
             try { await RunSafeAsync(() => viewModel.RefreshDependentFiltersAsync(false, true)); }
             finally { filterRefreshInProgress = false; }
@@ -92,13 +94,24 @@ namespace ApeRadar
 
         private async void Filter_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (ready && !filterRefreshInProgress) await RunSafeAsync(viewModel.ReloadAsync);
+            if (ready && !filterRefreshInProgress)
+            {
+                viewModel.ResetPage();
+                await RunSafeAsync(() => viewModel.ReloadAsync(debounce: true));
+            }
         }
 
         private async void Date_Changed(object sender, SelectionChangedEventArgs e)
         {
-            if (ready) await RunSafeAsync(viewModel.ReloadAsync);
+            if (ready)
+            {
+                viewModel.ResetPage();
+                await RunSafeAsync(() => viewModel.ReloadAsync(debounce: true));
+            }
         }
+
+        private async void PreviousPage_Click(object sender, RoutedEventArgs e) => await RunSafeAsync(viewModel.PreviousPageAsync);
+        private async void NextPage_Click(object sender, RoutedEventArgs e) => await RunSafeAsync(viewModel.NextPageAsync);
 
         private async void Refresh_Click(object sender, RoutedEventArgs e) => await RunSafeAsync(viewModel.RefreshAllAsync);
         private async void RetryReplay_Click(object sender, RoutedEventArgs e) => await RunSafeAsync(viewModel.RetryFailedReplaysAsync);

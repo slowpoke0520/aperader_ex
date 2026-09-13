@@ -177,6 +177,9 @@ namespace ApeRadar.History
         public string? ShipId { get; init; }
         public DateTimeOffset? From { get; init; }
         public DateTimeOffset? To { get; init; }
+        public int? Limit { get; init; }
+        public int Offset { get; init; }
+        public bool Descending { get; init; }
     }
 
     internal sealed class HistoryFilterOption

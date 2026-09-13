@@ -105,7 +105,7 @@
 
             <TabItem Header="{DynamicResource HistoryTabBattles}">
                 <Grid Margin="8">
-                    <Grid.RowDefinitions><RowDefinition Height="3*" MinHeight="190"/><RowDefinition Height="8"/><RowDefinition Height="2*" MinHeight="180"/></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="3*" MinHeight="190"/><RowDefinition Height="Auto"/><RowDefinition Height="2*" MinHeight="180"/></Grid.RowDefinitions>
                     <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedBattle}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" EnableRowVirtualization="True">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{DynamicResource HistoryColumnTime}" Binding="{Binding StartedAt}" Width="130"/><DataGridTextColumn Header="{DynamicResource HistoryColumnMap}" Binding="{Binding MapName}" Width="*"/>
@@ -117,6 +117,11 @@
                             <DataGridTextColumn Header="{DynamicResource HistoryColumnCompleteness}" Binding="{Binding Completeness}" Width="80"/>
                         </DataGrid.Columns>
                     </DataGrid>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5">
+                        <Button Content="{DynamicResource HistoryPreviousPage}" MinWidth="78" IsEnabled="{Binding CanGoPrevious}" Click="PreviousPage_Click"/>
+                        <TextBlock Text="{Binding PageText}" MinWidth="70" TextAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <Button Content="{DynamicResource HistoryNextPage}" MinWidth="78" IsEnabled="{Binding CanGoNext}" Click="NextPage_Click"/>
+                    </StackPanel>
                     <Border Grid.Row="2" BorderBrush="#D6DCE5" BorderThickness="1" CornerRadius="6" Padding="10">
                         <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
                             <TextBlock Text="{Binding BattleDetailTitle}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/><TextBlock Text="{Binding BattleDetailMetrics}" TextWrapping="Wrap" Margin="0,0,0,8"/>

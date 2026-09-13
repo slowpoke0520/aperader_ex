@@ -17,6 +17,7 @@ namespace ApeRadar.History
         private readonly IHistoryRepository repository;
         private readonly IReplayParser parser;
         private readonly ConcurrentDictionary<string, CandidateState> candidates = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, byte> completedPaths = new(StringComparer.OrdinalIgnoreCase);
         private readonly CancellationTokenSource lifetime = new();
         private FileSystemWatcher? watcher;
         private Task? processingTask;
@@ -90,6 +91,8 @@ namespace ApeRadar.History
 
         private void Queue(string path, bool changed)
         {
+            if (changed) completedPaths.TryRemove(path, out _);
+            if (completedPaths.ContainsKey(path)) return;
             candidates.AddOrUpdate(path,
                 _ => new CandidateState(0, DateTime.MinValue, 0, false),
                 (_, state) => changed ? state with { StableChecks = 0, Attempted = false } : state);
@@ -103,7 +106,7 @@ namespace ApeRadar.History
                 while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
                 {
                     if (importPaused) continue;
-                    if (++scanTicks >= 40)
+                    if (++scanTicks >= 300)
                     {
                         scanTicks = 0;
                         await RescanAsync(cancellationToken).ConfigureAwait(false);
@@ -129,19 +132,20 @@ namespace ApeRadar.History
             if (stableChecks < 2 || !CanOpenExclusively(path)) return;
 
             candidates[path] = state with { Attempted = true };
+            bool completed = false;
             try
             {
                 ReplayParseResult replay = await parser.ParseAsync(path, cancellationToken);
                 if (replay.ErrorCode == "NotRandomBattle")
                 {
                     Interlocked.Increment(ref skipped);
-                    PublishProgress();
+                    completed = true;
                     return;
                 }
                 if (await repository.HasReplayAsync(replay.FileHash, replay.ParserVersion, cancellationToken))
                 {
                     Interlocked.Increment(ref skipped);
-                    PublishProgress();
+                    completed = true;
                     return;
                 }
 
@@ -181,6 +185,7 @@ namespace ApeRadar.History
                         }, cancellationToken);
                     }
                     Interlocked.Increment(ref imported);
+                    completed = true;
                 }
                 else
                 {
@@ -188,12 +193,21 @@ namespace ApeRadar.History
                     Interlocked.Increment(ref failed);
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
             catch (Exception ex)
             {
                 Interlocked.Increment(ref failed);
                 LogUtils.WriteError($"Replay import failed: {path}", ex);
             }
-            finally { PublishProgress(); }
+            finally
+            {
+                if (completed)
+                {
+                    completedPaths[path] = 0;
+                    candidates.TryRemove(path, out _);
+                }
+                PublishProgress();
+            }
         }
 
         private static bool CanOpenExclusively(string path)
@@ -250,15 +264,20 @@ namespace ApeRadar.History
             catch { return shipId; }
         }
 
-        private void PublishProgress(bool cancelled = false) => ImportProgressChanged?.Invoke(this, new ReplayImportProgress
+        private void PublishProgress(bool cancelled = false)
         {
-            Total = candidates.Count,
-            Processed = imported + skipped + failed,
+            int processed = imported + skipped + failed;
+            int pending = candidates.Values.Count(candidate => !candidate.Attempted);
+            ImportProgressChanged?.Invoke(this, new ReplayImportProgress
+        {
+            Total = processed + pending,
+            Processed = processed,
             Imported = imported,
             Skipped = skipped,
             Failed = failed,
             Cancelled = cancelled
         });
+        }
 
         public async ValueTask DisposeAsync()
         {

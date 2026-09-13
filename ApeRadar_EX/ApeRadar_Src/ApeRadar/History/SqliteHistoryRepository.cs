@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -104,7 +105,8 @@ namespace ApeRadar.History
                     StatusMessage TEXT NULL,
                     UpdatedAt TEXT NOT NULL
                 );
-                CREATE INDEX IF NOT EXISTS IX_Battles_Filter ON Battles(Server, AccountId, ShipId, StartedAt);
+                CREATE INDEX IF NOT EXISTS IX_Battles_Filter ON Battles(Server, AccountId, ShipId, StartedAt DESC);
+                CREATE INDEX IF NOT EXISTS IX_Battles_AccountTime ON Battles(Server, AccountId, StartedAt DESC);
                 CREATE TABLE IF NOT EXISTS BattlePlayers(
                     BattleId INTEGER NOT NULL,
                     PlayerKey TEXT NOT NULL,
@@ -177,6 +179,7 @@ namespace ApeRadar.History
                     EndedAt TEXT NOT NULL,
                     IsManual INTEGER NOT NULL DEFAULT 0
                 );
+                CREATE INDEX IF NOT EXISTS IX_PendingResultChecks_NextAttempt ON PendingResultChecks(NextAttemptAt);
                 CREATE INDEX IF NOT EXISTS IX_BattleSessions_AccountTime ON BattleSessions(Server, AccountId, StartedAt DESC);
                 CREATE INDEX IF NOT EXISTS IX_Battles_Session ON Battles(SessionId, StartedAt);
                 CREATE TABLE IF NOT EXISTS BattleAdvancedMetrics(
@@ -449,17 +452,42 @@ namespace ApeRadar.History
             await using SqliteConnection connection = new(ConnectionString);
             await connection.OpenAsync(cancellationToken);
             await using SqliteCommand command = connection.CreateCommand();
-            command.CommandText = """
-                SELECT * FROM Battles WHERE
-                    ($server='' OR Server=$server) AND ($account='' OR AccountId=$account) AND ($ship='' OR ShipId=$ship)
-                    AND ($from='' OR StartedAt >= $from) AND ($to='' OR StartedAt < $to)
-                ORDER BY StartedAt
-                """;
-            command.Parameters.AddWithValue("$server", query.Server ?? "");
-            command.Parameters.AddWithValue("$account", query.AccountId ?? "");
-            command.Parameters.AddWithValue("$ship", query.ShipId ?? "");
-            command.Parameters.AddWithValue("$from", query.From?.UtcDateTime.ToString("O") ?? "");
-            command.Parameters.AddWithValue("$to", query.To?.UtcDateTime.ToString("O") ?? "");
+            List<string> predicates = new();
+            if (!string.IsNullOrWhiteSpace(query.Server))
+            {
+                predicates.Add("Server=$server");
+                command.Parameters.AddWithValue("$server", query.Server);
+            }
+            if (!string.IsNullOrWhiteSpace(query.AccountId))
+            {
+                predicates.Add("AccountId=$account");
+                command.Parameters.AddWithValue("$account", query.AccountId);
+            }
+            if (!string.IsNullOrWhiteSpace(query.ShipId))
+            {
+                predicates.Add("ShipId=$ship");
+                command.Parameters.AddWithValue("$ship", query.ShipId);
+            }
+            if (query.From.HasValue)
+            {
+                predicates.Add("StartedAt >= $from");
+                command.Parameters.AddWithValue("$from", query.From.Value.UtcDateTime.ToString("O"));
+            }
+            if (query.To.HasValue)
+            {
+                predicates.Add("StartedAt < $to");
+                command.Parameters.AddWithValue("$to", query.To.Value.UtcDateTime.ToString("O"));
+            }
+            StringBuilder sql = new("SELECT * FROM Battles");
+            if (predicates.Count > 0) sql.Append(" WHERE ").Append(string.Join(" AND ", predicates));
+            sql.Append(query.Descending ? " ORDER BY StartedAt DESC" : " ORDER BY StartedAt");
+            if (query.Limit is > 0)
+            {
+                sql.Append(" LIMIT $limit OFFSET $offset");
+                command.Parameters.AddWithValue("$limit", query.Limit.Value);
+                command.Parameters.AddWithValue("$offset", Math.Max(0, query.Offset));
+            }
+            command.CommandText = sql.ToString();
             await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken)) result.Add(ReadBattle(reader));
             return result;
@@ -578,8 +606,37 @@ namespace ApeRadar.History
             return sessions;
         }
 
-        public async Task<BattleSession?> GetLatestSessionAsync(string? server = null, string? accountId = null, CancellationToken cancellationToken = default) =>
-            (await GetSessionsAsync(server, accountId, cancellationToken)).FirstOrDefault();
+        public async Task<BattleSession?> GetLatestSessionAsync(string? server = null, string? accountId = null, CancellationToken cancellationToken = default)
+        {
+            await EnsureInitialized(cancellationToken);
+            await using SqliteConnection connection = new(ConnectionString);
+            await connection.OpenAsync(cancellationToken);
+            await using SqliteCommand command = connection.CreateCommand();
+            List<string> predicates = new();
+            if (!string.IsNullOrWhiteSpace(server))
+            {
+                predicates.Add("s.Server=$server");
+                command.Parameters.AddWithValue("$server", server);
+            }
+            if (!string.IsNullOrWhiteSpace(accountId))
+            {
+                predicates.Add("s.AccountId=$account");
+                command.Parameters.AddWithValue("$account", accountId);
+            }
+            string where = predicates.Count == 0 ? "" : "WHERE " + string.Join(" AND ", predicates);
+            command.CommandText = $"""
+                SELECT s.Id,s.Server,s.AccountId,s.AccountName,s.StartedAt,s.EndedAt,s.IsManual,
+                       COALESCE(SUM(MAX(1,b.BattleCount)),0) AS BattleCount
+                FROM BattleSessions s
+                INNER JOIN Battles b ON b.SessionId=s.Id
+                {where}
+                GROUP BY s.Id
+                ORDER BY s.StartedAt DESC
+                LIMIT 1
+                """;
+            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            return await reader.ReadAsync(cancellationToken) ? ReadSession(reader) : null;
+        }
 
         public async Task<IReadOnlyList<BattleRecord>> GetSessionBattlesAsync(long sessionId, CancellationToken cancellationToken = default)
         {

@@ -14,6 +14,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Threading;
 
 namespace ApeRadar.ViewModels
 {
@@ -46,6 +47,11 @@ namespace ApeRadar.ViewModels
         private bool isFavorite;
         private int sessionLoadVersion;
         private int battleDetailLoadVersion;
+        private int reloadVersion;
+        private CancellationTokenSource? reloadCancellation;
+        private int currentPage;
+        private int totalPages = 1;
+        private const int PageSize = 100;
 
         public HistoryViewModel(IHistoryRepository repository, IHistoryAnalysisService analysis, ISessionAnalysisService sessionAnalysis,
             IImprovementInsightService insightService, IBattleTrackingCoordinator coordinator, string chartFontFamily)
@@ -136,6 +142,11 @@ namespace ApeRadar.ViewModels
         public string BattleDetailMetrics { get; private set; } = "-";
         public string ChartGuidanceText { get; private set; } = "";
         public string PrDataVersionText => PRUtils.GetExpectedValuesDateString();
+        public string PageText => $"{CurrentPage + 1} / {TotalPages}";
+        public int CurrentPage { get => currentPage; private set { if (Set(ref currentPage, value)) { OnPropertyChanged(nameof(PageText)); OnPropertyChanged(nameof(CanGoPrevious)); OnPropertyChanged(nameof(CanGoNext)); } } }
+        public int TotalPages { get => totalPages; private set { if (Set(ref totalPages, value)) { OnPropertyChanged(nameof(PageText)); OnPropertyChanged(nameof(CanGoPrevious)); OnPropertyChanged(nameof(CanGoNext)); } } }
+        public bool CanGoPrevious => CurrentPage > 0;
+        public bool CanGoNext => CurrentPage + 1 < TotalPages;
 
         public async Task InitializeAsync()
         {
@@ -161,12 +172,19 @@ namespace ApeRadar.ViewModels
             await LoadSessionsAsync();
         }
 
-        public async Task ReloadAsync()
+        public async Task ReloadAsync(bool debounce = false)
         {
-            if (IsBusy) return;
+            int version = Interlocked.Increment(ref reloadVersion);
+            CancellationTokenSource cancellation = new();
+            CancellationTokenSource? previous = reloadCancellation;
+            reloadCancellation = cancellation;
+            previous?.Cancel();
+            previous?.Dispose();
+            CancellationToken cancellationToken = cancellation.Token;
             IsBusy = true;
             try
             {
+                if (debounce) await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
                 HistoryQuery query = new()
                 {
                     Server = EmptyToNull(SelectedServer?.Value),
@@ -175,10 +193,28 @@ namespace ApeRadar.ViewModels
                     From = FromDate.HasValue ? new DateTimeOffset(FromDate.Value.Date) : null,
                     To = ToDate.HasValue ? new DateTimeOffset(ToDate.Value.Date.AddDays(1)) : null
                 };
-                IReadOnlyList<BattleRecord> battles = await repository.GetBattlesAsync(query);
-                IReadOnlyDictionary<long, BattleAdvancedMetrics> advanced = await repository.GetAdvancedMetricsAsync(battles.Select(x => x.Id));
+                IReadOnlyList<BattleRecord> battles = await repository.GetBattlesAsync(query, cancellationToken);
+                TotalPages = Math.Max(1, (int)Math.Ceiling(battles.Count / (double)PageSize));
+                if (CurrentPage >= TotalPages) CurrentPage = TotalPages - 1;
+                HistoryQuery pageQuery = new()
+                {
+                    Server = query.Server,
+                    AccountId = query.AccountId,
+                    ShipId = query.ShipId,
+                    From = query.From,
+                    To = query.To,
+                    Limit = PageSize,
+                    Offset = CurrentPage * PageSize,
+                    Descending = true
+                };
+                IReadOnlyList<BattleRecord> page = await repository.GetBattlesAsync(pageQuery, cancellationToken);
+                IReadOnlyDictionary<long, BattleAdvancedMetrics> advanced = RequiresAdvancedMetrics()
+                    ? await repository.GetAdvancedMetricsAsync(battles.Select(x => x.Id), cancellationToken)
+                    : new Dictionary<long, BattleAdvancedMetrics>();
+                cancellationToken.ThrowIfCancellationRequested();
+                if (version != reloadVersion) return;
                 Rows.Clear();
-                foreach (BattleRecord battle in battles.OrderByDescending(x => x.StartedAt))
+                foreach (BattleRecord battle in page)
                 {
                     Rows.Add(new HistoryRowViewModel(
                         battle,
@@ -190,14 +226,34 @@ namespace ApeRadar.ViewModels
                 }
                 ApplySummary(analysis.CalculateSummary(battles));
                 ApplyChart(battles, advanced);
-                StatusText = string.Format(Resource("HistoryLoadedStatus", "Loaded {0} records"), battles.Count);
+                StatusText = string.Format(Resource("HistoryLoadedStatus", "Loaded {0} records"), battles.Count) + $" · {PageText}";
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
             catch (Exception ex)
             {
                 StatusText = string.Format(Resource("HistoryLoadFailed", "Unable to load history: {0}"), ex.Message);
             }
-            finally { IsBusy = false; }
+            finally { if (version == reloadVersion) IsBusy = false; }
         }
+
+        public void ResetPage() => CurrentPage = 0;
+
+        public async Task PreviousPageAsync()
+        {
+            if (!CanGoPrevious) return;
+            CurrentPage--;
+            await ReloadAsync();
+        }
+
+        public async Task NextPageAsync()
+        {
+            if (!CanGoNext) return;
+            CurrentPage++;
+            await ReloadAsync();
+        }
+
+        private bool RequiresAdvancedMetrics() => SelectedMetric?.Value is
+            "Survival" or "PotentialDamage" or "DamagePerMinute" or "DamageTaken" or "TradeRatio";
 
         public async Task RetryFailedReplaysAsync()
         {
@@ -570,7 +626,13 @@ namespace ApeRadar.ViewModels
             field = value; OnPropertyChanged(name); return true;
         }
         private void OnPropertyChanged([CallerMemberName] string name = "") => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-        public void Dispose() => coordinator.ReplayMonitor.ImportProgressChanged -= ReplayMonitor_ImportProgressChanged;
+        public void Dispose()
+        {
+            reloadCancellation?.Cancel();
+            reloadCancellation?.Dispose();
+            reloadCancellation = null;
+            coordinator.ReplayMonitor.ImportProgressChanged -= ReplayMonitor_ImportProgressChanged;
+        }
     }
 
     internal sealed class HistoryRowViewModel

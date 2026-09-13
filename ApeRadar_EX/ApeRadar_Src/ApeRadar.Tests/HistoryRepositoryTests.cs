@@ -379,6 +379,34 @@ public sealed class HistoryRepositoryTests : IDisposable
         Assert.Single(Directory.GetFiles(directory, "history.db.pre-v3-*.bak"));
     }
 
+    [Fact]
+    public async Task BattleQuery_PagesNewestFirstWithoutMixingFilters()
+    {
+        SqliteHistoryRepository repository = new(DatabasePath);
+        DateTimeOffset start = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        for (int i = 0; i < 205; i++)
+        {
+            BattleRecord battle = CreateBattle();
+            battle.BattleKey = $"page-{i:000}";
+            battle.StartedAt = start.AddMinutes(i);
+            battle.ShipId = i % 2 == 0 ? "101" : "202";
+            await repository.UpsertDraftAsync(battle, Array.Empty<BattlePlayerRecord>(), null);
+        }
+
+        IReadOnlyList<BattleRecord> secondPage = await repository.GetBattlesAsync(new HistoryQuery
+        {
+            Server = "ASIA",
+            Limit = 100,
+            Offset = 100,
+            Descending = true
+        });
+
+        Assert.Equal(100, secondPage.Count);
+        Assert.True(secondPage[0].StartedAt > secondPage[^1].StartedAt);
+        Assert.Equal("page-104", secondPage[0].BattleKey);
+        Assert.Equal("page-005", secondPage[^1].BattleKey);
+    }
+
     private static BattleRecord CreateBattle() => new()
     {
         BattleKey = "battle-1", StartedAt = DateTimeOffset.UtcNow, Server = "ASIA", Mode = "random", MapName = "Map",
