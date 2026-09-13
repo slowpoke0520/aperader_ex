@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace ApeRadar.Utils
 {
@@ -19,8 +20,9 @@ namespace ApeRadar.Utils
             return accountWeightedWinrate * (1 - shipWeight) + shipWinrate * shipWeight;
         }
 
-        public async static Task<List<Player>> WgPublicApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool useYuyukoProxy, bool forceRefresh = false, string? forceRefreshPlayerID = null)
+        public async static Task<List<Player>> WgPublicApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool useYuyukoProxy, bool forceRefresh = false, string? forceRefreshPlayerID = null, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string wgPublicApiApplicationId = string.IsNullOrWhiteSpace(Properties.Settings.Default.WgApplicationId)
                 ? "447ec579e994976e39dec0e7d0bac644"
                 : Properties.Settings.Default.WgApplicationId.Trim();
@@ -53,6 +55,7 @@ namespace ApeRadar.Utils
 
             foreach (Player p in playerList)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (p.Name[..1] != ":")
                 {
                     playerNameList = playerNameList + p.Name + "%2C";
@@ -71,7 +74,7 @@ namespace ApeRadar.Utils
                 requestUrl = $"https://api.{serverUrlString}/wows/account/list/?application_id={wgPublicApiApplicationId}&type=exact&search={playerNameList}";
             }
 
-            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl);
+            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl, cancellationToken);
 
             LogUtils.WriteDebug($"WgPublicApiGetPlayersID Response:{responseBodyAsText}");
             JObject JObjectWgPublicApiPlayersIDList = JsonUtils.Parse(responseBodyAsText);
@@ -144,7 +147,7 @@ namespace ApeRadar.Utils
                 requestUrl = $"https://api.{serverUrlString}/wows/account/info/?application_id={wgPublicApiApplicationId}&extra=statistics.pvp_solo%2Cstatistics.pvp_div2%2Cstatistics.pvp_div3&fields=hidden_profile%2Cstatistics.pvp.wins%2Cstatistics.pvp.battles%2Cstatistics.pvp_solo.wins%2Cstatistics.pvp_solo.battles%2Cstatistics.pvp_div2.wins%2Cstatistics.pvp_div2.battles%2Cstatistics.pvp_div3.wins%2Cstatistics.pvp_div3.battles&account_id={playerIdList}";
             }
 
-            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl);
+            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl, cancellationToken);
             LogUtils.WriteDebug($"WgPublicApiGetPlayersAccountData Response:{responseBodyAsText}");
             JObject JObjectWgPublicApiPlayersAccountDataList = JsonUtils.Parse(responseBodyAsText);
 
@@ -156,7 +159,7 @@ namespace ApeRadar.Utils
             {
                 requestUrl = $"https://api.{serverUrlString}/wows/clans/accountinfo/?application_id={wgPublicApiApplicationId}&extra=clan&fields=clan_id%2Cclan.tag&account_id={playerIdList}";
             }
-            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl);
+            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl, cancellationToken);
             LogUtils.WriteDebug($"WgPublicApiGetPlayersClanData Response:{responseBodyAsText}");
             JObject JObjectWgPublicApiPlayersClanDataList = JsonUtils.Parse(responseBodyAsText);
 
@@ -284,8 +287,8 @@ namespace ApeRadar.Utils
                         requestUrlPvpOnly = $"https://api.{serverUrlString}/wows/ships/stats/?application_id={wgPublicApiApplicationId}&fields=ship_id%2Cpvp.wins%2Cpvp.battles%2Cpvp.damage_dealt%2Cpvp.frags&account_id={p.ID}";
                         requestUrlModesOnly = $"https://api.{serverUrlString}/wows/ships/stats/?application_id={wgPublicApiApplicationId}&extra=pvp_solo%2Cpvp_div2%2Cpvp_div3&fields=pvp_solo.wins%2Cpvp_solo.battles%2Cpvp_solo.damage_dealt%2Cpvp_solo.frags%2Cpvp_div2.wins%2Cpvp_div2.battles%2Cpvp_div2.damage_dealt%2Cpvp_div2.frags%2Cpvp_div3.wins%2Cpvp_div3.battles%2Cpvp_div3.damage_dealt%2Cpvp_div3.frags&account_id={p.ID}&ship_id={p.ShipID}";
                     }
-                    taskListWgPublicApiGetPlayersShipsPvpData.Add(NetworkUtils.HttpGet(requestUrlPvpOnly));
-                    taskListWgPublicApiGetPlayersShipsModesData.Add(NetworkUtils.HttpGet(requestUrlModesOnly));
+                    taskListWgPublicApiGetPlayersShipsPvpData.Add(NetworkUtils.HttpGet(requestUrlPvpOnly, cancellationToken));
+                    taskListWgPublicApiGetPlayersShipsModesData.Add(NetworkUtils.HttpGet(requestUrlModesOnly, cancellationToken));
                 }
             }
 
@@ -447,8 +450,9 @@ namespace ApeRadar.Utils
             return playerList;
         }
 
-        public async static Task<List<Player>> VortexApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool forceRefresh = false, string? forceRefreshPlayerID = null)
+        public async static Task<List<Player>> VortexApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool forceRefresh = false, string? forceRefreshPlayerID = null, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             LogUtils.WriteInfo("Vortex API");
             string serverUrlString = ServerExt.GetFullUrlStringByServer(server);
             List<Player> playerList = new();
@@ -470,6 +474,7 @@ namespace ApeRadar.Utils
             //resolve player IDs from the persistent cache first
             foreach (Player p in playerList)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (p.Name[..1] != ":")
                 {
                     if (PlayerIDCache.TryGetID(server, p.Name, out string cachedID))
@@ -478,7 +483,7 @@ namespace ApeRadar.Utils
                     }
                     else
                     {
-                        taskListVortexApiGetPlayerID.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/search/{Uri.EscapeDataString(p.Name)}"));
+                        taskListVortexApiGetPlayerID.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/search/{Uri.EscapeDataString(p.Name)}", cancellationToken));
                     }
                 }
             }
@@ -544,12 +549,12 @@ namespace ApeRadar.Utils
             {
                 if (p.Name[..1] != ":" && p.ID != "-1" && playersToFetch.Contains(p.ID))
                 {
-                    taskListVortexApiGetPlayersAccountData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/"));
-                    taskListVortexApiGetPlayersClanData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/clans/"));
-                    taskListVortexApiGetPlayersShipsAllData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/pvp/"));
-                    taskListVortexApiGetPlayersShipsSoloData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_solo/"));
-                    taskListVortexApiGetPlayersShipsDiv2Data.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div2/"));
-                    taskListVortexApiGetPlayersShipsDiv3Data.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div3/"));
+                    taskListVortexApiGetPlayersAccountData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/", cancellationToken));
+                    taskListVortexApiGetPlayersClanData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/clans/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsAllData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/pvp/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsSoloData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_solo/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsDiv2Data.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div2/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsDiv3Data.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div3/", cancellationToken));
                 }
             }
 

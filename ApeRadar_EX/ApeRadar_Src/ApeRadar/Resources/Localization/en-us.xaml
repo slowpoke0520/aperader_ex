@@ -41,6 +41,10 @@
     <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">Check &amp;<LineBreak/>Update</TextBlock>
     <TextBlock x:Key="BtnUpdateShipList" TextAlignment="Center">Update<LineBreak/>Ship List</TextBlock>
     <system:String x:Key="BtnRefresh">Refresh</system:String>
+    <system:String x:Key="BtnAnalysis">Charts &amp; analysis</system:String>
+    <system:String x:Key="HistoryPreviousPage">Previous</system:String>
+    <system:String x:Key="HistoryNextPage">Next</system:String>
+    <system:String x:Key="AnalysisPanelTitle">Charts and display options</system:String>
     <system:String x:Key="BtnSoftwareUpdate">Update app</system:String>
     <system:String x:Key="BtnOpen">Open Replay</system:String>
     <system:String x:Key="BtnConfig">Config</system:String>
@@ -510,6 +514,18 @@
     <system:String x:Key="ToolTipSoftwareUpdateChannel">Stable receives official Releases only. Development also receives prereleases, which may contain features that have not been fully verified.</system:String>
     <system:String x:Key="ComboBoxItemSoftwareUpdateChannelStable">Stable</system:String>
     <system:String x:Key="ComboBoxItemSoftwareUpdateChannelDevelopment">Development</system:String>
+    <system:String x:Key="SoftwareUpdateStatusInitial">Current {0} · not checked yet</system:String>
+    <system:String x:Key="SoftwareUpdateStatusChecking">Checking for updates to {0}…</system:String>
+    <system:String x:Key="SoftwareUpdateStatusUpToDate">Current {0} · up to date · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusAvailable">Current {0} · available {1} · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusStarted">Updating from {0} to {1}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusAlreadyRunning">Update check already running · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusNetworkError">Network connection failed · last check {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusRateLimited">Update service rate limited · retry later · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusInvalidFeed">Invalid update feed · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusMissingAsset">Version {1} has no install package · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusHashInvalid">Install package has no valid SHA-256 · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusCancelled">Update check cancelled · {2}</system:String>
     <system:String x:Key="ChkBoxCheckForUpdatesOnStartup">Check for Updates on Startup</system:String>
     <system:String x:Key="ToolTipCheckForUpdatesOnStartup">Checks the selected channel at startup and only notifies you; it never installs automatically. You can still use Check &amp; Update when disabled.</system:String>
     <system:String x:Key="ChkBoxShowExperimentalReplayMetrics">Show experimental Replay metrics</system:String>
@@ -537,6 +553,11 @@
 
     <system:String x:Key="NotificationMessageRetrivingData">Retriving data from server, please wait...</system:String>
     <system:String x:Key="NotificationMessageDataRetrieved">Data retrieved successfully.</system:String>
+    <system:String x:Key="RosterStatusMetadata">Battle roster loaded. Retrieving player statistics…</system:String>
+    <system:String x:Key="RosterStatusRefreshing">Cached data is visible while expired statistics refresh in the background…</system:String>
+    <system:String x:Key="RosterStatusComplete">Player data is up to date.</system:String>
+    <system:String x:Key="RosterStatusPartial">The roster is available, but some player statistics could not be loaded.</system:String>
+    <system:String x:Key="RosterStatusFailed">Player statistics could not be loaded. The roster remains available; use Refresh to retry.</system:String>
     <system:String x:Key="NotificationMessageFileError">The file opened is not a legal tempArenaInfo.json or .wowsreplay file.</system:String>
     <system:String x:Key="NotificationMessageServerAutoDetectionFailed">The game server auto detection has failed. Please select the game server manually in the config window. </system:String>
     <system:String x:Key="NotificationMessageConnectionError">The connention to the Wargaming API has failed. Please check your network connection or try again later.</system:String>
@@ -557,6 +578,9 @@
     <system:String x:Key="NotificationMessagePRDataUpdateComplete">PR data update complete.</system:String>
     <system:String x:Key="NotificationMessageUpdateConnectionError">The connection to the update server has failed. Please check your network connection or try again later.</system:String>
     <system:String x:Key="NotificationMessageUpdateFileHashError">The file downloaded from the update server is corrupted. Please check your network connection or try again later.</system:String>
+    <system:String x:Key="NotificationMessageUpdateRateLimited">The update service is receiving too many requests. Try again later.</system:String>
+    <system:String x:Key="NotificationMessageUpdateFeedInvalid">The update service returned an invalid release feed. Check the log or try again later.</system:String>
+    <system:String x:Key="NotificationMessageUpdateAssetMissing">The new release has no ApeRadar-win-x64.zip package and cannot be installed automatically.</system:String>
     <system:String x:Key="NotificationMessageNoteEncountered">Player with note encountered: </system:String>
     <system:String x:Key="NotificationMessageNoteEncounteredMiddle">, Note: </system:String>
 

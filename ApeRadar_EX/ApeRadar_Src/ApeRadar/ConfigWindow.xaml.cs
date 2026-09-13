@@ -74,6 +74,39 @@ namespace ApeRadar
                 PRUtils.LoadExpectedValues(@".\Resources\Json\expected_values.json");
             }
             LabelPRDataVersionDateStr.Content = PRUtils.GetExpectedValuesDateString();
+            UpdateSoftwareUpdateStatus();
+        }
+
+        private void UpdateSoftwareUpdateStatus(SoftwareUpdateCheckResult? result = null)
+        {
+            if (result == null)
+            {
+                string initialFormat = TryFindResource("SoftwareUpdateStatusInitial") as string ?? "Current version: {0}. Not checked yet.";
+                TxtSoftwareUpdateStatus.Text = string.Format(initialFormat, Properties.Settings.Default.SoftwareVersion);
+                TxtSoftwareUpdateStatus.ToolTip = null;
+                return;
+            }
+
+            string resourceKey = result.Status switch
+            {
+                SoftwareUpdateCheckStatus.UpToDate => "SoftwareUpdateStatusUpToDate",
+                SoftwareUpdateCheckStatus.UpdateAvailable => "SoftwareUpdateStatusAvailable",
+                SoftwareUpdateCheckStatus.UpdateStarted => "SoftwareUpdateStatusStarted",
+                SoftwareUpdateCheckStatus.AlreadyRunning => "SoftwareUpdateStatusAlreadyRunning",
+                SoftwareUpdateCheckStatus.NetworkError => "SoftwareUpdateStatusNetworkError",
+                SoftwareUpdateCheckStatus.RateLimited => "SoftwareUpdateStatusRateLimited",
+                SoftwareUpdateCheckStatus.InvalidFeed => "SoftwareUpdateStatusInvalidFeed",
+                SoftwareUpdateCheckStatus.MissingAsset => "SoftwareUpdateStatusMissingAsset",
+                SoftwareUpdateCheckStatus.HashInvalid => "SoftwareUpdateStatusHashInvalid",
+                SoftwareUpdateCheckStatus.Cancelled => "SoftwareUpdateStatusCancelled",
+                _ => "SoftwareUpdateStatusInvalidFeed"
+            };
+            string format = TryFindResource(resourceKey) as string ?? "Current {0}; available {1}; checked {2}.";
+            TxtSoftwareUpdateStatus.Text = string.Format(format,
+                result.CurrentVersion,
+                result.AvailableVersion ?? "-",
+                result.CheckedAt.ToLocalTime().ToString("g"));
+            TxtSoftwareUpdateStatus.ToolTip = string.IsNullOrWhiteSpace(result.ReleaseNotes) ? null : result.ReleaseNotes;
         }
 
         private int SaveSettings()
@@ -417,11 +450,21 @@ namespace ApeRadar
         private async void BtnCheckForUpdates_Click(object sender, RoutedEventArgs e)
         {
             BtnCheckForUpdates.IsEnabled = false;
-            if (await SoftwareUpdateUtils.CheckForSoftwareUpdates() == false)
+            string checkingFormat = TryFindResource("SoftwareUpdateStatusChecking") as string ?? "Checking from {0}…";
+            TxtSoftwareUpdateStatus.Text = string.Format(checkingFormat, Properties.Settings.Default.SoftwareVersion);
+            try
             {
-                System.Windows.MessageBox.Show(System.Windows.Application.Current.FindResource("MsgBoxSoftwareUpdateNotFound") as string, System.Windows.Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.OK, MessageBoxImage.Information);
+                SoftwareUpdateCheckResult result = await SoftwareUpdateUtils.CheckForSoftwareUpdates();
+                UpdateSoftwareUpdateStatus(result);
+                if (result.Status == SoftwareUpdateCheckStatus.UpToDate)
+                {
+                    System.Windows.MessageBox.Show(System.Windows.Application.Current.FindResource("MsgBoxSoftwareUpdateNotFound") as string, System.Windows.Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.OK, MessageBoxImage.Information);
+                }
             }
-            BtnCheckForUpdates.IsEnabled = true;
+            finally
+            {
+                BtnCheckForUpdates.IsEnabled = true;
+            }
         }
 
         private void BtnViewChangelog_Click(object sender, RoutedEventArgs e)

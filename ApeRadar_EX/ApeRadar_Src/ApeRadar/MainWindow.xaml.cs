@@ -16,12 +16,15 @@ using ApeRadar.Models;
 using ApeRadar.Utils;
 using ApeRadar.Utils.Sorters;
 using ApeRadar.History;
+using ApeRadar.Services;
 
 using Newtonsoft.Json.Linq;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using SkiaSharp;
 using System.Globalization;
+using System.Threading;
+using ApeRadar.ViewModels;
 
 namespace ApeRadar
 {
@@ -32,11 +35,21 @@ namespace ApeRadar
         private DateTimeOffset currentBattleStartTime = DateTimeOffset.MinValue;
         private int sessionSummaryTicks;
         private bool sessionSummaryRefreshing;
+        private CancellationTokenSource? rosterLoadCancellation;
+        private long rosterLoadGeneration;
+        private bool analysisExpandedInCompactMode;
+        private bool analysisCollapsedByUser;
+        private bool? compactRosterColumns;
+        private const double CompactLayoutThreshold = 1440;
+        private const double CompactRosterColumnsThreshold = 1100;
+        private readonly IBattleRosterCoordinator battleRosterCoordinator = new BattleRosterCoordinator();
+
+        public RosterStatusViewModel RosterStatus { get; } = new();
 
         private void SwitchLanguage(Language language)
         {
             Application.Current.Resources.MergedDictionaries[0] = LanguageExt.GetResourceDictionaryByLanguage(language);
-            LabelGamePathIsSetOrNot.GetBindingExpression(ContentProperty).UpdateTarget();
+            LabelGamePathIsSetOrNot.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
 
             ComboBoxLanguage.SelectionChanged -= ComboBoxLanguage_SelectionChanged;
             ComboBoxLanguage.Items.Clear();
@@ -120,46 +133,53 @@ namespace ApeRadar
 
         private void RefreshDataGridColumns(bool mirrored)
         {
+            bool useCompactColumns = compactRosterColumns ?? ActualWidth < CompactRosterColumnsThreshold;
+            DataGridAlliesList.HorizontalScrollBarVisibility = useCompactColumns ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+            DataGridEnemiesList.HorizontalScrollBarVisibility = useCompactColumns ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
             DataGridAlliesList.Columns.Clear();
-            DataGridAlliesList.Columns.Add(TryFindResource("AlliesNameColumn") as DataGridTemplateColumn);
-            DataGridAlliesList.Columns.Add(TryFindResource("AlliesStatisticsColumn") as DataGridTemplateColumn);
-            DataGridAlliesList.Columns.Add(TryFindResource("AlliesTagColumn") as DataGridTemplateColumn);
+            DataGridAlliesList.Columns.Add(TryFindResource(useCompactColumns ? "AlliesNameColumnCompact" : "AlliesNameColumn") as DataGridTemplateColumn);
+            DataGridAlliesList.Columns.Add(TryFindResource(useCompactColumns ? "AlliesStatisticsColumnCompact" : "AlliesStatisticsColumn") as DataGridTemplateColumn);
+            if (!useCompactColumns) DataGridAlliesList.Columns.Add(TryFindResource("AlliesTagColumn") as DataGridTemplateColumn);
             if (mirrored)
             {
                 DataGridEnemiesList.Columns.Clear();
-                DataGridEnemiesList.Columns.Add(TryFindResource("EnemiesTagColumn") as DataGridTemplateColumn);
-                DataGridEnemiesList.Columns.Add(TryFindResource("EnemiesStatisticsColumnMirrored") as DataGridTemplateColumn);
-                DataGridEnemiesList.Columns.Add(TryFindResource("EnemiesNameColumnMirrored") as DataGridTemplateColumn);
+                if (!useCompactColumns) DataGridEnemiesList.Columns.Add(TryFindResource("EnemiesTagColumn") as DataGridTemplateColumn);
+                DataGridEnemiesList.Columns.Add(TryFindResource(useCompactColumns ? "EnemiesStatisticsColumnCompact" : "EnemiesStatisticsColumnMirrored") as DataGridTemplateColumn);
+                DataGridEnemiesList.Columns.Add(TryFindResource(useCompactColumns ? "EnemiesNameColumnCompactMirrored" : "EnemiesNameColumnMirrored") as DataGridTemplateColumn);
             }
             else
             {
                 DataGridEnemiesList.Columns.Clear();
-                DataGridEnemiesList.Columns.Add(TryFindResource("EnemiesNameColumn") as DataGridTemplateColumn);
-                DataGridEnemiesList.Columns.Add(TryFindResource("EnemiesStatisticsColumn") as DataGridTemplateColumn);
-                DataGridEnemiesList.Columns.Add(TryFindResource("EnemiesTagColumn") as DataGridTemplateColumn);
+                DataGridEnemiesList.Columns.Add(TryFindResource(useCompactColumns ? "EnemiesNameColumnCompact" : "EnemiesNameColumn") as DataGridTemplateColumn);
+                DataGridEnemiesList.Columns.Add(TryFindResource(useCompactColumns ? "EnemiesStatisticsColumnCompact" : "EnemiesStatisticsColumn") as DataGridTemplateColumn);
+                if (!useCompactColumns) DataGridEnemiesList.Columns.Add(TryFindResource("EnemiesTagColumn") as DataGridTemplateColumn);
             }
+            Dispatcher.BeginInvoke(() =>
+            {
+                DataGridAlliesList.UpdateLayout();
+                DataGridEnemiesList.UpdateLayout();
+                ResetHorizontalScroll(DataGridAlliesList);
+                ResetHorizontalScroll(DataGridEnemiesList);
+            }, DispatcherPriority.ContextIdle);
         }
 
-        private void ForceUpdateDataGridColumnWidth()
+        private static void ResetHorizontalScroll(DataGrid dataGrid)
         {
-            foreach (DataGridColumn col in DataGridAlliesList.Columns)
+            ScrollViewer? scrollViewer = dataGrid.Template.FindName("DG_ScrollViewer", dataGrid) as ScrollViewer
+                ?? FindVisualChild<ScrollViewer>(dataGrid);
+            scrollViewer?.ScrollToHorizontalOffset(0);
+        }
+
+        private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
             {
-                col.Width = 0;
+                DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T match) return match;
+                T? nested = FindVisualChild<T>(child);
+                if (nested != null) return nested;
             }
-            foreach (DataGridColumn col in DataGridEnemiesList.Columns)
-            {
-                col.Width = 0;
-            }
-            DataGridAlliesList.UpdateLayout();
-            DataGridEnemiesList.UpdateLayout();
-            foreach (DataGridColumn col in DataGridAlliesList.Columns)
-            {
-                col.Width = DataGridLength.Auto;
-            }
-            foreach (DataGridColumn col in DataGridEnemiesList.Columns)
-            {
-                col.Width = DataGridLength.Auto;
-            }
+            return null;
         }
 
         public MainWindow() : this(initializeRuntime: true)
@@ -169,6 +189,8 @@ namespace ApeRadar
         internal MainWindow(bool initializeRuntime)
         {
             InitializeComponent();
+
+            Loaded += (_, _) => UpdateResponsiveLayout();
 
             if (!initializeRuntime)
             {
@@ -278,6 +300,40 @@ namespace ApeRadar
             LogUtils.WriteInfo("Timer Start");
         }
 
+        private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateResponsiveLayout();
+
+        private void BtnToggleAnalysis_Click(object sender, RoutedEventArgs e)
+        {
+            if (ActualWidth < CompactLayoutThreshold)
+            {
+                analysisExpandedInCompactMode = !analysisExpandedInCompactMode;
+            }
+            else
+            {
+                analysisCollapsedByUser = !analysisCollapsedByUser;
+            }
+            UpdateResponsiveLayout();
+        }
+
+        private void UpdateResponsiveLayout()
+        {
+            if (!IsLoaded && ActualWidth <= 0) return;
+            bool compact = ActualWidth < CompactLayoutThreshold;
+            bool showAnalysis = compact ? analysisExpandedInCompactMode : !analysisCollapsedByUser;
+            bool narrow = ActualWidth < 1000;
+            bool useCompactRosterColumns = ActualWidth < CompactRosterColumnsThreshold;
+            if (compactRosterColumns != useCompactRosterColumns)
+            {
+                compactRosterColumns = useCompactRosterColumns;
+                RefreshDataGridColumns(Properties.Settings.Default.EnemiesDisplayMirrored);
+            }
+            AnalysisPanel.Visibility = showAnalysis ? Visibility.Visible : Visibility.Collapsed;
+            RosterColumn.Width = narrow && showAnalysis ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+            AnalysisColumn.Width = showAnalysis ? (narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(compact ? 360 : 380)) : new GridLength(0);
+            BtnToggleAnalysis.FontWeight = showAnalysis ? FontWeights.SemiBold : FontWeights.Normal;
+            MainFooterAbout.Visibility = ActualWidth < 900 ? Visibility.Collapsed : Visibility.Visible;
+        }
+
         private async void Timer_Tick(object? sender, EventArgs e)
         {
             string latestFileName = FileUtils.GetLatestTempArenaInfoFile(true);
@@ -294,6 +350,14 @@ namespace ApeRadar
 
         private async Task ReadPlayersListAndGetDataFromServer(string filename, bool forceRefresh = false, string? forceRefreshPlayerID = null, Server? forceRefreshPlayerServer = null)
         {
+            long generation = Interlocked.Increment(ref rosterLoadGeneration);
+            CancellationTokenSource cancellation = new();
+            CancellationTokenSource? previousCancellation = rosterLoadCancellation;
+            rosterLoadCancellation = cancellation;
+            previousCancellation?.Cancel();
+            previousCancellation?.Dispose();
+            CancellationToken cancellationToken = cancellation.Token;
+
             LogUtils.WriteInfo("Reading Players List");
             LogUtils.WriteInfo($"gamePath={Properties.Settings.Default.GamePath}");
             LogUtils.WriteInfo($"filename={filename}");
@@ -320,9 +384,6 @@ namespace ApeRadar
                     //secondary server: enemy players come from different server, for cross-server CW only
                     Server secondaryServer = ServerExt.GetServerByName(Properties.Settings.Default.SecondaryServer);
                     LogUtils.WriteInfo($"secondaryServer={ServerExt.GetNameByServer(secondaryServer)}");
-                    string? primaryForceRefreshPlayerID = forceRefreshPlayerServer == server ? forceRefreshPlayerID : null;
-                    string? secondaryForceRefreshPlayerID = forceRefreshPlayerServer == secondaryServer ? forceRefreshPlayerID : null;
-
                     JObject JObjectWatchList = WatchListUtils.ReadWatchList(@".\WatchList.json");
                     JObject JObjectTempArenaInfo = FileUtils.ReadTempArenaInfoFile(filename);
 
@@ -332,43 +393,32 @@ namespace ApeRadar
                     int playerCount = JObjectTempArenaInfo["vehicles"]!.Count();
                     LogUtils.WriteInfo($"playerCount={playerCount}");
 
-                    List<Player> playerList;
-                    List<Task<List<Player>>> taskList = new();
+                    APIType apiType = APITypeExt.GetAPITypeByName(Properties.Settings.Default.APITypeSelection);
+                    BattleRosterRequest rosterRequest = new(
+                        JObjectTempArenaInfo,
+                        playerCount,
+                        server,
+                        secondaryServer,
+                        Properties.Settings.Default.SecondaryServerEnabled,
+                        apiType,
+                        forceRefresh,
+                        forceRefreshPlayerID,
+                        forceRefreshPlayerServer);
+
+                    if (forceRefreshPlayerID == null)
+                    {
+                        List<Player> metadataPlayers = battleRosterCoordinator.CreateMetadataRoster(rosterRequest).ToList();
+                        Battlefield metadataBattlefield = new(battleType, battleStartTime, metadataPlayers);
+                        ApplyBattlefieldToUI(metadataBattlefield);
+                        RosterStatus.Set(RosterLoadState.Metadata, FindResource("RosterStatusMetadata") as string ?? "Loading player statistics…");
+                    }
 
                     NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageRetrivingData") as string);
-
-                    //Vortex API: new features supported, all servers supported
-                    //WG Public API: new features not supported, RU & CN server not supported
-                    //WG Public API With Yuyuko Proxy: same as WG Public API, but may be more stable under certain network environments in China
-                    APIType apiType = APITypeExt.GetAPITypeByName(Properties.Settings.Default.APITypeSelection);
-                    if (server != Server.RU && server != Server.CN && (!Properties.Settings.Default.SecondaryServerEnabled || secondaryServer != Server.RU  && secondaryServer != Server.CN) && (apiType == APIType.WG_PUBLIC || apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY))
-                    {
-                        //if secondary server is enabled, get results from two servers separately and merge them
-                        if (Properties.Settings.Default.SecondaryServerEnabled)
-                        {
-                            taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, forceRefresh, primaryForceRefreshPlayerID));
-                            taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, forceRefresh, secondaryForceRefreshPlayerID));
-                        }
-                        else
-                        {
-                            taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, forceRefresh, primaryForceRefreshPlayerID));
-                        }
-                    }
-                    else
-                    {
-                        if (Properties.Settings.Default.SecondaryServerEnabled)
-                        {
-                            taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server, forceRefresh, primaryForceRefreshPlayerID));
-                            taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer, forceRefresh, secondaryForceRefreshPlayerID));
-                        }
-                        else
-                        {
-                            taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server, forceRefresh, primaryForceRefreshPlayerID));
-                        }
-                    }
-
-                    List<Player>[] results = await Task.WhenAll(taskList);
-                    playerList = results.SelectMany(result => result).ToList();
+                    BattleRosterLoadResult rosterResult = await battleRosterCoordinator.LoadAsync(rosterRequest, cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (generation != Interlocked.Read(ref rosterLoadGeneration)) return;
+                    List<Player> playerList = rosterResult.Players.ToList();
+                    apiType = rosterResult.Provider;
 
                     //check if player is on the watchlist
                     foreach (Player p in playerList)
@@ -429,10 +479,37 @@ namespace ApeRadar
                     if (stalePlayers.Count > 0)
                     {
                         NotificationMessageUtils.CreateMessage(MessageType.INFO, $"{stalePlayers.Count}{FindResource("NotificationMessageDataUsingCache") as string}");
-                        _ = RefreshStalePlayersInBackground(JObjectTempArenaInfo, playerCount, server, secondaryServer, apiType, battlefield);
+                        RosterStatus.Set(RosterLoadState.Refreshing, FindResource("RosterStatusRefreshing") as string ?? "Refreshing cached data…");
+                        BattleRosterRequest refreshRequest = rosterRequest with { ApiType = apiType, ForceRefresh = true, ForceRefreshPlayerId = null, ForceRefreshPlayerServer = null };
+                        _ = RefreshStalePlayersInBackground(refreshRequest, battlefield, generation, cancellationToken);
+                    }
+                    else
+                    {
+                        string stateResource = rosterResult.IsFailed ? "RosterStatusFailed" : rosterResult.IsPartial ? "RosterStatusPartial" : "RosterStatusComplete";
+                        RosterStatus.Set(rosterResult.IsFailed ? RosterLoadState.Failed : rosterResult.IsPartial ? RosterLoadState.Partial : RosterLoadState.Complete,
+                            FindResource(stateResource) as string ?? "Player data loaded.");
                     }
 
-                    NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageDataRetrieved") as string);
+                    if (rosterResult.IsFailed)
+                    {
+                        ApiFailureKind failure = rosterResult.Failures.FirstOrDefault();
+                        string failureResource = failure switch
+                        {
+                            ApiFailureKind.RateLimited => "NotificationMessageUpdateRateLimited",
+                            ApiFailureKind.Network or ApiFailureKind.Timeout or ApiFailureKind.Server => "NotificationMessageConnectionError",
+                            ApiFailureKind.InvalidResponse => "NotificationMessageJsonError",
+                            _ => "NotificationMessageOtherError"
+                        };
+                        NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource(failureResource) as string);
+                    }
+                    else
+                    {
+                        NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageDataRetrieved") as string);
+                    }
+                    return;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
                     return;
                 }
                 catch (Exception ex)
@@ -446,6 +523,10 @@ namespace ApeRadar
                         "JsonStringNotValid" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageJsonError") as string),
                         _ => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageOtherError") as string),
                     };
+                    if (generation == Interlocked.Read(ref rosterLoadGeneration))
+                    {
+                        RosterStatus.Set(RosterLoadState.Failed, FindResource("RosterStatusFailed") as string ?? "Player statistics could not be loaded.");
+                    }
                     if (ex.Message == "FileFormatIncorrect" || ex.Message == "ServerAutoDetectionFailed")
                     {
                         return;
@@ -454,7 +535,7 @@ namespace ApeRadar
                     {
                         if (i < maximumRetryAttempts)
                         {
-                            await Task.Delay(delayTimeBetweenRetryAttempts);
+                            await Task.Delay(delayTimeBetweenRetryAttempts, cancellationToken);
                             NotificationMessageUtils.CreateMessage(MessageType.INFO, $"{FindResource("NotificationMessageRetrying")}{i + 1}{FindResource("NotificationMessageAttempt")}");
                         }
                         else if (maximumRetryAttempts > 0)
@@ -465,13 +546,14 @@ namespace ApeRadar
                 }
                 finally
                 {
-                    BtnRefresh.IsEnabled = true;
-                    BtnOpen.IsEnabled = true;
+                    if (generation == Interlocked.Read(ref rosterLoadGeneration))
+                    {
+                        BtnRefresh.IsEnabled = true;
+                        BtnOpen.IsEnabled = true;
+                    }
                 }
             }
         }
-
-        private bool isBackgroundRefreshing = false;
 
         private void ApplyBattlefieldToUI(Battlefield battlefield)
         {
@@ -489,46 +571,23 @@ namespace ApeRadar
         }
 
         //re-fetch expired cached players in the background, then update the UI in place
-        private async Task RefreshStalePlayersInBackground(JObject JObjectTempArenaInfo, int playerCount, Server server, Server secondaryServer, APIType apiType, Battlefield currentBattlefield)
+        private async Task RefreshStalePlayersInBackground(BattleRosterRequest request, Battlefield currentBattlefield, long generation, CancellationToken cancellationToken)
         {
-            if (isBackgroundRefreshing)
-            {
-                return;
-            }
-            isBackgroundRefreshing = true;
             try
             {
-                List<Task<List<Player>>> taskList = new();
-                if (server != Server.RU && server != Server.CN && (!Properties.Settings.Default.SecondaryServerEnabled || secondaryServer != Server.RU && secondaryServer != Server.CN) && (apiType == APIType.WG_PUBLIC || apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY))
+                BattleRosterLoadResult refreshResult = await battleRosterCoordinator.LoadAsync(request, cancellationToken);
+                if (refreshResult.IsFailed)
                 {
-                    if (Properties.Settings.Default.SecondaryServerEnabled)
+                    if (generation == Interlocked.Read(ref rosterLoadGeneration))
                     {
-                        taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, true));
-                        taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, true));
+                        RosterStatus.Set(RosterLoadState.Partial, FindResource("RosterStatusPartial") as string ?? "Some player data is unavailable.");
                     }
-                    else
-                    {
-                        taskList.Add(ApiUtils.WgPublicApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server, apiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, true));
-                    }
+                    return;
                 }
-                else
-                {
-                    if (Properties.Settings.Default.SecondaryServerEnabled)
-                    {
-                        taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 1, JObjectTempArenaInfo, server, true));
-                        taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 2, JObjectTempArenaInfo, secondaryServer, true));
-                    }
-                    else
-                    {
-                        taskList.Add(ApiUtils.VortexApiGetPlayersStatistics(playerCount, 0, JObjectTempArenaInfo, server, true));
-                    }
-                }
-
-                List<Player>[] results = await Task.WhenAll(taskList);
-                List<Player> refreshedList = results.SelectMany(result => result).ToList();
+                List<Player> refreshedList = refreshResult.Players.ToList();
 
                 //only apply the result if the user is still viewing the same battle
-                if (!ReferenceEquals(this.DataContext, currentBattlefield))
+                if (generation != Interlocked.Read(ref rosterLoadGeneration) || !ReferenceEquals(this.DataContext, currentBattlefield))
                 {
                     return;
                 }
@@ -551,17 +610,22 @@ namespace ApeRadar
                     Battlefield battlefield = new(currentBattlefield.BattleType, currentBattlefield.BattleStartTime, combinedPlayerList);
                     ApplyBattlefieldToUI(battlefield);
                     PlayerDataCache.Save();
+                    RosterStatus.Set(refreshResult.IsPartial ? RosterLoadState.Partial : RosterLoadState.Complete,
+                        FindResource(refreshResult.IsPartial ? "RosterStatusPartial" : "RosterStatusComplete") as string ?? "Player data loaded.");
                     NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageBackgroundUpdateComplete") as string);
                 }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
             }
             catch (Exception ex)
             {
                 LogUtils.WriteError("background data refresh failed", ex);
-                NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageOtherError") as string);
-            }
-            finally
-            {
-                isBackgroundRefreshing = false;
+                if (generation == Interlocked.Read(ref rosterLoadGeneration))
+                {
+                    RosterStatus.Set(RosterLoadState.Partial, FindResource("RosterStatusPartial") as string ?? "Some player data is unavailable.");
+                    NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageOtherError") as string);
+                }
             }
         }
 
@@ -574,7 +638,7 @@ namespace ApeRadar
             };
             configWindow.ShowDialog();
             _ = InitializeHistoryAsync();
-            ForceUpdateDataGridColumnWidth();
+            RefreshDataGridColumns(Properties.Settings.Default.EnemiesDisplayMirrored);
 
             if (!tierPerformanceWasEnabled && Properties.Settings.Default.ShowTierPerformanceStats)
             {
@@ -591,7 +655,8 @@ namespace ApeRadar
             BtnSoftwareUpdate.IsEnabled = false;
             try
             {
-                if (await SoftwareUpdateUtils.CheckForSoftwareUpdates() == false)
+                SoftwareUpdateCheckResult result = await SoftwareUpdateUtils.CheckForSoftwareUpdates();
+                if (result.Status == SoftwareUpdateCheckStatus.UpToDate)
                 {
                     System.Windows.MessageBox.Show(FindResource("MsgBoxSoftwareUpdateNotFound") as string, FindResource("MsgBoxUpdate") as string, MessageBoxButton.OK, MessageBoxImage.Information);
                 }
@@ -894,17 +959,6 @@ namespace ApeRadar
             this.DataContext = tmpDataContext;
         }
 
-        //the ToolTipPlayerDetails.LayoutTransform is bind to the ViewboxPlayerList.Tag
-        //so the tooltip will scale to fit the size of the datagrid when changing window size
-        //a dumb way but it works
-        private void ViewboxPlayerList_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            if (VisualTreeHelper.GetChild(ViewboxPlayerList, 0) is ContainerVisual cv)
-            {
-                ViewboxPlayerList.Tag = cv.Transform;
-            }
-        }
-
         private void ComboBoxChartType_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             Properties.Settings.Default.WinrateChartType = Convert.ToInt32(ComboBoxChartType.SelectedValue);
@@ -940,6 +994,14 @@ namespace ApeRadar
         private void HyperLinkApeRadarWebsite_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
         {
             Process.Start("explorer.exe", e.Uri.AbsoluteUri);
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            rosterLoadCancellation?.Cancel();
+            rosterLoadCancellation?.Dispose();
+            rosterLoadCancellation = null;
+            base.OnClosed(e);
         }
     }
 }

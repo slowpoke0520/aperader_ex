@@ -335,9 +335,16 @@ namespace ApeRadar.Models
                     allyPlayersWithValidPR++;
                 }
             }
-            AllyAvgAccountWinrate /= allyPlayersWithValidWinrate;
-            AllyAvgWeightedWinrate /= allyPlayersWithValidWinrate;
-            AllyAvgBattleCount /= allyPlayersWithValidWinrate;
+            if (allyPlayersWithValidWinrate > 0)
+            {
+                AllyAvgAccountWinrate /= allyPlayersWithValidWinrate;
+                AllyAvgWeightedWinrate /= allyPlayersWithValidWinrate;
+                AllyAvgBattleCount /= allyPlayersWithValidWinrate;
+            }
+            else
+            {
+                AllyAvgAccountWinrate = AllyAvgWeightedWinrate = AllyAvgBattleCount = -1;
+            }
             if (allyPlayersWithValidPR > 0)
             {
                 AllyAvgPR /= allyPlayersWithValidPR;
@@ -364,9 +371,16 @@ namespace ApeRadar.Models
                 }
             }
 
-            EnemyAvgAccountWinrate /= enemyPlayersWithValidWinrate;
-            EnemyAvgWeightedWinrate /= enemyPlayersWithValidWinrate;
-            EnemyAvgBattleCount /= enemyPlayersWithValidWinrate;
+            if (enemyPlayersWithValidWinrate > 0)
+            {
+                EnemyAvgAccountWinrate /= enemyPlayersWithValidWinrate;
+                EnemyAvgWeightedWinrate /= enemyPlayersWithValidWinrate;
+                EnemyAvgBattleCount /= enemyPlayersWithValidWinrate;
+            }
+            else
+            {
+                EnemyAvgAccountWinrate = EnemyAvgWeightedWinrate = EnemyAvgBattleCount = -1;
+            }
             if (enemyPlayersWithValidPR > 0)
             {
                 EnemyAvgPR /= enemyPlayersWithValidPR;

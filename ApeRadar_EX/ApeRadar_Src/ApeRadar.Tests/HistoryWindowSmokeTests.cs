@@ -28,6 +28,10 @@ public sealed class HistoryWindowSmokeTests
                     {
                         Source = new Uri($"/ApeRadar;component/Resources/Localization/{language}.xaml", UriKind.Relative)
                     });
+                    app.Resources.MergedDictionaries.Add(new ResourceDictionary
+                    {
+                        Source = new Uri("/ApeRadar;component/Resources/Styles/ModernLight.xaml", UriKind.Relative)
+                    });
                     HistoryWindow window = new(initializeOnLoaded: false);
                     HistoryViewModel viewModel = Assert.IsType<HistoryViewModel>(window.DataContext);
                     viewModel.ApplyCurrentSession(CreateOneBattleSession());
@@ -109,7 +113,7 @@ public sealed class HistoryWindowSmokeTests
         window.DataGridAlliesList.ItemsSource = new[] { CreateTierPerformancePlayer("Allied sample", "0") };
         window.DataGridEnemiesList.ItemsSource = new[] { CreateTierPerformancePlayer("Enemy sample", "2") };
         window.Show();
-        foreach ((double width, double height) in new[] { (1180d, 760d), (1366d, 768d), (1920d, 1040d) })
+        foreach ((double width, double height) in new[] { (800d, 500d), (1180d, 760d), (1280d, 720d), (1366d, 768d), (1600d, 900d), (1920d, 1040d), (800d, 500d) })
         {
             window.Width = width;
             window.Height = height;
@@ -123,8 +127,17 @@ public sealed class HistoryWindowSmokeTests
             AssertElementsDoNotOverlap(window, messages, buttons, width, height);
             AssertElementsDoNotOverlap(window, messages, summary, width, height);
             AssertElementsDoNotOverlap(window, summary, about, width, height);
+            FrameworkElement analysis = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("AnalysisPanel"));
+            Assert.Equal(width >= 1440 ? Visibility.Visible : Visibility.Collapsed, analysis.Visibility);
+            Assert.Equal(width < 1100 ? 2 : 3, window.DataGridAlliesList.Columns.Count);
+            Assert.Equal(width < 900 ? Visibility.Collapsed : Visibility.Visible, about.Visibility);
+            if (width < 1100)
+            {
+                Assert.InRange(window.DataGridAlliesList.Columns[1].ActualWidth, 181, 183);
+                Assert.InRange(window.DataGridEnemiesList.Columns[1].ActualWidth, 181, 183);
+            }
 
-            if (Math.Abs(width - 1366) < 0.1)
+            if (Math.Abs(width - 800) < 0.1 || Math.Abs(width - 1280) < 0.1 || Math.Abs(width - 1366) < 0.1 || Math.Abs(width - 1600) < 0.1)
             {
                 SaveWindowSnapshot(window, $"main-{language}-{width:0}x{height:0}.png");
             }
@@ -184,13 +197,15 @@ public sealed class HistoryWindowSmokeTests
         StackPanel tierPerformancePanel = Assert.IsType<StackPanel>(tierPerformanceCheckBox.Parent);
         Grid tierPerformanceCell = Assert.IsType<Grid>(tierPerformancePanel.Parent);
         Assert.Equal(7, Grid.GetRow(tierPerformanceCell));
-        foreach ((double width, double height) in new[] { (900d, 560d), (1100d, 700d) })
+        foreach ((double width, double height) in new[] { (600d, 360d), (900d, 560d), (1100d, 700d) })
         {
             window.Width = width;
             window.Height = height;
             window.UpdateLayout();
             window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             AssertChildrenDoNotOverlap(window, window.AdvancedOptionsGrid);
+            Rect saveButtonBounds = window.BtnSave.TransformToAncestor(window).TransformBounds(new Rect(window.BtnSave.RenderSize));
+            Assert.InRange(saveButtonBounds.Bottom, 0, window.ActualHeight + 0.5);
             if (Math.Abs(width - 1100) < 0.1)
             {
                 SaveWindowSnapshot(window, $"config-advanced-{language}-{width:0}x{height:0}.png");

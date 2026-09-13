@@ -41,6 +41,10 @@
     <TextBlock x:Key="BtnCheckForUpdates" TextAlignment="Center">检查并更新</TextBlock>
     <TextBlock x:Key="BtnUpdateShipList" TextAlignment="Center">更新船名列表</TextBlock>
     <system:String x:Key="BtnRefresh">刷新</system:String>
+    <system:String x:Key="BtnAnalysis">图表与分析</system:String>
+    <system:String x:Key="HistoryPreviousPage">上一页</system:String>
+    <system:String x:Key="HistoryNextPage">下一页</system:String>
+    <system:String x:Key="AnalysisPanelTitle">图表与显示选项</system:String>
     <system:String x:Key="BtnSoftwareUpdate">软件更新</system:String>
     <system:String x:Key="BtnOpen">打开Replay</system:String>
     <system:String x:Key="BtnConfig">设置</system:String>
@@ -510,6 +514,18 @@
     <system:String x:Key="ToolTipSoftwareUpdateChannel">稳定版只接收正式 Release；开发版可接收预发布版本和正式版本，可能包含尚未充分验证的新功能。</system:String>
     <system:String x:Key="ComboBoxItemSoftwareUpdateChannelStable">稳定版</system:String>
     <system:String x:Key="ComboBoxItemSoftwareUpdateChannelDevelopment">开发版</system:String>
+    <system:String x:Key="SoftwareUpdateStatusInitial">当前版本 {0} · 尚未检查</system:String>
+    <system:String x:Key="SoftwareUpdateStatusChecking">正在检查 {0} 的更新…</system:String>
+    <system:String x:Key="SoftwareUpdateStatusUpToDate">当前 {0} · 已是最新 · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusAvailable">当前 {0} · 可用 {1} · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusStarted">正在从 {0} 更新到 {1}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusAlreadyRunning">更新检查正在进行 · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusNetworkError">网络连接失败 · 上次检查 {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusRateLimited">更新服务器限流，请稍后重试 · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusInvalidFeed">更新清单无效 · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusMissingAsset">版本 {1} 缺少安装包 · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusHashInvalid">安装包缺少有效 SHA-256 · {2}</system:String>
+    <system:String x:Key="SoftwareUpdateStatusCancelled">更新检查已取消 · {2}</system:String>
     <system:String x:Key="ChkBoxCheckForUpdatesOnStartup">软件启动时自动检查更新</system:String>
     <system:String x:Key="ToolTipCheckForUpdatesOnStartup">开启后，软件启动时会按所选更新渠道在后台检查新版本；只提醒，不会自动安装。关闭后仍可点击“检查并更新”。</system:String>
     <system:String x:Key="ChkBoxShowExperimentalReplayMetrics">显示实验性 Replay 指标</system:String>
@@ -537,6 +553,11 @@
 
     <system:String x:Key="NotificationMessageRetrivingData">正在从服务器获取数据，请稍候…</system:String>
     <system:String x:Key="NotificationMessageDataRetrieved">数据获取成功。</system:String>
+    <system:String x:Key="RosterStatusMetadata">已读取对局阵容，正在获取玩家战绩…</system:String>
+    <system:String x:Key="RosterStatusRefreshing">已显示缓存数据，正在后台刷新过期战绩…</system:String>
+    <system:String x:Key="RosterStatusComplete">玩家数据已更新。</system:String>
+    <system:String x:Key="RosterStatusPartial">阵容已显示，部分玩家数据暂时不可用。</system:String>
+    <system:String x:Key="RosterStatusFailed">玩家战绩获取失败；阵容仍然可用，可点击刷新重试。</system:String>
     <system:String x:Key="NotificationMessageFileError">打开的文件不是合法的tempArenaInfo.json或.wowsreplay文件。</system:String>
     <system:String x:Key="NotificationMessageServerAutoDetectionFailed">自动检测游戏服务器失败，请在设置中手动选择游戏服务器。</system:String>
     <system:String x:Key="NotificationMessageConnectionError">与Wargaming API的网络连接失败，请检查您的网络连接或稍后再试。</system:String>
@@ -557,6 +578,9 @@
     <system:String x:Key="NotificationMessagePRDataUpdateComplete">PR数据更新完成。</system:String>
     <system:String x:Key="NotificationMessageUpdateConnectionError">与更新服务器的网络连接失败，请检查您的网络连接或稍后再试。</system:String>
     <system:String x:Key="NotificationMessageUpdateFileHashError">从更新服务器下载的文件已损坏，请检查您的网络连接或稍后再试。</system:String>
+    <system:String x:Key="NotificationMessageUpdateRateLimited">更新服务器请求过多，请稍后再试。</system:String>
+    <system:String x:Key="NotificationMessageUpdateFeedInvalid">更新服务器返回的版本清单无效，请查看日志或稍后再试。</system:String>
+    <system:String x:Key="NotificationMessageUpdateAssetMissing">新版本缺少 ApeRadar-win-x64.zip，暂时无法自动更新。</system:String>
     <system:String x:Key="NotificationMessageNoteEncountered">再次遇到备注玩家：</system:String>
     <system:String x:Key="NotificationMessageNoteEncounteredMiddle">，备注：</system:String>
 

@@ -4,6 +4,8 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Threading;
 
 namespace ApeRadar.Utils
 {
@@ -11,6 +13,7 @@ namespace ApeRadar.Utils
     internal class PlayerDataSnapshot
     {
         public DateTimeOffset FetchedAt { get; set; }
+        public DateTimeOffset LastAccessedAt { get; set; }
 
         //account data
         public double Wins { get; set; }
@@ -88,7 +91,7 @@ namespace ApeRadar.Utils
 
         public bool IsExpired()
         {
-            return DateTimeOffset.Now - FetchedAt > PlayerDataCache.CacheTtl;
+            return DateTimeOffset.Now - FetchedAt > PlayerDataCache.CurrentShipTtl;
         }
 
         public static PlayerDataSnapshot FromPlayer(Player p)
@@ -96,6 +99,7 @@ namespace ApeRadar.Utils
             return new PlayerDataSnapshot
             {
                 FetchedAt = DateTimeOffset.Now,
+                LastAccessedAt = DateTimeOffset.Now,
                 Wins = p.Wins,
                 Wins_Solo = p.Wins_Solo,
                 Wins_Div2 = p.Wins_Div2,
@@ -244,14 +248,41 @@ namespace ApeRadar.Utils
         }
     }
 
+    internal interface IStatsCache
+    {
+        bool TryGet(Server server, string playerId, string shipId, out PlayerDataSnapshot? snapshot);
+        void Set(Server server, string playerId, string shipId, PlayerDataSnapshot snapshot);
+        void Save();
+        int PruneStale(DateTimeOffset now);
+    }
+
+    internal sealed class PersistentStatsCache : IStatsCache
+    {
+        public bool TryGet(Server server, string playerId, string shipId, out PlayerDataSnapshot? snapshot) =>
+            PlayerDataCache.TryGet(server, playerId, shipId, out snapshot);
+        public void Set(Server server, string playerId, string shipId, PlayerDataSnapshot snapshot) =>
+            PlayerDataCache.Set(server, playerId, shipId, snapshot);
+        public void Save() => PlayerDataCache.Save();
+        public int PruneStale(DateTimeOffset now) => PlayerDataCache.PruneStale(now);
+    }
+
     //in-memory cache of assembled player data, keyed by server + playerID + shipID
     static internal class PlayerDataCache
     {
-        public static readonly TimeSpan CacheTtl = TimeSpan.FromHours(24);
-        private const string FILENAME = @".\PlayerDataCache.json";
+        public static readonly TimeSpan CurrentShipTtl = TimeSpan.FromHours(1);
+        public static readonly TimeSpan AccountAndTierTtl = TimeSpan.FromHours(6);
+        public static readonly TimeSpan IdentityTtl = TimeSpan.FromDays(7);
+        public static readonly TimeSpan Retention = TimeSpan.FromDays(30);
+        public static readonly TimeSpan CacheTtl = CurrentShipTtl;
+        private static readonly string CacheDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ApeRadar EX", "Cache");
+        private static readonly string Filename = Path.Combine(CacheDirectory, "PlayerDataCache.v2.json");
+        private const string LegacyFilename = @".\PlayerDataCache.json";
 
         private static readonly Dictionary<(Server, string, string), PlayerDataSnapshot> cache = new();
+        private static readonly object syncRoot = new();
         private static bool loaded = false;
+        private static long lookupCount;
+        private static long hitCount;
 
         private class CacheEntry
         {
@@ -263,21 +294,21 @@ namespace ApeRadar.Utils
 
         private class PlayerDataCacheFile
         {
+            public int SchemaVersion { get; set; } = 2;
             public List<CacheEntry> Entries { get; set; } = new();
         }
 
         private static void EnsureLoaded()
         {
-            if (loaded)
+            lock (syncRoot)
             {
-                return;
-            }
-            loaded = true;
-            try
-            {
-                if (File.Exists(FILENAME))
+                if (loaded) return;
+                loaded = true;
+                try
                 {
-                    PlayerDataCacheFile? file = JsonConvert.DeserializeObject<PlayerDataCacheFile>(File.ReadAllText(FILENAME));
+                    string source = File.Exists(Filename) ? Filename : LegacyFilename;
+                    if (!File.Exists(source)) return;
+                    PlayerDataCacheFile? file = JsonConvert.DeserializeObject<PlayerDataCacheFile>(File.ReadAllText(source));
                     if (file?.Entries != null)
                     {
                         foreach (CacheEntry entry in file.Entries)
@@ -286,15 +317,18 @@ namespace ApeRadar.Utils
                             {
                                 continue;
                             }
+                            if (entry.Snapshot.LastAccessedAt == default) entry.Snapshot.LastAccessedAt = entry.Snapshot.FetchedAt;
                             cache[(ServerExt.GetServerByName(entry.Server), entry.PlayerID, entry.ShipID)] = entry.Snapshot;
                         }
                     }
+                    PruneStaleCore(DateTimeOffset.Now);
+                    if (!source.Equals(Filename, StringComparison.OrdinalIgnoreCase)) SaveCore();
                 }
-            }
-            catch (Exception ex)
-            {
-                LogUtils.WriteError("Failed to load PlayerDataCache", ex);
-                cache.Clear();
+                catch (Exception ex)
+                {
+                    LogUtils.WriteError("Failed to load PlayerDataCache", ex);
+                    cache.Clear();
+                }
             }
         }
 
@@ -303,18 +337,11 @@ namespace ApeRadar.Utils
             EnsureLoaded();
             try
             {
-                PlayerDataCacheFile file = new();
-                foreach (KeyValuePair<(Server, string, string), PlayerDataSnapshot> kv in cache)
+                lock (syncRoot)
                 {
-                    file.Entries.Add(new CacheEntry
-                    {
-                        Server = ServerExt.GetNameByServer(kv.Key.Item1),
-                        PlayerID = kv.Key.Item2,
-                        ShipID = kv.Key.Item3,
-                        Snapshot = kv.Value
-                    });
+                    PruneStaleCore(DateTimeOffset.Now);
+                    SaveCore();
                 }
-                AtomicFileUtils.WriteAllText(FILENAME, JsonConvert.SerializeObject(file, Formatting.Indented));
             }
             catch (Exception ex)
             {
@@ -325,24 +352,35 @@ namespace ApeRadar.Utils
         public static bool TryGet(Server server, string playerID, string shipID, out PlayerDataSnapshot? snapshot)
         {
             EnsureLoaded();
-            return cache.TryGetValue((server, playerID, shipID), out snapshot);
+            Interlocked.Increment(ref lookupCount);
+            lock (syncRoot)
+            {
+                if (!cache.TryGetValue((server, playerID, shipID), out snapshot)) return false;
+                Interlocked.Increment(ref hitCount);
+                snapshot.LastAccessedAt = DateTimeOffset.Now;
+                return true;
+            }
         }
 
         public static void Set(Server server, string playerID, string shipID, PlayerDataSnapshot snapshot)
         {
             EnsureLoaded();
-            cache[(server, playerID, shipID)] = snapshot;
+            lock (syncRoot)
+            {
+                snapshot.LastAccessedAt = DateTimeOffset.Now;
+                cache[(server, playerID, shipID)] = snapshot;
+            }
         }
 
         public static void Clear()
         {
             EnsureLoaded();
-            cache.Clear();
+            lock (syncRoot) cache.Clear();
             try
             {
-                if (File.Exists(FILENAME))
+                if (File.Exists(Filename))
                 {
-                    File.Delete(FILENAME);
+                    File.Delete(Filename);
                 }
             }
             catch (Exception ex)
@@ -351,7 +389,53 @@ namespace ApeRadar.Utils
             }
         }
 
-        public static int Count => cache.Count;
+        public static int PruneStale(DateTimeOffset now)
+        {
+            EnsureLoaded();
+            lock (syncRoot) return PruneStaleCore(now);
+        }
+
+        private static int PruneStaleCore(DateTimeOffset now)
+        {
+            (Server, string, string)[] expired = cache
+                .Where(entry => now - (entry.Value.LastAccessedAt == default ? entry.Value.FetchedAt : entry.Value.LastAccessedAt) > Retention)
+                .Select(entry => entry.Key)
+                .ToArray();
+            foreach ((Server, string, string) key in expired) cache.Remove(key);
+            return expired.Length;
+        }
+
+        private static void SaveCore()
+        {
+            PlayerDataCacheFile file = new();
+            foreach (KeyValuePair<(Server, string, string), PlayerDataSnapshot> kv in cache)
+            {
+                file.Entries.Add(new CacheEntry
+                {
+                    Server = ServerExt.GetNameByServer(kv.Key.Item1),
+                    PlayerID = kv.Key.Item2,
+                    ShipID = kv.Key.Item3,
+                    Snapshot = kv.Value
+                });
+            }
+            AtomicFileUtils.WriteAllText(Filename, JsonConvert.SerializeObject(file, Formatting.Indented));
+        }
+
+        public static int Count
+        {
+            get
+            {
+                EnsureLoaded();
+                lock (syncRoot) return cache.Count;
+            }
+        }
+
+        public static (long Lookups, long Hits, double HitRate) GetMetricsSnapshot()
+        {
+            long lookups = Interlocked.Read(ref lookupCount);
+            long hits = Interlocked.Read(ref hitCount);
+            return (lookups, hits, lookups == 0 ? 0 : (double)hits / lookups);
+        }
     }
 
     //persistent cache of Vortex player name -> ID, to avoid searching the same names every battle

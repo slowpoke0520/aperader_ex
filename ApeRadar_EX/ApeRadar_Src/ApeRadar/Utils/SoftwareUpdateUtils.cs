@@ -9,9 +9,36 @@ using System.Security.Cryptography;
 using ApeRadar.Models;
 using System.Diagnostics;
 using System.Threading;
+using System.Net.Http;
 
 namespace ApeRadar.Utils
 {
+    internal enum SoftwareUpdateCheckStatus
+    {
+        UpToDate,
+        UpdateAvailable,
+        UpdateStarted,
+        AlreadyRunning,
+        NetworkError,
+        RateLimited,
+        InvalidFeed,
+        MissingAsset,
+        HashInvalid,
+        Cancelled
+    }
+
+    internal sealed record SoftwareUpdateCheckResult(
+        SoftwareUpdateCheckStatus Status,
+        string CurrentVersion,
+        string? AvailableVersion,
+        SoftwareUpdateChannel Channel,
+        DateTimeOffset CheckedAt)
+    {
+        public bool HasUpdate => Status is SoftwareUpdateCheckStatus.UpdateAvailable or SoftwareUpdateCheckStatus.UpdateStarted;
+        public DateTimeOffset? PublishedAt { get; init; }
+        public string ReleaseNotes { get; init; } = "";
+    }
+
     static internal class SoftwareUpdateUtils
     {
         private const string LatestStableReleaseApiUrl = "https://api.github.com/repos/slowpoke0520/aperader_ex/releases/latest";
@@ -21,23 +48,24 @@ namespace ApeRadar.Utils
         static readonly string[] occupiedFileList = { @".\ApeRadar.exe", @".\libSkiaSharp.dll" };
         private static readonly SemaphoreSlim SoftwareUpdateGate = new(1, 1);
 
-        public static async Task<bool> CheckForSoftwareUpdates(bool installWhenFound = true)
+        public static async Task<SoftwareUpdateCheckResult> CheckForSoftwareUpdates(bool installWhenFound = true, CancellationToken cancellationToken = default)
         {
-            if (!await SoftwareUpdateGate.WaitAsync(0))
+            SoftwareUpdateChannel channel = SoftwareReleaseSelector.ParseChannel(Properties.Settings.Default.SoftwareUpdateChannel);
+            string currentVersion = Properties.Settings.Default.SoftwareVersion;
+            if (!await SoftwareUpdateGate.WaitAsync(0, cancellationToken))
             {
                 NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageSoftwareUpdateAlreadyRunning") as string);
-                return true;
+                return new(SoftwareUpdateCheckStatus.AlreadyRunning, currentVersion, null, channel, DateTimeOffset.Now);
             }
 
             try
             {
-                SoftwareUpdateChannel channel = SoftwareReleaseSelector.ParseChannel(Properties.Settings.Default.SoftwareUpdateChannel);
                 JArray releases;
                 try
                 {
                     string releaseJson = await NetworkUtils.HttpGet(channel == SoftwareUpdateChannel.Stable
                         ? LatestStableReleaseApiUrl
-                        : ReleasesApiUrl);
+                        : ReleasesApiUrl, cancellationToken);
                     JToken response = JToken.Parse(releaseJson);
                     releases = response switch
                     {
@@ -53,13 +81,20 @@ namespace ApeRadar.Utils
                 JObject release = SoftwareReleaseSelector.SelectLatestRelease(releases, channel, ReleaseAssetName);
                 string tagName = release["tag_name"]?.Value<string>() ?? throw new FileFormatException("FileFormatIncorrect");
                 string softwareLatestVersion = tagName.TrimStart('v', 'V');
+                DateTimeOffset? publishedAt = release["published_at"]?.Value<DateTimeOffset?>();
+                string releaseNotes = release["body"]?.Value<string>() ?? "";
 
                 JObject? softwareAsset = release["assets"]?
                     .OfType<JObject>()
                     .FirstOrDefault(asset => asset["name"]?.Value<string>() == ReleaseAssetName);
                 if (softwareAsset == null)
                 {
-                    throw new FileFormatException("FileFormatIncorrect");
+                    NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource("NotificationMessageUpdateAssetMissing") as string);
+                    return new(SoftwareUpdateCheckStatus.MissingAsset, currentVersion, softwareLatestVersion, channel, DateTimeOffset.Now)
+                    {
+                        PublishedAt = publishedAt,
+                        ReleaseNotes = releaseNotes
+                    };
                 }
                 string softwareLatestUrl = GetSecureDownloadUrl(softwareAsset, "browser_download_url");
                 string digest = softwareAsset["digest"]?.Value<string>() ?? "";
@@ -71,9 +106,13 @@ namespace ApeRadar.Utils
                     throw new FileFormatException("FileHashInvalid");
                 }
 
-                if (!SoftwareReleaseSelector.IsNewer(softwareLatestVersion, Properties.Settings.Default.SoftwareVersion))
+                if (!SoftwareReleaseSelector.IsNewer(softwareLatestVersion, currentVersion))
                 {
-                    return false;
+                    return new(SoftwareUpdateCheckStatus.UpToDate, currentVersion, softwareLatestVersion, channel, DateTimeOffset.Now)
+                    {
+                        PublishedAt = publishedAt,
+                        ReleaseNotes = releaseNotes
+                    };
                 }
 
                 if (!installWhenFound)
@@ -84,24 +123,47 @@ namespace ApeRadar.Utils
                     string messageFormat = Application.Current.FindResource("NotificationMessageSoftwareUpdateAvailable") as string
                         ?? "Update {0} is available on the {1} channel.";
                     NotificationMessageUtils.CreateMessage(MessageType.INFO, string.Format(messageFormat, softwareLatestVersion, channelName));
-                    return true;
+                    return new(SoftwareUpdateCheckStatus.UpdateAvailable, currentVersion, softwareLatestVersion, channel, DateTimeOffset.Now)
+                    {
+                        PublishedAt = publishedAt,
+                        ReleaseNotes = releaseNotes
+                    };
                 }
 
                 NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageSoftwareUpdateDownloading") as string);
                 UpdateInstaller.Start(softwareLatestUrl, softwareLatestSHA256, softwareLatestVersion, Properties.Settings.Default.Language);
                 Application.Current.Shutdown();
-                return true;
+                return new(SoftwareUpdateCheckStatus.UpdateStarted, currentVersion, softwareLatestVersion, channel, DateTimeOffset.Now)
+                {
+                    PublishedAt = publishedAt,
+                    ReleaseNotes = releaseNotes
+                };
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new(SoftwareUpdateCheckStatus.Cancelled, currentVersion, null, channel, DateTimeOffset.Now);
             }
             catch (Exception ex)
             {
                 LogUtils.WriteError("", ex);
-                _ = ex.Message switch
+                SoftwareUpdateCheckStatus status = ex switch
                 {
-                    "HttpRequestFailed" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource("NotificationMessageUpdateConnectionError") as string),
-                    "FileHashInvalid" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource("NotificationMessageUpdateFileHashError") as string),
-                    _ => NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource("NotificationMessageOtherError") as string),
+                    NetworkRequestException network when network.FailureKind == ApiFailureKind.RateLimited => SoftwareUpdateCheckStatus.RateLimited,
+                    HttpRequestException => SoftwareUpdateCheckStatus.NetworkError,
+                    FileFormatException when ex.Message == "FileHashInvalid" => SoftwareUpdateCheckStatus.HashInvalid,
+                    FileFormatException => SoftwareUpdateCheckStatus.InvalidFeed,
+                    _ => SoftwareUpdateCheckStatus.InvalidFeed
                 };
-                return true;
+                string resourceKey = status switch
+                {
+                    SoftwareUpdateCheckStatus.RateLimited => "NotificationMessageUpdateRateLimited",
+                    SoftwareUpdateCheckStatus.NetworkError => "NotificationMessageUpdateConnectionError",
+                    SoftwareUpdateCheckStatus.HashInvalid => "NotificationMessageUpdateFileHashError",
+                    SoftwareUpdateCheckStatus.InvalidFeed => "NotificationMessageUpdateFeedInvalid",
+                    _ => "NotificationMessageOtherError"
+                };
+                NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource(resourceKey) as string);
+                return new(status, currentVersion, null, channel, DateTimeOffset.Now);
             }
             finally
             {

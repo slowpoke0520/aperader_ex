@@ -9,7 +9,7 @@
         xmlns:p="clr-namespace:ApeRadar.Properties"
         xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
         mc:Ignorable="d"
-        Title="{DynamicResource WindowTitleConfig}" ResizeMode="CanResize" WindowStartupLocation="CenterOwner" Width="1100" Height="700" MinWidth="900" MinHeight="560" Closing="ConfigWindow_Closing">
+        Title="{DynamicResource WindowTitleConfig}" ResizeMode="CanResize" WindowStartupLocation="CenterOwner" Width="1100" Height="700" MinWidth="600" MinHeight="360" Closing="ConfigWindow_Closing">
     <Window.Resources>
         <cvt:ComboBoxSecondaryServerVisibilityConverter x:Key="CvtSecondaryServer"/>
         <cvt:ContextMenuItemCheckOnWoWSNumbersIsEnabledConverter x:Key="CvtContextMenuItemWoWSNumbersIsEnabled"/>
@@ -71,20 +71,13 @@
             <Setter Property="ContextMenu" Value="{StaticResource RowMenu}"/>
         </Style>
     </Window.Resources>
-    <Viewbox Stretch="Uniform">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="50"/>
-                <RowDefinition Height="500"/>
-                <RowDefinition Height="80"/>
-                <RowDefinition Height="50"/>
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="50"/>
-                <ColumnDefinition Width="1100"/>
-                <ColumnDefinition Width="50"/>
-            </Grid.ColumnDefinitions>
-            <Grid Grid.Row="1" Grid.Column="1">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
+            <Grid MinWidth="900" MinHeight="500">
                 <TabControl x:Name="ConfigTabs" TabStripPlacement="Left">
                     <TabItem Header="{DynamicResource TabHeaderGeneral}" Height="60" Width="180">
                         <Grid>
@@ -814,7 +807,7 @@
                         <Grid x:Name="AdvancedOptionsGrid">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
-                                <RowDefinition Height="50"/>
+                                <RowDefinition Height="72"/>
                                 <RowDefinition Height="50"/>
                                 <RowDefinition Height="50"/>
                                 <RowDefinition Height="50"/>
@@ -838,10 +831,15 @@
                                 </StackPanel>
                             </Grid>
                             <Grid Grid.Row="1" Grid.Column="3">
-                                <ComboBox x:Name="ComboBoxSoftwareUpdateChannel" DisplayMemberPath="Content" SelectedValuePath="Value" Width="200" Margin="5" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <ComboBox x:Name="ComboBoxSoftwareUpdateChannel" Grid.Row="0" DisplayMemberPath="Content" SelectedValuePath="Value" Width="200" Margin="5,4,5,2" HorizontalAlignment="Left" VerticalAlignment="Center">
                                     <model:ListItem Content="{DynamicResource ComboBoxItemSoftwareUpdateChannelStable}" Value="STABLE"/>
                                     <model:ListItem Content="{DynamicResource ComboBoxItemSoftwareUpdateChannelDevelopment}" Value="DEVELOPMENT"/>
                                 </ComboBox>
+                                <TextBlock x:Name="TxtSoftwareUpdateStatus" Grid.Row="1" Margin="6,1,5,4" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
                             </Grid>
                             <Grid Grid.Row="2" Grid.Column="1">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -901,13 +899,13 @@
                     </TabItem>
                 </TabControl>
             </Grid>
-            <Grid Grid.Row="2" Grid.Column="1">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                    <Button x:Name="BtnSave" Content="{DynamicResource BtnSave}" HorizontalAlignment="Left" Height="50" VerticalAlignment="Center" Width="100" Click="BtnSave_Click" Margin="330,5,5,5"/>
-                    <Button x:Name="BtnCancel" Content="{DynamicResource BtnCancel}" HorizontalAlignment="Left" Height="50" VerticalAlignment="Center" Width="100" Click="BtnCancel_Click" Margin="5"/>
-                    <Button x:Name="BtnDefault" Content="{DynamicResource BtnDefault}" HorizontalAlignment="Left" Height="50" VerticalAlignment="Center" Width="100" Click="BtnDefault_Click" Margin="100,5,5,5"/>
-                </StackPanel>
-            </Grid>
-        </Grid>
-    </Viewbox>
+        </ScrollViewer>
+            <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,1,1,0" Padding="10" Margin="0,8,0,0">
+                <DockPanel LastChildFill="False">
+                    <Button x:Name="BtnDefault" DockPanel.Dock="Right" Content="{DynamicResource BtnDefault}" MinWidth="100" Click="BtnDefault_Click"/>
+                    <Button x:Name="BtnSave" Content="{DynamicResource BtnSave}" MinWidth="100" Click="BtnSave_Click" Style="{StaticResource PrimaryButtonStyle}"/>
+                    <Button x:Name="BtnCancel" Content="{DynamicResource BtnCancel}" MinWidth="100" Click="BtnCancel_Click"/>
+                </DockPanel>
+            </Border>
+    </Grid>
 </Window>
