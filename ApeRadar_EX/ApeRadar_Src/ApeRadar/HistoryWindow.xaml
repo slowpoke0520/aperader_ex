@@ -40,13 +40,13 @@
             </Border>
         </DataTemplate>
         <DataTemplate x:Key="HistoryShipNameCellTemplate">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{Binding ShipName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/><Image Source="{Binding ShipType, Converter={StaticResource CvtShipTypeIcon}}" Visibility="{Binding ShipType, Converter={StaticResource CvtShipTypeIconVisibility}}" Width="18" Height="18" Margin="4,0,0,0" ToolTip="{Binding ShipType, Converter={StaticResource CvtShipTypeDisplayName}}"/></StackPanel>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{Binding ShipName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/><utils:ShipTypeIconBadge ShipType="{Binding ShipType}" Margin="4,0,0,0"/></StackPanel>
         </DataTemplate>
         <DataTemplate x:Key="HistoryPlayerShipCellTemplate">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{Binding Ship}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/><Image Source="{Binding ShipType, Converter={StaticResource CvtShipTypeIcon}}" Visibility="{Binding ShipType, Converter={StaticResource CvtShipTypeIconVisibility}}" Width="18" Height="18" Margin="4,0,0,0" ToolTip="{Binding ShipType, Converter={StaticResource CvtShipTypeDisplayName}}"/></StackPanel>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{Binding Ship}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/><utils:ShipTypeIconBadge ShipType="{Binding ShipType}" Margin="4,0,0,0"/></StackPanel>
         </DataTemplate>
         <DataTemplate x:Key="HistoryShipFilterTemplate">
-            <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Display}" VerticalAlignment="Center"/><Image Source="{Binding ShipType, Converter={StaticResource CvtShipTypeIcon}}" Visibility="{Binding ShipType, Converter={StaticResource CvtShipTypeIconVisibility}}" Width="18" Height="18" Margin="4,0,0,0" ToolTip="{Binding ShipType, Converter={StaticResource CvtShipTypeDisplayName}}"/></StackPanel>
+            <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Display}" VerticalAlignment="Center"/><utils:ShipTypeIconBadge ShipType="{Binding ShipType}" Margin="4,0,0,0"/></StackPanel>
         </DataTemplate>
     </Window.Resources>
     <Grid Margin="12">
@@ -137,7 +137,7 @@
                     </StackPanel>
                     <Border Grid.Row="2" BorderBrush="#D6DCE5" BorderThickness="1" CornerRadius="6" Padding="10">
                         <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8"><TextBlock Text="{Binding BattleDetailTitle}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text=" · " FontSize="16" FontWeight="SemiBold"/><TextBlock Text="{Binding BattleDetailShipName}" FontSize="16" FontWeight="SemiBold"/><Image Source="{Binding BattleDetailShipType, Converter={StaticResource CvtShipTypeIcon}}" Visibility="{Binding BattleDetailShipType, Converter={StaticResource CvtShipTypeIconVisibility}}" Width="18" Height="18" Margin="4,0,0,0" ToolTip="{Binding BattleDetailShipType, Converter={StaticResource CvtShipTypeDisplayName}}"/></StackPanel><TextBlock Text="{Binding BattleDetailMetrics}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8"><TextBlock Text="{Binding BattleDetailTitle}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text=" · " FontSize="16" FontWeight="SemiBold"/><TextBlock Text="{Binding BattleDetailShipName}" FontSize="16" FontWeight="SemiBold"/><utils:ShipTypeIconBadge ShipType="{Binding BattleDetailShipType}" Margin="4,0,0,0"/></StackPanel><TextBlock Text="{Binding BattleDetailMetrics}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <TextBlock Text="{DynamicResource HistoryExperimentalWarning}" Foreground="#9A5B00" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <TextBlock Text="{DynamicResource HistoryDamageBreakdown}" FontWeight="SemiBold"/>
                             <DataGrid ItemsSource="{Binding DamageBreakdowns}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" Height="120" Margin="0,3,0,8"><DataGrid.Columns><DataGridTextColumn Header="{DynamicResource HistoryDirection}" Binding="{Binding Direction}" Width="80"/><DataGridTextColumn Header="{DynamicResource HistoryDamageType}" Binding="{Binding Type}" Width="*"/><DataGridTextColumn Header="{DynamicResource HistoryColumnDamage}" Binding="{Binding Damage}" Width="85"/><DataGridTextColumn Header="{DynamicResource HistoryColumnCompleteness}" Binding="{Binding Quality}" Width="85"/></DataGrid.Columns></DataGrid>

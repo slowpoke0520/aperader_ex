@@ -176,26 +176,33 @@ public sealed class HistoryWindowSmokeTests
     private static void AssertShipTypeIconsRefreshWithoutReload(MainWindow window, string language)
     {
         string expectedTooltip = language == "zh-cn" ? "巡洋舰" : "Cruiser";
-        Image[] icons = FindVisualChildren<Image>(window)
-            .Where(image => image.Width == 18 && Equals(image.ToolTip, expectedTooltip))
+        ShipTypeIconBadge[] icons = FindVisualChildren<ShipTypeIconBadge>(window)
+            .Where(badge => Equals(badge.ToolTip, expectedTooltip))
             .ToArray();
         Assert.NotEmpty(icons);
-        Assert.All(icons, icon => Assert.Equal(Visibility.Visible, icon.Visibility));
+        Assert.All(icons, badge =>
+        {
+            Assert.Equal(Visibility.Visible, badge.Visibility);
+            Assert.Equal(22, badge.Width);
+            SolidColorBrush background = Assert.IsType<SolidColorBrush>(badge.Background);
+            Assert.True(background.Color.R < 100 && background.Color.G < 120 && background.Color.B < 150);
+            Assert.NotNull(Assert.IsType<Image>(badge.Child).Source);
+        });
 
         ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = false;
         ShipTypePresentation.RefreshOpenWindows();
-        Assert.All(icons, icon =>
+        Assert.All(icons, badge =>
         {
-            Assert.Equal(Visibility.Collapsed, icon.Visibility);
-            Assert.Null(icon.Source);
+            Assert.Equal(Visibility.Collapsed, badge.Visibility);
+            Assert.Null(Assert.IsType<Image>(badge.Child).Source);
         });
 
         ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
         ShipTypePresentation.RefreshOpenWindows();
-        Assert.All(icons, icon =>
+        Assert.All(icons, badge =>
         {
-            Assert.Equal(Visibility.Visible, icon.Visibility);
-            Assert.NotNull(icon.Source);
+            Assert.Equal(Visibility.Visible, badge.Visibility);
+            Assert.NotNull(Assert.IsType<Image>(badge.Child).Source);
         });
     }
 

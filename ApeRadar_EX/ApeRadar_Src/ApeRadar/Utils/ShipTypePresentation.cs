@@ -63,13 +63,72 @@ namespace ApeRadar.Utils
             for (int i = 0; i < childCount; i++)
             {
                 DependencyObject child = VisualTreeHelper.GetChild(parent, i);
-                if (child is Image image)
+                if (child is ShipTypeIconBadge badge)
+                {
+                    badge.Refresh();
+                }
+                else if (child is Image image)
                 {
                     image.GetBindingExpression(Image.SourceProperty)?.UpdateTarget();
                     image.GetBindingExpression(UIElement.VisibilityProperty)?.UpdateTarget();
                 }
                 RefreshVisualTree(child);
             }
+        }
+    }
+
+    public sealed class ShipTypeIconBadge : Border
+    {
+        private static readonly SolidColorBrush BadgeBackground = CreateFrozenBrush(Color.FromRgb(37, 55, 78));
+        private static readonly SolidColorBrush BadgeBorder = CreateFrozenBrush(Color.FromRgb(88, 111, 139));
+        private readonly Image icon = new()
+        {
+            Stretch = Stretch.Uniform,
+            SnapsToDevicePixels = true
+        };
+
+        public static readonly DependencyProperty ShipTypeProperty = DependencyProperty.Register(
+            nameof(ShipType),
+            typeof(string),
+            typeof(ShipTypeIconBadge),
+            new FrameworkPropertyMetadata("", (dependencyObject, _) => ((ShipTypeIconBadge)dependencyObject).Refresh()));
+
+        public string ShipType
+        {
+            get => (string)GetValue(ShipTypeProperty);
+            set => SetValue(ShipTypeProperty, value);
+        }
+
+        public ShipTypeIconBadge()
+        {
+            Width = 22;
+            Height = 22;
+            Padding = new Thickness(2);
+            CornerRadius = new CornerRadius(4);
+            BorderThickness = new Thickness(1);
+            Background = BadgeBackground;
+            BorderBrush = BadgeBorder;
+            VerticalAlignment = VerticalAlignment.Center;
+            SnapsToDevicePixels = true;
+            Child = icon;
+            Refresh();
+        }
+
+        internal void Refresh()
+        {
+            ImageSource? source = Properties.Settings.Default.ShowShipTypeIcon
+                ? ShipTypePresentation.GetIcon(ShipType)
+                : null;
+            icon.Source = source;
+            ToolTip = source == null ? null : ShipTypePresentation.GetDisplayName(ShipType);
+            Visibility = source == null ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private static SolidColorBrush CreateFrozenBrush(Color color)
+        {
+            SolidColorBrush brush = new(color);
+            brush.Freeze();
+            return brush;
         }
     }
 

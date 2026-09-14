@@ -92,11 +92,7 @@ namespace ApeRadar.Utils
             {
                 StackPanel ship = new() { Orientation = Orientation.Horizontal };
                 ship.Children.Add(new TextBlock { Text = shipName, Foreground = new SolidColorBrush(Color.FromRgb(83, 97, 116)), VerticalAlignment = VerticalAlignment.Center });
-                ImageSource? source = Properties.Settings.Default.ShowShipTypeIcon ? ShipTypePresentation.GetIcon(shipType) : null;
-                if (source != null)
-                {
-                    ship.Children.Add(new Image { Source = source, Width = 18, Height = 18, Margin = new Thickness(4, 0, 0, 0), ToolTip = ShipTypePresentation.GetDisplayName(shipType) });
-                }
+                ship.Children.Add(new ShipTypeIconBadge { ShipType = shipType, Margin = new Thickness(4, 0, 0, 0) });
                 content.Children.Add(ship);
             }
             content.Children.Add(new TextBlock { Text = value, Foreground = Brushes.Black });

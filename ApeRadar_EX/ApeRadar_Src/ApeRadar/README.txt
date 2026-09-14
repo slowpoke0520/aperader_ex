@@ -62,7 +62,7 @@ QQ群：1012624096（1群） 272868560（2群）
    可开启默认关闭的舰种图标，保存后立即刷新，无需重新查询战绩。底部通知默认单行，点击
    左侧“+”展开。列布局会按每支队伍表格的实际宽度切换；长玩家名使用省略号，场次、伤害、
    同阶数据和 PR 不会越过单元格互相遮挡。“默认”按钮只恢复当前设置页，“特别关注名单”
-   不会被重置。
+   不会被重置。舰种图标使用带描边的深海军蓝高对比底，在浅色界面上也能清晰辨认。
 
 
 
@@ -135,4 +135,5 @@ New Features
    ship-type icons, which are off by default and refresh without another stats query. Notifications are
    collapsed to one line by default. Column mode follows each team's actual grid width; long names use
    ellipsis and statistics cannot paint across cell boundaries. Default resets only the current settings
-   page and never the watch list.
+   page and never the watch list. Official light icons use a bordered navy badge for clear contrast on
+   the light interface.
