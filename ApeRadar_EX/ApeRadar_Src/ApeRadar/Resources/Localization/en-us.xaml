@@ -532,6 +532,15 @@
     <system:String x:Key="ToolTipShowExperimentalReplayMetrics">Shows damage-taken and breakdown values that are not yet verified across every game version. Experimental values are labelled and missing values never count as zero.</system:String>
     <system:String x:Key="ChkBoxShowTierPerformanceStats">Show same-tier performance in player list</system:String>
     <system:String x:Key="ToolTipShowTierPerformanceStats">Shows total battles, win rate, and PR at the tier of each player's current ship. Fewer than 50 same-tier battles are flagged and nearby tiers appear only as tooltip context. This adds no API requests.</system:String>
+    <system:String x:Key="ChkBoxShowShipTypeIcon">Show ship type icon after ship names</system:String>
+    <system:String x:Key="ToolTipShowShipTypeIcon">Uses the official World of Warships Wiki icons for aircraft carriers, battleships, cruisers, destroyers, and submarines. Off by default.</system:String>
+    <system:String x:Key="ShipTypeAirCarrier">Aircraft carrier</system:String>
+    <system:String x:Key="ShipTypeBattleship">Battleship</system:String>
+    <system:String x:Key="ShipTypeCruiser">Cruiser</system:String>
+    <system:String x:Key="ShipTypeDestroyer">Destroyer</system:String>
+    <system:String x:Key="ShipTypeSubmarine">Submarine</system:String>
+    <system:String x:Key="NotificationExpand">Expand notifications</system:String>
+    <system:String x:Key="NotificationCollapse">Collapse notifications</system:String>
     <system:String x:Key="TierStatsTitle">Tier performance</system:String>
     <system:String x:Key="TierStatsExactPrefix">Current tier: </system:String>
     <system:String x:Key="TierStatsReferencePrefix">Nearby-tier reference: </system:String>

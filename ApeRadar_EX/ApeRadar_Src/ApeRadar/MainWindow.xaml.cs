@@ -39,10 +39,28 @@ namespace ApeRadar
         private long rosterLoadGeneration;
         private bool analysisExpandedInCompactMode;
         private bool analysisCollapsedByUser;
+        private bool notificationsExpanded;
         private bool? compactRosterColumns;
         private const double CompactLayoutThreshold = 1440;
         private const double CompactRosterColumnsThreshold = 1100;
         private readonly IBattleRosterCoordinator battleRosterCoordinator = new BattleRosterCoordinator();
+
+        public static readonly DependencyProperty EffectivePlayerFontSizeProperty = DependencyProperty.Register(
+            nameof(EffectivePlayerFontSize), typeof(double), typeof(MainWindow), new PropertyMetadata(18d));
+        public static readonly DependencyProperty EffectiveStatisticsFontSizeProperty = DependencyProperty.Register(
+            nameof(EffectiveStatisticsFontSize), typeof(double), typeof(MainWindow), new PropertyMetadata(16d));
+
+        public double EffectivePlayerFontSize
+        {
+            get => (double)GetValue(EffectivePlayerFontSizeProperty);
+            private set => SetValue(EffectivePlayerFontSizeProperty, value);
+        }
+
+        public double EffectiveStatisticsFontSize
+        {
+            get => (double)GetValue(EffectiveStatisticsFontSizeProperty);
+            private set => SetValue(EffectiveStatisticsFontSizeProperty, value);
+        }
 
         public RosterStatusViewModel RosterStatus { get; } = new();
 
@@ -189,6 +207,7 @@ namespace ApeRadar
         internal MainWindow(bool initializeRuntime)
         {
             InitializeComponent();
+            WinrateChart.Tooltip = new ShipAwareChartTooltip();
 
             Loaded += (_, _) => UpdateResponsiveLayout();
 
@@ -333,6 +352,31 @@ namespace ApeRadar
             AnalysisColumn.Width = showAnalysis ? (narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(compact ? 360 : 380)) : new GridLength(0);
             BtnToggleAnalysis.FontWeight = showAnalysis ? FontWeights.SemiBold : FontWeights.Normal;
             MainFooterAbout.Visibility = ActualWidth < 900 ? Visibility.Collapsed : Visibility.Visible;
+            int playerCount = DataContext is Battlefield battlefield
+                ? Math.Max(12, Math.Max(battlefield.Allies.Count, battlefield.Enemies.Count))
+                : 12;
+            double gridHeight = Math.Min(DataGridAlliesList.ActualHeight, DataGridEnemiesList.ActualHeight);
+            if (gridHeight <= 0) gridHeight = Math.Max(0, ActualHeight - 230);
+            RosterLayoutMetrics metrics = RosterLayoutCalculator.Calculate(
+                gridHeight,
+                playerCount,
+                Properties.Settings.Default.PlayerColumnFontSize,
+                Properties.Settings.Default.StatisticsColumnFontSize);
+            DataGridAlliesList.RowHeight = DataGridEnemiesList.RowHeight = metrics.RowHeight;
+            EffectivePlayerFontSize = metrics.PlayerFontSize;
+            EffectiveStatisticsFontSize = metrics.StatisticsFontSize;
+        }
+
+        private void BtnToggleNotifications_Click(object sender, RoutedEventArgs e)
+        {
+            notificationsExpanded = !notificationsExpanded;
+            DataGridNotificationMessages.Height = notificationsExpanded ? double.NaN : 32;
+            DataGridNotificationMessages.MaxHeight = notificationsExpanded ? 120 : 32;
+            BtnToggleNotifications.Content = notificationsExpanded ? "−" : "+";
+            BtnToggleNotifications.ToolTip = FindResource(notificationsExpanded ? "NotificationCollapse" : "NotificationExpand");
+            if (DataGridNotificationMessages.Items.Count > 0)
+                DataGridNotificationMessages.ScrollIntoView(DataGridNotificationMessages.Items[^1]);
+            Dispatcher.BeginInvoke(UpdateResponsiveLayout, DispatcherPriority.Loaded);
         }
 
         private async void Timer_Tick(object? sender, EventArgs e)
@@ -559,6 +603,7 @@ namespace ApeRadar
         private void ApplyBattlefieldToUI(Battlefield battlefield)
         {
             this.DataContext = battlefield;
+            UpdateResponsiveLayout();
 
             TxtOutputText.Text = TextUtils.GenerateGeneralStatisticsOutputText(battlefield);
             if (Properties.Settings.Default.OutputTextAutoCopy && Properties.Settings.Default.OutputTextUnlock)
@@ -708,6 +753,7 @@ namespace ApeRadar
                     AccountName = self.Name,
                     ShipId = self.ShipID,
                     ShipName = self.ShipName,
+                    ShipType = self.ShipType,
                     Completeness = BattleCompleteness.Pending,
                     Source = BattleMetricSource.MetadataOnly,
                     StatusMessage = "WaitingForReplay"

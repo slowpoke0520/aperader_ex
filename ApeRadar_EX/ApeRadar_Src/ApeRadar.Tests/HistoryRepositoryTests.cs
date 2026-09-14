@@ -376,7 +376,38 @@ public sealed class HistoryRepositoryTests : IDisposable
         BattleRecord battle = Assert.Single(await repository.GetBattlesAsync(new HistoryQuery()));
         Assert.NotNull(battle.SessionId);
         Assert.Single(await repository.GetSessionsAsync());
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v3-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v4-*.bak"));
+    }
+
+    [Fact]
+    public async Task VersionThreeDatabase_BackfillsShipTypeFromSelfRoster()
+    {
+        SqliteHistoryRepository initial = new(DatabasePath);
+        BattleRecord battle = CreateBattle();
+        BattlePlayerRecord self = new()
+        {
+            PlayerKey = "ASIA:1", AccountId = "1", AccountName = "Tester", Relation = "0",
+            ShipId = "101", ShipName = "Yamato", ShipType = "Battleship", ShipTier = 10
+        };
+        await initial.UpsertDraftAsync(battle, new[] { self }, null);
+        SqliteConnection.ClearAllPools();
+        await using (SqliteConnection connection = new($"Data Source={DatabasePath}"))
+        {
+            await connection.OpenAsync();
+            await using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM SchemaMigrations WHERE Version=4; UPDATE Battles SET ShipType='';";
+            await command.ExecuteNonQueryAsync();
+        }
+        SqliteConnection.ClearAllPools();
+
+        SqliteHistoryRepository migrated = new(DatabasePath);
+        await migrated.InitializeAsync();
+
+        BattleRecord stored = Assert.Single(await migrated.GetBattlesAsync(new HistoryQuery()));
+        Assert.Equal("Battleship", stored.ShipType);
+        HistoryFilterOption ship = Assert.Single(await migrated.GetShipsAsync("ASIA", "1"));
+        Assert.Equal("Battleship", ship.ShipType);
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v4-*.bak"));
     }
 
     [Fact]
@@ -410,7 +441,7 @@ public sealed class HistoryRepositoryTests : IDisposable
     private static BattleRecord CreateBattle() => new()
     {
         BattleKey = "battle-1", StartedAt = DateTimeOffset.UtcNow, Server = "ASIA", Mode = "random", MapName = "Map",
-        AccountId = "1", AccountName = "Tester", ShipId = "101", ShipName = "Yamato"
+        AccountId = "1", AccountName = "Tester", ShipId = "101", ShipName = "Yamato", ShipType = "Battleship"
     };
 
     private static ShipStatSnapshot Snapshot(double battles, double wins, double damage, double frags) => new()

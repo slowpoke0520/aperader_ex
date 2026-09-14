@@ -25,6 +25,7 @@ namespace ApeRadar.History
         public string AccountName { get; set; } = "";
         public string ShipId { get; set; } = "";
         public string ShipName { get; set; } = "";
+        public string ShipType { get; set; } = "";
         public string RosterSignature { get; set; } = "";
         public BattleResult Result { get; set; } = BattleResult.Unknown;
         public double? WinCount { get; set; }
@@ -186,6 +187,7 @@ namespace ApeRadar.History
     {
         public string Value { get; init; } = "";
         public string Display { get; init; } = "";
+        public string ShipType { get; init; } = "";
     }
 
     internal sealed class HistorySummary
@@ -233,9 +235,12 @@ namespace ApeRadar.History
 
     internal sealed class HistoryTrendPoint
     {
+        public int Index { get; init; }
         public long BattleId { get; init; }
         public DateTimeOffset StartedAt { get; init; }
         public string Label { get; init; } = "";
+        public string ShipName { get; init; } = "";
+        public string ShipType { get; init; } = "";
         public double Value { get; init; }
     }
 

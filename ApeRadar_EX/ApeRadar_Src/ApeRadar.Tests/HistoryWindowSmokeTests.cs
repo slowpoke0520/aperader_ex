@@ -32,6 +32,9 @@ public sealed class HistoryWindowSmokeTests
                     {
                         Source = new Uri("/ApeRadar;component/Resources/Styles/ModernLight.xaml", UriKind.Relative)
                     });
+                    ValidateShipTypePresentation(language);
+                    bool previousShipTypeIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
+                    ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
                     HistoryWindow window = new(initializeOnLoaded: false);
                     HistoryViewModel viewModel = Assert.IsType<HistoryViewModel>(window.DataContext);
                     viewModel.ApplyCurrentSession(CreateOneBattleSession());
@@ -54,6 +57,7 @@ public sealed class HistoryWindowSmokeTests
                         }
                     }
                     window.Close();
+                    ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = previousShipTypeIconSetting;
                     ValidateMainWindowLayout(language);
                     ValidateConfigWindowLayout(language);
                 }
@@ -98,7 +102,9 @@ public sealed class HistoryWindowSmokeTests
     private static void ValidateMainWindowLayout(string language)
     {
         bool previousTierPerformanceSetting = ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats;
+        bool previousShipTypeIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
         ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats = true;
+        ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
         MainWindow window = new(initializeRuntime: false)
         {
             WindowState = WindowState.Normal,
@@ -110,9 +116,12 @@ public sealed class HistoryWindowSmokeTests
         window.DataGridEnemiesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("EnemiesNameColumn")));
         window.DataGridEnemiesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("EnemiesStatisticsColumn")));
         window.DataGridEnemiesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("EnemiesTagColumn")));
-        window.DataGridAlliesList.ItemsSource = new[] { CreateTierPerformancePlayer("Allied sample", "0") };
-        window.DataGridEnemiesList.ItemsSource = new[] { CreateTierPerformancePlayer("Enemy sample", "2") };
+        window.DataGridAlliesList.ItemsSource = Enumerable.Range(1, 12).Select(i => CreateTierPerformancePlayer($"Allied sample {i}", i == 1 ? "0" : "1")).ToArray();
+        window.DataGridEnemiesList.ItemsSource = Enumerable.Range(1, 12).Select(i => CreateTierPerformancePlayer($"Enemy sample {i}", "2")).ToArray();
         window.Show();
+        window.UpdateLayout();
+        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        AssertShipTypeIconsRefreshWithoutReload(window, language);
         foreach ((double width, double height) in new[] { (800d, 500d), (1180d, 760d), (1280d, 720d), (1366d, 768d), (1600d, 900d), (1920d, 1040d), (800d, 500d) })
         {
             window.Width = width;
@@ -138,13 +147,49 @@ public sealed class HistoryWindowSmokeTests
                 Assert.InRange(window.DataGridEnemiesList.Columns[1].ActualWidth, 181, 183);
             }
 
-            if (Math.Abs(width - 800) < 0.1 || Math.Abs(width - 1280) < 0.1 || Math.Abs(width - 1366) < 0.1 || Math.Abs(width - 1600) < 0.1)
+            if (renderedWidth >= 1900 && height >= 1000)
+            {
+                ScrollViewer alliesScroll = Assert.IsType<ScrollViewer>(FindVisualChild<ScrollViewer>(window.DataGridAlliesList));
+                ScrollViewer enemiesScroll = Assert.IsType<ScrollViewer>(FindVisualChild<ScrollViewer>(window.DataGridEnemiesList));
+                Assert.Equal(Visibility.Collapsed, alliesScroll.ComputedVerticalScrollBarVisibility);
+                Assert.Equal(Visibility.Collapsed, enemiesScroll.ComputedVerticalScrollBarVisibility);
+                Assert.InRange(window.DataGridAlliesList.RowHeight, RosterLayoutCalculator.MinimumRowHeight, RosterLayoutCalculator.PreferredRowHeight);
+            }
+
+            if (Math.Abs(width - 800) < 0.1 || Math.Abs(width - 1280) < 0.1 || Math.Abs(width - 1366) < 0.1 || Math.Abs(width - 1600) < 0.1 || Math.Abs(width - 1920) < 0.1)
             {
                 SaveWindowSnapshot(window, $"main-{language}-{width:0}x{height:0}.png");
             }
         }
         window.Close();
         ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats = previousTierPerformanceSetting;
+        ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = previousShipTypeIconSetting;
+    }
+
+    private static void AssertShipTypeIconsRefreshWithoutReload(MainWindow window, string language)
+    {
+        string expectedTooltip = language == "zh-cn" ? "巡洋舰" : "Cruiser";
+        Image[] icons = FindVisualChildren<Image>(window)
+            .Where(image => image.Width == 18 && Equals(image.ToolTip, expectedTooltip))
+            .ToArray();
+        Assert.NotEmpty(icons);
+        Assert.All(icons, icon => Assert.Equal(Visibility.Visible, icon.Visibility));
+
+        ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = false;
+        ShipTypePresentation.RefreshOpenWindows();
+        Assert.All(icons, icon =>
+        {
+            Assert.Equal(Visibility.Collapsed, icon.Visibility);
+            Assert.Null(icon.Source);
+        });
+
+        ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
+        ShipTypePresentation.RefreshOpenWindows();
+        Assert.All(icons, icon =>
+        {
+            Assert.Equal(Visibility.Visible, icon.Visibility);
+            Assert.NotNull(icon.Source);
+        });
     }
 
     private static Player CreateTierPerformancePlayer(string name, string relation)
@@ -153,6 +198,7 @@ public sealed class HistoryWindowSmokeTests
         {
             Relation = relation,
             ShipName = "Sample ship",
+            ShipType = "Cruiser",
             ShipTier = 11,
             Battles = 5_000,
             AccountWinrate = 0.60,
@@ -178,6 +224,31 @@ public sealed class HistoryWindowSmokeTests
         };
     }
 
+    private static void ValidateShipTypePresentation(string language)
+    {
+        bool previous = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
+        try
+        {
+            ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = false;
+            Assert.False(ShipTypePresentation.ShouldShow("Cruiser"));
+            Assert.Null(ShipTypePresentation.GetIcon("Unknown"));
+            foreach (string shipType in new[] { "AirCarrier", "Battleship", "Cruiser", "Destroyer", "Submarine" })
+            {
+                ImageSource icon = Assert.IsAssignableFrom<ImageSource>(ShipTypePresentation.GetIcon(shipType));
+                Assert.True(icon.IsFrozen);
+                Assert.Same(icon, ShipTypePresentation.GetIcon(shipType));
+            }
+
+            ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
+            Assert.True(ShipTypePresentation.ShouldShow("Cruiser"));
+            Assert.Equal(language == "zh-cn" ? "巡洋舰" : "Cruiser", ShipTypePresentation.GetDisplayName("Cruiser"));
+        }
+        finally
+        {
+            ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = previous;
+        }
+    }
+
     private static void ValidateConfigWindowLayout(string language)
     {
         ConfigWindow window = new(initializeRuntime: false)
@@ -190,14 +261,32 @@ public sealed class HistoryWindowSmokeTests
         window.Show();
         window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
         Assert.Equal(2, window.ComboBoxSoftwareUpdateChannel.Items.Count);
-        Assert.Equal(1, Grid.GetRow(window.UpdateChannelLabelPanel));
+        Assert.Equal(3, Grid.GetRow(window.WgApplicationIdLabelPanel));
         Assert.Equal(1, Grid.GetRow(Assert.IsType<Grid>(window.ComboBoxSoftwareUpdateChannel.Parent)));
         Assert.Equal(3, Grid.GetColumn(Assert.IsType<Grid>(window.ComboBoxSoftwareUpdateChannel.Parent)));
         Assert.Equal(200, window.ComboBoxSoftwareUpdateChannel.Width);
         CheckBox tierPerformanceCheckBox = Assert.IsType<CheckBox>(window.FindName("ChkBoxShowTierPerformanceStats"));
         StackPanel tierPerformancePanel = Assert.IsType<StackPanel>(tierPerformanceCheckBox.Parent);
         Grid tierPerformanceCell = Assert.IsType<Grid>(tierPerformancePanel.Parent);
-        Assert.Equal(7, Grid.GetRow(tierPerformanceCell));
+        Assert.Equal(8, Grid.GetRow(tierPerformanceCell));
+        window.ConfigTabs.SelectedIndex = 5;
+        window.UpdateLayout();
+        Assert.False(window.BtnDefault.IsEnabled);
+        window.ConfigTabs.SelectedIndex = 1;
+        bool persistedIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
+        try
+        {
+            ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
+            window.ChkBoxShowShipTypeIcon.IsChecked = true;
+            window.ApplyDefaultsForSelectedPage();
+            Assert.False(window.ChkBoxShowShipTypeIcon.IsChecked);
+            Assert.True(ApeRadar.Properties.Settings.Default.ShowShipTypeIcon);
+        }
+        finally
+        {
+            ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = persistedIconSetting;
+        }
+        window.ConfigTabs.SelectedIndex = window.ConfigTabs.Items.Count - 1;
         foreach ((double width, double height) in new[] { (600d, 360d), (900d, 560d), (1100d, 700d) })
         {
             window.Width = width;
@@ -224,12 +313,34 @@ public sealed class HistoryWindowSmokeTests
             $"{firstElement.Name} overlaps {secondElement.Name} at {width}x{height}.");
     }
 
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match) return match;
+            T? nested = FindVisualChild<T>(child);
+            if (nested != null) return nested;
+        }
+        return null;
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match) yield return match;
+            foreach (T nested in FindVisualChildren<T>(child)) yield return nested;
+        }
+    }
+
     private static SessionSummary CreateOneBattleSession()
     {
         BattleRecord battle = new()
         {
             Id = 1, BattleKey = "ui-sample", StartedAt = DateTimeOffset.Now, Server = "ASIA", AccountId = "1",
-            AccountName = "Sample", ShipId = "101", ShipName = "Yamato", BattleCount = 1, Result = BattleResult.Win,
+            AccountName = "Sample", ShipId = "101", ShipName = "Yamato", ShipType = "Battleship", BattleCount = 1, Result = BattleResult.Win,
             WinCount = 1, Damage = 100_000, Frags = 1, Completeness = BattleCompleteness.Complete
         };
         return new SessionSummary

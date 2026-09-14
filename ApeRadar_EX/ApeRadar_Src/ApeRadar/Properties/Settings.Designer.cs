@@ -25,7 +25,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.5")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.6")]
         public string SoftwareVersion {
             get {
                 return ((string)(this["SoftwareVersion"]));
@@ -640,6 +640,18 @@ namespace ApeRadar.Properties {
             }
             set {
                 this["ShowTierPerformanceStats"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ShowShipTypeIcon {
+            get {
+                return ((bool)(this["ShowShipTypeIcon"]));
+            }
+            set {
+                this["ShowShipTypeIcon"] = value;
             }
         }
 

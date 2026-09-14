@@ -56,6 +56,11 @@ QQ群：1012624096（1群） 272868560（2群）
    “重新补查”可重试失败录像和待处理数据。历史仅保存在本机
    %LocalAppData%\ApeRadar EX\History\history.db，不会因软件更新丢失。
 
+8. 阵容适配与舰种图标：账号、单船和同阶数据固定为两行，程序会按窗口高度自动调整
+   行高；1920×1080、100% 缩放、最大化时可完整显示标准 12v12 阵容。“设置 -> 外观”
+   可开启默认关闭的舰种图标，保存后立即刷新，无需重新查询战绩。底部通知默认单行，点击
+   左侧“+”展开。“默认”按钮只恢复当前设置页，“特别关注名单”不会被重置。
+
 
 
 Disclaimer
@@ -118,3 +123,9 @@ New Features
    are replaced with official Asia-server map names. Incomplete Replays fall
    back to ship-stat snapshots; Retry replays and Retry API retry failed files and pending results. Data
    remains local at %LocalAppData%\ApeRadar EX\History\history.db and survives app updates.
+
+8. Roster fitting and ship-type icons: account, ship and same-tier statistics use a fixed two-line
+   layout with row height adapted to the available window height. A maximized 1920x1080 window at
+   100% scaling shows a standard 12v12 roster without scrolling. Config -> Appearance can enable the
+   ship-type icons, which are off by default and refresh without another stats query. Notifications are
+   collapsed to one line by default. Default resets only the current settings page and never the watch list.

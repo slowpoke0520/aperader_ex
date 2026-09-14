@@ -20,6 +20,7 @@ namespace ApeRadar
         internal HistoryWindow(bool initializeOnLoaded)
         {
             InitializeComponent();
+            HistoryChart.Tooltip = new ShipAwareChartTooltip();
             string chartFontFamily = ChartFontUtils.Resolve(HistoryChart.FontFamily);
             HistoryChart.TooltipTextPaint = new SolidColorPaint
             {

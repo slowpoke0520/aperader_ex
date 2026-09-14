@@ -78,7 +78,7 @@
         </Grid.RowDefinitions>
         <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
             <Grid MinWidth="900" MinHeight="500">
-                <TabControl x:Name="ConfigTabs" TabStripPlacement="Left">
+                <TabControl x:Name="ConfigTabs" TabStripPlacement="Left" SelectionChanged="ConfigTabs_SelectionChanged">
                     <TabItem Header="{DynamicResource TabHeaderGeneral}" Height="60" Width="180">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -370,6 +370,15 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Grid>
+                            <Grid Grid.Row="8" Grid.Column="1">
+                                <Label Content="{DynamicResource LabelIcon}" Margin="5" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid Grid.Row="8" Grid.Column="3" Grid.ColumnSpan="5">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <CheckBox x:Name="ChkBoxShowShipTypeIcon" Content="{DynamicResource ChkBoxShowShipTypeIcon}" VerticalAlignment="Center" Margin="5"/>
+                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipShowShipTypeIcon}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
                         </Grid>
                     </TabItem>
                     <TabItem Header="{DynamicResource TabHeaderWinrateAndTag}" Height="60" Width="180">
@@ -594,15 +603,6 @@
                             <Grid Grid.Row="2" Grid.Column="1">
                                 <TextBox x:Name="TxtOutputTextTemplateGeneralStatistics" HorizontalAlignment="Stretch" TextWrapping="Wrap" VerticalAlignment="Stretch" Margin="5,5,10,5"/>
                             </Grid>
-                            <Grid x:Name="UpdateChannelLabelPanel" Grid.Row="1" Grid.Column="1">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                    <Label Content="{DynamicResource LabelWgApplicationId}" VerticalAlignment="Center"/>
-                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipWgApplicationId}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="1" Grid.Column="3">
-                                <TextBox x:Name="TxtWgApplicationId" Width="280" Margin="5" MaxLength="64" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            </Grid>
                             <Grid Grid.Row="2" Grid.Column="2">
                                 <StackPanel Orientation="Vertical">
                                     <ComboBox x:Name="ComboBoxTagInsertGeneralStatistics" DisplayMemberPath="Content" SelectedValuePath="Value" Width="250" VerticalAlignment="Center" Margin="10,5,10,10" SelectedIndex="0">
@@ -815,6 +815,7 @@
                                 <RowDefinition Height="50"/>
                                 <RowDefinition Height="50"/>
                                 <RowDefinition Height="50"/>
+                                <RowDefinition Height="50"/>
                                 <RowDefinition/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
@@ -854,43 +855,52 @@
                                         <model:ListItem Content="{DynamicResource ComboBoxItemAPITypeWGPublicWithYuyukoProxy}" Value="WG_PUBLIC_WITH_YUYUKO_PROXY"/>
                                     </ComboBox>
                             </Grid>
+                            <Grid x:Name="WgApplicationIdLabelPanel" Grid.Row="3" Grid.Column="1">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Label Content="{DynamicResource LabelWgApplicationId}" VerticalAlignment="Center"/>
+                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipWgApplicationId}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
                             <Grid Grid.Row="3" Grid.Column="3">
+                                <TextBox x:Name="TxtWgApplicationId" Width="280" Margin="5" MaxLength="64" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid Grid.Row="4" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <CheckBox x:Name="ChkBoxEnableYuyukoAPIPush" Content="{DynamicResource ChkBoxEnableYuyukoAPIPush}" VerticalAlignment="Center" Margin="5"/>
                                     <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipEnableYuyukoAPIPush}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="4" Grid.Column="3">
+                            <Grid Grid.Row="5" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <CheckBox x:Name="ChkBoxEnableDebugMode" Content="{DynamicResource ChkBoxEnableDebugMode}" VerticalAlignment="Center" Margin="5"/>
                                     <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipDebugMode}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="5" Grid.Column="3">
+                            <Grid Grid.Row="6" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <CheckBox x:Name="ChkBoxCheckForUpdatesOnStartup" Content="{DynamicResource ChkBoxCheckForUpdatesOnStartup}" VerticalAlignment="Center" Margin="5"/>
                                     <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipCheckForUpdatesOnStartup}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="6" Grid.Column="3">
+                            <Grid Grid.Row="7" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <CheckBox x:Name="ChkBoxShowExperimentalReplayMetrics" Content="{DynamicResource ChkBoxShowExperimentalReplayMetrics}" VerticalAlignment="Center" Margin="5"/>
                                     <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipShowExperimentalReplayMetrics}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="7" Grid.Column="3">
+                            <Grid Grid.Row="8" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <CheckBox x:Name="ChkBoxShowTierPerformanceStats" Content="{DynamicResource ChkBoxShowTierPerformanceStats}" VerticalAlignment="Center" Margin="5"/>
                                     <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipShowTierPerformanceStats}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="8" Grid.Column="3">
+                            <Grid Grid.Row="9" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <Button x:Name="BtnViewChangelog" Content="{DynamicResource BtnViewChangelog}" Width="120" Height="30" HorizontalAlignment="Left" Margin="5" Click="BtnViewChangelog_Click"/>
                                     <TextBlock Text="{DynamicResource TextViewChangelogHint}" VerticalAlignment="Center" Margin="5"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="9" Grid.Column="3">
+                            <Grid Grid.Row="10" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <Button x:Name="BtnClearCache" Content="{DynamicResource BtnClearCache}" Width="120" Height="30" HorizontalAlignment="Left" Margin="5" Click="BtnClearCache_Click"/>
                                 </StackPanel>

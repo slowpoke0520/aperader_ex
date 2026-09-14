@@ -165,6 +165,7 @@ namespace ApeRadar.History
                         AccountName = replay.AccountName,
                         ShipId = replay.ShipId,
                         ShipName = ResolveShipName(replay.ShipId),
+                        ShipType = ShipInfoUtils.TryGetShipTypeByID(replay.ShipId),
                         RosterSignature = replay.RosterSignature,
                         Completeness = BattleCompleteness.Pending
                     };

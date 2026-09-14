@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -68,6 +70,7 @@ namespace ApeRadar
             ChkBoxCheckForUpdatesOnStartup.IsChecked = Properties.Settings.Default.CheckForUpdatesOnStartup;
             ChkBoxShowExperimentalReplayMetrics.IsChecked = Properties.Settings.Default.ShowExperimentalReplayMetrics;
             ChkBoxShowTierPerformanceStats.IsChecked = Properties.Settings.Default.ShowTierPerformanceStats;
+            ChkBoxShowShipTypeIcon.IsChecked = Properties.Settings.Default.ShowShipTypeIcon;
             LabelShipListVersionDateStr.Content = $"{ShipInfoUtils.GetShipInfoVersion()} ({ShipInfoUtils.GetShipInfoDate()})";
             if (PRUtils.GetExpectedValuesTime() <= 0)
             {
@@ -178,8 +181,10 @@ namespace ApeRadar
                     Properties.Settings.Default.ShowExperimentalReplayMetrics = ChkBoxShowExperimentalReplayMetrics.IsChecked ?? false;
                     bool tierPerformanceSettingChanged = Properties.Settings.Default.ShowTierPerformanceStats != (ChkBoxShowTierPerformanceStats.IsChecked ?? false);
                     Properties.Settings.Default.ShowTierPerformanceStats = ChkBoxShowTierPerformanceStats.IsChecked ?? false;
+                    Properties.Settings.Default.ShowShipTypeIcon = ChkBoxShowShipTypeIcon.IsChecked ?? false;
                     Properties.Settings.Default.OutputTextUnlock = ChkBoxTextOutputUnlocked.IsChecked ?? false;
                     Properties.Settings.Default.Save();
+                    ShipTypePresentation.RefreshOpenWindows();
                     if (tierPerformanceSettingChanged)
                     {
                         PlayerDataCache.Clear();
@@ -335,8 +340,92 @@ namespace ApeRadar
 
         private void BtnDefault_Click(object sender, RoutedEventArgs e)
         {
-            Properties.Settings.Default.Reset();
-            LoadSettings();
+            ApplyDefaultsForSelectedPage();
+        }
+
+        internal void ApplyDefaultsForSelectedPage()
+        {
+            switch (ConfigTabs.SelectedIndex)
+            {
+                case 0:
+                    ComboBoxGamePath.Text = Default<string>(nameof(Properties.Settings.GamePath));
+                    ChkBoxSecondaryServerEnabled.IsChecked = Default<bool>(nameof(Properties.Settings.SecondaryServerEnabled));
+                    ComboBoxSecondaryServer.SelectedValue = Default<string>(nameof(Properties.Settings.SecondaryServer));
+                    SliderMaximumRetryAttemptsOnError.Value = Default<int>(nameof(Properties.Settings.MaximumRetryAttemptsOnError));
+                    ComboBoxServer.SelectedValue = Default<string>(nameof(Properties.Settings.Server));
+                    ComboBoxShipNameLanguage.SelectedValue = Default<string>(nameof(Properties.Settings.ShipNameLanguage));
+                    break;
+                case 1:
+                    ComboBoxColorStyle.SelectedIndex = Default<int>(nameof(Properties.Settings.ColorStyle));
+                    TxtApeIcon.Text = Default<string>(nameof(Properties.Settings.ApeIcon));
+                    TxtUnicumIcon.Text = Default<string>(nameof(Properties.Settings.UnicumIcon));
+                    TxtHiddenIcon.Text = Default<string>(nameof(Properties.Settings.HiddenIcon));
+                    TxtWatchIcon.Text = Default<string>(nameof(Properties.Settings.WatchIcon));
+                    SliderPlayerColumnFontSize.Value = Default<double>(nameof(Properties.Settings.PlayerColumnFontSize));
+                    SliderStatisticsColumnFontSize.Value = Default<double>(nameof(Properties.Settings.StatisticsColumnFontSize));
+                    SliderDetailedStatisticsFontSize.Value = Default<double>(nameof(Properties.Settings.DetailedStatisticsFontSize));
+                    SliderOutputTextFontSize.Value = Default<double>(nameof(Properties.Settings.OutputTextFontSize));
+                    ComboBoxAccountWinrateVisibility.SelectedIndex = Default<int>(nameof(Properties.Settings.AccountWinrateVisibility));
+                    ComboBoxWeightedWinrateVisibility.SelectedIndex = Default<int>(nameof(Properties.Settings.WeightedWinrateVisibility));
+                    ComboBoxShipWinrateVisibility.SelectedIndex = Default<int>(nameof(Properties.Settings.ShipWinrateVisibility));
+                    ComboBoxAccountAvgExpVisibility.SelectedIndex = Default<int>(nameof(Properties.Settings.AccountAvgExpVisibility));
+                    ComboBoxShipAvgExpVisibility.SelectedIndex = Default<int>(nameof(Properties.Settings.ShipAvgExpVisibility));
+                    ComboBoxShipAvgDmgVisibility.SelectedIndex = Default<int>(nameof(Properties.Settings.ShipAvgDmgVisibility));
+                    ComboBoxTagVisibility.SelectedIndex = Default<int>(nameof(Properties.Settings.TagVisibility));
+                    ComboBoxPRVisibility.SelectedIndex = Default<int>(nameof(Properties.Settings.PRVisibility));
+                    ChkBoxShowShipTypeIcon.IsChecked = Default<bool>(nameof(Properties.Settings.ShowShipTypeIcon));
+                    break;
+                case 2:
+                    ComboBoxWinrateTypeSelect.SelectedIndex = Default<int>(nameof(Properties.Settings.WinrateTypeUsed));
+                    TxtApeWinrateThreshold.Text = Default<double>(nameof(Properties.Settings.ApeWinrateThreshold)).ToString("f1", CultureInfo.CurrentCulture);
+                    TxtUnicumWinrateThreshold.Text = Default<double>(nameof(Properties.Settings.UnicumWinrateThreshold)).ToString("f1", CultureInfo.CurrentCulture);
+                    TxtApeBattleCountThreshold.Text = Default<int>(nameof(Properties.Settings.ApeBattleCountThreshold)).ToString(CultureInfo.CurrentCulture);
+                    TxtUnicumBattleCountThreshold.Text = Default<int>(nameof(Properties.Settings.UnicumBattleCountThreshold)).ToString(CultureInfo.CurrentCulture);
+                    TxtWeightedWinrateAccountSoloWeightMultiplier.Text = Default<double>(nameof(Properties.Settings.WeightedWinrateAccountSoloWeightMultiplier)).ToString("f1", CultureInfo.CurrentCulture);
+                    TxtWeightedWinrateAccountDiv2WeightMultiplier.Text = Default<double>(nameof(Properties.Settings.WeightedWinrateAccountDiv2WeightMultiplier)).ToString("f1", CultureInfo.CurrentCulture);
+                    TxtWeightedWinrateAccountDiv3WeightMultiplier.Text = Default<double>(nameof(Properties.Settings.WeightedWinrateAccountDiv3WeightMultiplier)).ToString("f1", CultureInfo.CurrentCulture);
+                    TxtWeightedWinrateShipMaxWeight.Text = Default<double>(nameof(Properties.Settings.WeightedWinrateShipMaxWeight)).ToString("f1", CultureInfo.CurrentCulture);
+                    TxtWeightedWinrateShipBattlesAtMaxWeight.Text = Default<int>(nameof(Properties.Settings.WeightedWinrateShipBattlesAtMaxWeight)).ToString(CultureInfo.CurrentCulture);
+                    break;
+                case 3:
+                    TxtOutputTextTemplateGeneralStatistics.Text = Default<string>(nameof(Properties.Settings.OutputTextTemplateGeneralStatistics));
+                    TxtDelimiter.Text = Default<string>(nameof(Properties.Settings.OutputTextDelimiter));
+                    ChkBoxShortMode.IsChecked = Default<bool>(nameof(Properties.Settings.OutputTextShortMode));
+                    ChkBoxExcludeYourself.IsChecked = Default<bool>(nameof(Properties.Settings.OutputTextExcludeSelf));
+                    ChkBoxTextOutputUnlocked.Checked -= ChkBoxTextOutputUnlocked_Checked;
+                    ChkBoxTextOutputUnlocked.IsChecked = Default<bool>(nameof(Properties.Settings.OutputTextUnlock));
+                    ChkBoxTextOutputUnlocked.Checked += ChkBoxTextOutputUnlocked_Checked;
+                    ChkBoxAutoCopy.IsChecked = Default<bool>(nameof(Properties.Settings.OutputTextAutoCopy)) && (ChkBoxTextOutputUnlocked.IsChecked ?? false);
+                    break;
+                case 4:
+                    TxtOutputTextTemplateParticularPlayerStatistics.Text = Default<string>(nameof(Properties.Settings.OutputTextTemplateParticularPlayerStatistics));
+                    break;
+                case 6:
+                    ComboBoxSoftwareUpdateChannel.SelectedValue = SoftwareReleaseSelector.NormalizeChannelSetting(Default<string>(nameof(Properties.Settings.SoftwareUpdateChannel)));
+                    ComboBoxAPIType.SelectedValue = Default<string>(nameof(Properties.Settings.APITypeSelection));
+                    TxtWgApplicationId.Text = Default<string>(nameof(Properties.Settings.WgApplicationId));
+                    ChkBoxEnableYuyukoAPIPush.IsChecked = Default<bool>(nameof(Properties.Settings.YuyukoAPIPushEnabled));
+                    ChkBoxEnableDebugMode.IsChecked = Default<bool>(nameof(Properties.Settings.DebugMode));
+                    ChkBoxCheckForUpdatesOnStartup.IsChecked = Default<bool>(nameof(Properties.Settings.CheckForUpdatesOnStartup));
+                    ChkBoxShowExperimentalReplayMetrics.IsChecked = Default<bool>(nameof(Properties.Settings.ShowExperimentalReplayMetrics));
+                    ChkBoxShowTierPerformanceStats.IsChecked = Default<bool>(nameof(Properties.Settings.ShowTierPerformanceStats));
+                    break;
+            }
+        }
+
+        private static T Default<T>(string propertyName)
+        {
+            object? value = Properties.Settings.Default.Properties[propertyName]?.DefaultValue;
+            if (value is T typed) return typed;
+            string text = value?.ToString() ?? "";
+            if (typeof(T) == typeof(string)) return (T)(object)text;
+            return (T)(TypeDescriptor.GetConverter(typeof(T)).ConvertFromInvariantString(text)
+                ?? throw new InvalidOperationException($"Setting {propertyName} has no default value."));
+        }
+
+        private void ConfigTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (BtnDefault != null) BtnDefault.IsEnabled = ConfigTabs.SelectedIndex != 5;
         }
 
         private void ConfigWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)

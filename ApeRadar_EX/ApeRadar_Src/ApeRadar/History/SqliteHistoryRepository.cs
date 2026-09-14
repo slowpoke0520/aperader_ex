@@ -8,12 +8,13 @@ using System.Text.Json;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using ApeRadar.Utils;
 
 namespace ApeRadar.History
 {
     internal sealed class SqliteHistoryRepository : IHistoryRepository
     {
-        private const int CurrentSchemaVersion = 3;
+        private const int CurrentSchemaVersion = 4;
         private static readonly TimeSpan SessionGap = TimeSpan.FromMinutes(45);
         private const int ReconnectMergeWindowSeconds = 20 * 60;
         private readonly SemaphoreSlim writeLock = new(1, 1);
@@ -92,6 +93,7 @@ namespace ApeRadar.History
                     AccountName TEXT NOT NULL,
                     ShipId TEXT NOT NULL,
                     ShipName TEXT NOT NULL,
+                    ShipType TEXT NOT NULL DEFAULT '',
                     RosterSignature TEXT NOT NULL DEFAULT '',
                     Result INTEGER NOT NULL,
                     WinCount REAL NULL,
@@ -228,7 +230,37 @@ namespace ApeRadar.History
                 ),'') WHERE RosterSignature='';
                 INSERT OR IGNORE INTO SchemaMigrations(Version, AppliedAt) VALUES(3, strftime('%Y-%m-%dT%H:%M:%fZ','now'));
                 """, cancellationToken);
+            if (!await ColumnExistsAsync(connection, "Battles", "ShipType", cancellationToken))
+                await ExecuteAsync(connection, null, "ALTER TABLE Battles ADD COLUMN ShipType TEXT NOT NULL DEFAULT '';", cancellationToken);
+            await ExecuteAsync(connection, null, """
+                UPDATE Battles SET ShipType=COALESCE((
+                    SELECT ShipType FROM BattlePlayers
+                    WHERE BattlePlayers.BattleId=Battles.Id
+                      AND BattlePlayers.Relation='0'
+                      AND ShipType<>''
+                    LIMIT 1
+                ),'') WHERE ShipType='';
+                """, cancellationToken);
+            await BackfillShipTypesFromCatalogAsync(connection, cancellationToken);
+            await ExecuteAsync(connection, null, "INSERT OR IGNORE INTO SchemaMigrations(Version, AppliedAt) VALUES(4, strftime('%Y-%m-%dT%H:%M:%fZ','now'));", cancellationToken);
             await BackfillSessionsAsync(connection, cancellationToken);
+        }
+
+        private static async Task BackfillShipTypesFromCatalogAsync(SqliteConnection connection, CancellationToken cancellationToken)
+        {
+            List<(long Id, string ShipId)> missing = new();
+            await using (SqliteCommand command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT Id,ShipId FROM Battles WHERE ShipType=''";
+                await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken)) missing.Add((reader.GetInt64(0), reader.GetString(1)));
+            }
+            foreach ((long id, string shipId) in missing)
+            {
+                string shipType = ShipInfoUtils.TryGetShipTypeByID(shipId);
+                if (!string.IsNullOrWhiteSpace(shipType))
+                    await ExecuteAsync(connection, null, "UPDATE Battles SET ShipType=$type WHERE Id=$id AND ShipType=''", cancellationToken, ("$type", shipType), ("$id", id));
+            }
         }
 
         private async Task BackupBeforeMigrationAsync(CancellationToken cancellationToken)
@@ -283,12 +315,13 @@ namespace ApeRadar.History
                     battle.SessionId = reconnect.SessionId;
                 }
                 const string upsert = """
-                    INSERT INTO Battles(SessionId,BattleKey,StartedAt,Server,Mode,MapName,AccountId,AccountName,ShipId,ShipName,RosterSignature,Result,WinCount,Damage,Frags,BattleCount,Source,Completeness,ReplayHash,ReplayVersion,StatusMessage,UpdatedAt)
-                    VALUES($session,$key,$started,$server,$mode,$map,$accountId,$accountName,$shipId,$shipName,$roster,$result,$wins,$damage,$frags,$count,$source,$complete,$hash,$version,$status,$updated)
+                    INSERT INTO Battles(SessionId,BattleKey,StartedAt,Server,Mode,MapName,AccountId,AccountName,ShipId,ShipName,ShipType,RosterSignature,Result,WinCount,Damage,Frags,BattleCount,Source,Completeness,ReplayHash,ReplayVersion,StatusMessage,UpdatedAt)
+                    VALUES($session,$key,$started,$server,$mode,$map,$accountId,$accountName,$shipId,$shipName,$shipType,$roster,$result,$wins,$damage,$frags,$count,$source,$complete,$hash,$version,$status,$updated)
                     ON CONFLICT(BattleKey) DO UPDATE SET
                         Server=excluded.Server, Mode=excluded.Mode, MapName=excluded.MapName,
                         AccountId=excluded.AccountId, AccountName=excluded.AccountName,
                         ShipId=excluded.ShipId, ShipName=excluded.ShipName,
+                        ShipType=CASE WHEN excluded.ShipType<>'' THEN excluded.ShipType ELSE Battles.ShipType END,
                         RosterSignature=CASE WHEN excluded.RosterSignature<>'' THEN excluded.RosterSignature ELSE Battles.RosterSignature END,
                         UpdatedAt=excluded.UpdatedAt
                     RETURNING Id;
@@ -500,7 +533,7 @@ namespace ApeRadar.History
             GetOptionsAsync("SELECT DISTINCT AccountId,AccountName FROM Battles WHERE ($server='' OR Server=$server) ORDER BY AccountName", new[] { ("$server", (object?)(server ?? "")) }, cancellationToken);
 
         public Task<IReadOnlyList<HistoryFilterOption>> GetShipsAsync(string? server, string? accountId, CancellationToken cancellationToken = default) =>
-            GetOptionsAsync("SELECT DISTINCT ShipId,ShipName FROM Battles WHERE ($server='' OR Server=$server) AND ($account='' OR AccountId=$account) ORDER BY ShipName", new[] { ("$server", (object?)(server ?? "")), ("$account", (object?)(accountId ?? "")) }, cancellationToken);
+            GetOptionsAsync("SELECT DISTINCT ShipId,ShipName,ShipType FROM Battles WHERE ($server='' OR Server=$server) AND ($account='' OR AccountId=$account) ORDER BY ShipName", new[] { ("$server", (object?)(server ?? "")), ("$account", (object?)(accountId ?? "")) }, cancellationToken);
 
         public async Task<ShipStatSnapshot?> GetPreBattleSnapshotAsync(long battleId, CancellationToken cancellationToken = default)
         {
@@ -805,7 +838,12 @@ namespace ApeRadar.History
             command.CommandText = sql;
             foreach ((string name, object? value) in parameters) command.Parameters.AddWithValue(name, value ?? DBNull.Value);
             await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken)) result.Add(new HistoryFilterOption { Value = reader.GetString(0), Display = reader.GetString(1) });
+            while (await reader.ReadAsync(cancellationToken)) result.Add(new HistoryFilterOption
+            {
+                Value = reader.GetString(0),
+                Display = reader.GetString(1),
+                ShipType = reader.FieldCount > 2 && !reader.IsDBNull(2) ? reader.GetString(2) : ""
+            });
             return result;
         }
 
@@ -1005,6 +1043,7 @@ namespace ApeRadar.History
             command.Parameters.AddWithValue("$accountName", battle.AccountName);
             command.Parameters.AddWithValue("$shipId", battle.ShipId);
             command.Parameters.AddWithValue("$shipName", battle.ShipName);
+            command.Parameters.AddWithValue("$shipType", battle.ShipType);
             command.Parameters.AddWithValue("$roster", battle.RosterSignature);
             command.Parameters.AddWithValue("$result", (int)battle.Result);
             command.Parameters.AddWithValue("$wins", battle.WinCount ?? (object)DBNull.Value);
@@ -1028,7 +1067,7 @@ namespace ApeRadar.History
             Server = reader.GetString(reader.GetOrdinal("Server")), Mode = reader.GetString(reader.GetOrdinal("Mode")),
             MapName = reader.GetString(reader.GetOrdinal("MapName")), AccountId = reader.GetString(reader.GetOrdinal("AccountId")),
             AccountName = reader.GetString(reader.GetOrdinal("AccountName")), ShipId = reader.GetString(reader.GetOrdinal("ShipId")),
-            ShipName = reader.GetString(reader.GetOrdinal("ShipName")), RosterSignature = reader.GetString(reader.GetOrdinal("RosterSignature")),
+            ShipName = reader.GetString(reader.GetOrdinal("ShipName")), ShipType = reader.GetString(reader.GetOrdinal("ShipType")), RosterSignature = reader.GetString(reader.GetOrdinal("RosterSignature")),
             Result = (BattleResult)reader.GetInt32(reader.GetOrdinal("Result")),
             WinCount = reader.IsDBNull(reader.GetOrdinal("WinCount")) ? null : reader.GetDouble(reader.GetOrdinal("WinCount")),
             Damage = reader.IsDBNull(reader.GetOrdinal("Damage")) ? null : reader.GetInt64(reader.GetOrdinal("Damage")),

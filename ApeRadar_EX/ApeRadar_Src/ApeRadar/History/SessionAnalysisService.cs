@@ -69,9 +69,12 @@ namespace ApeRadar.History
                 BattleRecord point = ordered[i];
                 result.Add(new HistoryTrendPoint
                 {
+                    Index = result.Count,
                     BattleId = point.Id,
                     StartedAt = point.StartedAt,
                     Label = $"{point.StartedAt.ToLocalTime():MM-dd HH:mm} · {point.ShipName}",
+                    ShipName = point.ShipName,
+                    ShipType = point.ShipType,
                     Value = values.Average()
                 });
             }

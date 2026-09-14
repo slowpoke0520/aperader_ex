@@ -532,6 +532,15 @@
     <system:String x:Key="ToolTipShowExperimentalReplayMetrics">开启后显示尚未覆盖所有游戏版本验证的承受伤害和伤害分类。实验值会明确标记，缺失值不会按 0 计算。</system:String>
     <system:String x:Key="ChkBoxShowTierPerformanceStats">在玩家列表显示同阶战绩</system:String>
     <system:String x:Key="ToolTipShowTierPerformanceStats">显示玩家在当前舰船等级的总场次、胜率和 PR。同阶不足 50 场时会警告，并在悬浮详情中提供邻近等级参考；不会增加 API 请求。</system:String>
+    <system:String x:Key="ChkBoxShowShipTypeIcon">在舰船名称后显示舰种图标</system:String>
+    <system:String x:Key="ToolTipShowShipTypeIcon">使用战舰世界官方 Wiki 的舰种图标标识航母、战列舰、巡洋舰、驱逐舰和潜艇。默认关闭。</system:String>
+    <system:String x:Key="ShipTypeAirCarrier">航空母舰</system:String>
+    <system:String x:Key="ShipTypeBattleship">战列舰</system:String>
+    <system:String x:Key="ShipTypeCruiser">巡洋舰</system:String>
+    <system:String x:Key="ShipTypeDestroyer">驱逐舰</system:String>
+    <system:String x:Key="ShipTypeSubmarine">潜艇</system:String>
+    <system:String x:Key="NotificationExpand">展开通知</system:String>
+    <system:String x:Key="NotificationCollapse">收起通知</system:String>
     <system:String x:Key="TierStatsTitle">层级战绩</system:String>
     <system:String x:Key="TierStatsExactPrefix">当前等级：</system:String>
     <system:String x:Key="TierStatsReferencePrefix">邻近等级参考：</system:String>

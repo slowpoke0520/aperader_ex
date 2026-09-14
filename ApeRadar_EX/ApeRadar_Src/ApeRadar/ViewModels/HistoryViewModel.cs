@@ -44,6 +44,8 @@ namespace ApeRadar.ViewModels
         private HistoryRowViewModel? selectedSessionBattle;
         private HistoryRowViewModel? selectedBattle;
         private string reviewNote = "";
+        private string battleDetailShipName = "";
+        private string battleDetailShipType = "";
         private bool isFavorite;
         private int sessionLoadVersion;
         private int battleDetailLoadVersion;
@@ -139,6 +141,8 @@ namespace ApeRadar.ViewModels
         public string CurrentSessionPotentialText { get; private set; } = "-";
         public string CurrentSessionPendingText { get; private set; } = "0";
         public string BattleDetailTitle { get; private set; } = "-";
+        public string BattleDetailShipName { get => battleDetailShipName; private set => Set(ref battleDetailShipName, value); }
+        public string BattleDetailShipType { get => battleDetailShipType; private set => Set(ref battleDetailShipType, value); }
         public string BattleDetailMetrics { get; private set; } = "-";
         public string ChartGuidanceText { get; private set; } = "";
         public string PrDataVersionText => PRUtils.GetExpectedValuesDateString();
@@ -401,7 +405,9 @@ namespace ApeRadar.ViewModels
                 if (version != battleDetailLoadVersion || !ReferenceEquals(row, SelectedBattle)) return;
 
                 ClearBattleDetails();
-                BattleDetailTitle = $"{row.StartedAt} · {row.MapName} · {row.ShipName}";
+                BattleDetailTitle = $"{row.StartedAt} · {row.MapName}";
+                BattleDetailShipName = row.ShipName;
+                BattleDetailShipType = row.ShipType;
                 BattleDetailMetrics = FormatBattleMetrics(row, metric);
                 foreach (BattleDamageBreakdown item in breakdowns)
                 {
@@ -433,6 +439,8 @@ namespace ApeRadar.ViewModels
             ReviewNote = "";
             IsFavorite = false;
             BattleDetailTitle = "-";
+            BattleDetailShipName = "";
+            BattleDetailShipType = "";
             BattleDetailMetrics = "-";
             OnPropertyChanged(nameof(BattleDetailTitle));
             OnPropertyChanged(nameof(BattleDetailMetrics));
@@ -574,7 +582,23 @@ namespace ApeRadar.ViewModels
             OnPropertyChanged(nameof(ChartGuidanceText));
             ChartSeries = !ShouldRenderTrend(points.Count)
                 ? Array.Empty<ISeries>()
-                : new ISeries[] { new LineSeries<double> { Values = points.Select(x => x.Value).ToArray(), GeometrySize = 6, LineSmoothness = points.Count < 6 ? 0 : 0.25, Fill = null, Name = SelectedMetric?.Display } };
+                : new ISeries[]
+                {
+                    new LineSeries<HistoryTrendPoint>
+                    {
+                        Values = points,
+                        Mapping = (history, point) =>
+                        {
+                            point.PrimaryValue = history.Value;
+                            point.SecondaryValue = history.Index;
+                        },
+                        TooltipLabelFormatter = point => FormatChartValue(metric, point.PrimaryValue),
+                        GeometrySize = 6,
+                        LineSmoothness = points.Count < 6 ? 0 : 0.25,
+                        Fill = null,
+                        Name = SelectedMetric?.Display
+                    }
+                };
             ChartXAxes = new[]
             {
                 new Axis
@@ -618,6 +642,13 @@ namespace ApeRadar.ViewModels
             < 20 => HistorySampleTier.Short,
             _ => HistorySampleTier.Established
         };
+
+        private static string FormatChartValue(string metric, double value) =>
+            metric is "Winrate" or "Survival"
+                ? value.ToString("P1", CultureInfo.CurrentCulture)
+                : metric == "TradeRatio"
+                    ? value.ToString("N2", CultureInfo.CurrentCulture)
+                    : value.ToString("N0", CultureInfo.CurrentCulture);
         internal static bool ShouldRenderTrend(int validPointCount) => validPointCount >= 3;
         private static string Resource(string key, string fallback) => Application.Current.TryFindResource(key) as string ?? fallback;
         private bool Set<T>(ref T field, T value, [CallerMemberName] string name = "")
@@ -641,7 +672,7 @@ namespace ApeRadar.ViewModels
         {
             Battle = battle;
             StartedAt = battle.StartedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
-            MapName = HistoryMapNameLocalizer.GetDisplayName(battle.MapName); ShipName = battle.ShipName;
+            MapName = HistoryMapNameLocalizer.GetDisplayName(battle.MapName); ShipName = battle.ShipName; ShipType = battle.ShipType;
             Result = LocalizeResult(battle.Result); Damage = battle.Damage?.ToString("N0") ?? "-";
             Frags = battle.Frags?.ToString("N0") ?? "-"; Pr = pr?.ToString("N0") ?? "-";
             ResultValue = battle.Result; DamageRatingValue = damageRating; FragsRatingValue = fragsRating; PrValue = pr;
@@ -655,6 +686,7 @@ namespace ApeRadar.ViewModels
         public string StartedAt { get; }
         public string MapName { get; }
         public string ShipName { get; }
+        public string ShipType { get; }
         public string Result { get; }
         public BattleResult ResultValue { get; }
         public string Damage { get; }
@@ -741,13 +773,14 @@ namespace ApeRadar.ViewModels
         public BattlePlayerRowViewModel(BattlePlayerRecord value)
         {
             Relation = value.Relation == "0" ? Resource("HistorySelf", "Self") : value.Relation == "1" ? Resource("EncounterAlly", "Ally") : Resource("EncounterEnemy", "Enemy");
-            Player = value.AccountName; Ship = value.ShipName;
+            Player = value.AccountName; Ship = value.ShipName; ShipType = value.ShipType;
             Winrate = value.AccountWinrate?.ToString("P2") ?? "-";
             Pr = value.AccountPr?.ToString("N0") ?? "-";
         }
         public string Relation { get; }
         public string Player { get; }
         public string Ship { get; }
+        public string ShipType { get; }
         public string Winrate { get; }
         public string Pr { get; }
         private static string Resource(string key, string fallback) => Application.Current.TryFindResource(key) as string ?? fallback;

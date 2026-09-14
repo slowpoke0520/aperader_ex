@@ -11,7 +11,7 @@
     <ApplicationIcon>Resources\Image\monkey-face-navy.ico</ApplicationIcon>
     <AssemblyVersion>2.1.1.0</AssemblyVersion>
     <FileVersion></FileVersion>
-    <Version>2.1.1-ex.12-dev.5</Version>
+    <Version>2.1.1-ex.12-dev.6</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -27,6 +27,7 @@
   <ItemGroup>
     <None Remove="Resources\Image\wows-numbers-icon.png" />
     <None Remove="Resources\Image\wows-official-icon.png" />
+    <None Remove="Resources\Image\ShipTypes\*.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -67,6 +68,9 @@
     <None Update="README.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\..\THIRD_PARTY_NOTICES.md" Link="THIRD_PARTY_NOTICES.md">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Resources\Json\ships.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -90,6 +94,7 @@
   <ItemGroup>
     <Resource Include="Resources\Image\wows-numbers-icon.png" />
     <Resource Include="Resources\Image\wows-official-icon.png" />
+    <Resource Include="Resources\Image\ShipTypes\*.png" />
   </ItemGroup>
 
   <ItemGroup>
