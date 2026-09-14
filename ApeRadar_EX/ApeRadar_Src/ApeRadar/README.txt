@@ -60,7 +60,9 @@ QQ群：1012624096（1群） 272868560（2群）
 8. 阵容适配与舰种图标：账号、单船和同阶数据固定为两行，程序会按窗口高度自动调整
    行高；1920×1080、100% 缩放、最大化时可完整显示标准 12v12 阵容。“设置 -> 外观”
    可开启默认关闭的舰种图标，保存后立即刷新，无需重新查询战绩。底部通知默认单行，点击
-   左侧“+”展开。“默认”按钮只恢复当前设置页，“特别关注名单”不会被重置。
+   左侧“+”展开。列布局会按每支队伍表格的实际宽度切换；长玩家名使用省略号，场次、伤害、
+   同阶数据和 PR 不会越过单元格互相遮挡。“默认”按钮只恢复当前设置页，“特别关注名单”
+   不会被重置。
 
 
 
@@ -131,4 +133,6 @@ New Features
    layout with row height adapted to the available window height. A maximized 1920x1080 window at
    100% scaling shows a standard 12v12 roster without scrolling. Config -> Appearance can enable the
    ship-type icons, which are off by default and refresh without another stats query. Notifications are
-   collapsed to one line by default. Default resets only the current settings page and never the watch list.
+   collapsed to one line by default. Column mode follows each team's actual grid width; long names use
+   ellipsis and statistics cannot paint across cell boundaries. Default resets only the current settings
+   page and never the watch list.

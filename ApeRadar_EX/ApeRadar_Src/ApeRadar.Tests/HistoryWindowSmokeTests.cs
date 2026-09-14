@@ -139,13 +139,20 @@ public sealed class HistoryWindowSmokeTests
             AssertElementsDoNotOverlap(window, summary, about, width, height);
             FrameworkElement analysis = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("AnalysisPanel"));
             Assert.Equal(renderedWidth >= 1440 ? Visibility.Visible : Visibility.Collapsed, analysis.Visibility);
-            Assert.Equal(renderedWidth < 1100 ? 2 : 3, window.DataGridAlliesList.Columns.Count);
+            Assert.Equal(renderedWidth >= 1900 ? 3 : 2, window.DataGridAlliesList.Columns.Count);
             Assert.Equal(renderedWidth < 900 ? Visibility.Collapsed : Visibility.Visible, about.Visibility);
-            if (renderedWidth < 1100)
+            if (renderedWidth < 1900)
             {
                 Assert.InRange(window.DataGridAlliesList.Columns[1].ActualWidth, 181, 183);
                 Assert.InRange(window.DataGridEnemiesList.Columns[1].ActualWidth, 181, 183);
             }
+            else
+            {
+                Assert.InRange(window.DataGridAlliesList.Columns[1].ActualWidth, RosterLayoutCalculator.FullStatisticsColumnWidth - 1, RosterLayoutCalculator.FullStatisticsColumnWidth + 1);
+                Assert.InRange(window.DataGridEnemiesList.Columns[1].ActualWidth, RosterLayoutCalculator.FullStatisticsColumnWidth - 1, RosterLayoutCalculator.FullStatisticsColumnWidth + 1);
+            }
+            AssertDataGridCellContentsStayInside(window.DataGridAlliesList, width, height);
+            AssertDataGridCellContentsStayInside(window.DataGridEnemiesList, width, height);
 
             if (renderedWidth >= 1900 && height >= 1000)
             {
@@ -202,12 +209,15 @@ public sealed class HistoryWindowSmokeTests
             ShipTier = 11,
             Battles = 5_000,
             AccountWinrate = 0.60,
+            AvgExpPerBattle = 2_500,
             WeightedWinrate = 0.55,
-            ShipBattles = 20,
-            ShipWinrate = 0.50,
+            ShipBattles = 13_850,
+            ShipWinrate = 0.5619,
+            ShipAvgDmgPerBattle = 136_869,
+            ShipAvgExpPerBattle = 2_500,
             PR = 1_700,
             ShipPR = 1_250,
-            TierBattles = 12,
+            TierBattles = 13_850,
             TierWinrate = 0.5833,
             TierPR = 1_480,
             IsTierSampleSmall = true,
@@ -222,6 +232,20 @@ public sealed class HistoryWindowSmokeTests
             MostPlayedTierShare = 0.80,
             IsLowTierBiased = true,
         };
+    }
+
+    private static void AssertDataGridCellContentsStayInside(DataGrid dataGrid, double width, double height)
+    {
+        foreach (DataGridCell cell in FindVisualChildren<DataGridCell>(dataGrid).Where(x => x.IsVisible && x.ActualWidth > 0))
+        {
+            foreach (FrameworkElement content in FindVisualChildren<FrameworkElement>(cell)
+                         .Where(x => x is TextBlock or Image && x.IsVisible && x.ActualWidth > 0))
+            {
+                Rect bounds = content.TransformToAncestor(cell).TransformBounds(new Rect(content.RenderSize));
+                Assert.True(bounds.Left >= -1 && bounds.Right <= cell.ActualWidth + 1,
+                    $"{content.GetType().Name} escapes its roster cell at {width}x{height}: {bounds} outside width {cell.ActualWidth:0.##}.");
+            }
+        }
     }
 
     private static void ValidateShipTypePresentation(string language)

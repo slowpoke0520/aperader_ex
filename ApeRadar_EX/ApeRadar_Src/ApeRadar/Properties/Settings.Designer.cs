@@ -25,7 +25,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.7")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.8")]
         public string SoftwareVersion {
             get {
                 return ((string)(this["SoftwareVersion"]));
@@ -34,7 +34,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("20260914")]
+        [global::System.Configuration.DefaultSettingValueAttribute("20260915")]
         public string SoftwareDate {
             get {
                 return ((string)(this["SoftwareDate"]));

@@ -8,7 +8,14 @@ namespace ApeRadar.Utils
     {
         internal const double MinimumRowHeight = 42;
         internal const double PreferredRowHeight = 50;
+        internal const double FullStatisticsColumnWidth = 474;
+        internal const double MinimumFullRosterGridWidth = 690;
         private const double ColumnHeaderAllowance = 31;
+
+        public static bool ShouldUseCompactColumns(double rosterGridWidth)
+        {
+            return rosterGridWidth < MinimumFullRosterGridWidth;
+        }
 
         public static RosterLayoutMetrics Calculate(double gridHeight, int playerCount, double configuredPlayerFontSize, double configuredStatisticsFontSize)
         {

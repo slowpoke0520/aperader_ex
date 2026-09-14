@@ -6,6 +6,15 @@ namespace ApeRadar.Tests;
 public sealed class RosterLayoutCalculatorTests
 {
     [Theory]
+    [InlineData(689, true)]
+    [InlineData(690, false)]
+    [InlineData(750, false)]
+    public void CompactColumns_AreSelectedFromEachTeamGridWidth(double rosterGridWidth, bool expected)
+    {
+        Assert.Equal(expected, RosterLayoutCalculator.ShouldUseCompactColumns(rosterGridWidth));
+    }
+
+    [Theory]
     [InlineData(631, 12, 50)]
     [InlineData(559, 12, 44)]
     [InlineData(400, 12, 42)]

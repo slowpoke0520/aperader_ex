@@ -42,7 +42,6 @@ namespace ApeRadar
         private bool notificationsExpanded;
         private bool? compactRosterColumns;
         private const double CompactLayoutThreshold = 1440;
-        private const double CompactRosterColumnsThreshold = 1100;
         private readonly IBattleRosterCoordinator battleRosterCoordinator = new BattleRosterCoordinator();
 
         public static readonly DependencyProperty EffectivePlayerFontSizeProperty = DependencyProperty.Register(
@@ -151,7 +150,7 @@ namespace ApeRadar
 
         private void RefreshDataGridColumns(bool mirrored)
         {
-            bool useCompactColumns = compactRosterColumns ?? ActualWidth < CompactRosterColumnsThreshold;
+            bool useCompactColumns = compactRosterColumns ?? true;
             DataGridAlliesList.HorizontalScrollBarVisibility = useCompactColumns ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
             DataGridEnemiesList.HorizontalScrollBarVisibility = useCompactColumns ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
             DataGridAlliesList.Columns.Clear();
@@ -341,15 +340,19 @@ namespace ApeRadar
             bool compact = ActualWidth < CompactLayoutThreshold;
             bool showAnalysis = compact ? analysisExpandedInCompactMode : !analysisCollapsedByUser;
             bool narrow = ActualWidth < 1000;
-            bool useCompactRosterColumns = ActualWidth < CompactRosterColumnsThreshold;
+            AnalysisPanel.Visibility = showAnalysis ? Visibility.Visible : Visibility.Collapsed;
+            RosterColumn.Width = narrow && showAnalysis ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+            AnalysisColumn.Width = showAnalysis ? (narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(compact ? 360 : 380)) : new GridLength(0);
+            double mainWidth = MainWindowGrid.ActualWidth > 0 ? MainWindowGrid.ActualWidth : Math.Max(0, ActualWidth - 24);
+            double analysisWidth = showAnalysis && !narrow ? AnalysisColumn.Width.Value : 0;
+            double rosterWidth = narrow && showAnalysis ? 0 : Math.Max(0, mainWidth - 8 - analysisWidth);
+            double rosterGridWidth = Math.Max(0, (rosterWidth - 8) / 2);
+            bool useCompactRosterColumns = RosterLayoutCalculator.ShouldUseCompactColumns(rosterGridWidth);
             if (compactRosterColumns != useCompactRosterColumns)
             {
                 compactRosterColumns = useCompactRosterColumns;
                 RefreshDataGridColumns(Properties.Settings.Default.EnemiesDisplayMirrored);
             }
-            AnalysisPanel.Visibility = showAnalysis ? Visibility.Visible : Visibility.Collapsed;
-            RosterColumn.Width = narrow && showAnalysis ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
-            AnalysisColumn.Width = showAnalysis ? (narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(compact ? 360 : 380)) : new GridLength(0);
             BtnToggleAnalysis.FontWeight = showAnalysis ? FontWeights.SemiBold : FontWeights.Normal;
             MainFooterAbout.Visibility = ActualWidth < 900 ? Visibility.Collapsed : Visibility.Visible;
             int playerCount = DataContext is Battlefield battlefield
