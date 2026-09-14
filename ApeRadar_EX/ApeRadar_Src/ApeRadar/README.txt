@@ -38,7 +38,8 @@ QQ群：1012624096（1群） 272868560（2群）
 
 4. 自动检查与更新日志：在“设置 -> 高级”中可开启或关闭“软件启动时自动检查更新”。
    关闭后不会在启动时访问 GitHub Release，但仍可手动检查软件更新；同一页面的“查看更新
-   日志”会打开全部版本的 Release 说明。
+   日志”会打开全部版本的 Release 说明。2.1.1-ex.12-dev.5 会把 GitHub 发布时间解析错误
+   误报为“版本清单无效”，需要手动覆盖 dev.7 一次；升级后恢复软件内更新。
 
 5.更新单个玩家：右键点击玩家并选择“更新此玩家数据”，可忽略该玩家的缓存并重新
    获取最新战绩，其他玩家仍使用缓存。
@@ -107,6 +108,8 @@ New Features
 4. Automatic checks and changelog: use Config -> Advanced to enable or disable Check for Updates on
    Startup. When disabled, ApeRadar does not contact GitHub Releases at startup, but manual app-update
    checks remain available. View changelog on the same page opens release notes for every version.
+   Version 2.1.1-ex.12-dev.5 misreads GitHub's release timestamp and needs one manual upgrade to dev.7;
+   in-app updates work normally again after that upgrade.
 
 5. Update one player: right-click a player and choose "Update This Player" to bypass only that
    player's cache and retrieve the latest statistics. Other players can still use cached data.

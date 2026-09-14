@@ -10,6 +10,7 @@ using ApeRadar.Models;
 using System.Diagnostics;
 using System.Threading;
 using System.Net.Http;
+using System.Globalization;
 
 namespace ApeRadar.Utils
 {
@@ -81,7 +82,7 @@ namespace ApeRadar.Utils
                 JObject release = SoftwareReleaseSelector.SelectLatestRelease(releases, channel, ReleaseAssetName);
                 string tagName = release["tag_name"]?.Value<string>() ?? throw new FileFormatException("FileFormatIncorrect");
                 string softwareLatestVersion = tagName.TrimStart('v', 'V');
-                DateTimeOffset? publishedAt = release["published_at"]?.Value<DateTimeOffset?>();
+                DateTimeOffset? publishedAt = ParsePublishedAt(release["published_at"]);
                 string releaseNotes = release["body"]?.Value<string>() ?? "";
 
                 JObject? softwareAsset = release["assets"]?
@@ -180,6 +181,27 @@ namespace ApeRadar.Utils
                     File.Delete($"{filename}.bak");
                 }
             }
+        }
+
+        internal static DateTimeOffset? ParsePublishedAt(JToken? value)
+        {
+            if (value == null || value.Type == JTokenType.Null) return null;
+            if (value is JValue { Value: DateTimeOffset offset }) return offset;
+            if (value is JValue { Value: DateTime date })
+            {
+                DateTime normalized = date.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(date, DateTimeKind.Utc)
+                    : date;
+                return new DateTimeOffset(normalized).ToUniversalTime();
+            }
+
+            return DateTimeOffset.TryParse(
+                value.ToString(),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out DateTimeOffset parsed)
+                ? parsed
+                : throw new FileFormatException("FileFormatIncorrect");
         }
 
         public static async Task<bool> CheckForShipListUpdates()

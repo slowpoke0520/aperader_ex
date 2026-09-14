@@ -60,6 +60,26 @@ public sealed class SoftwareReleaseSelectorTests
         Assert.Equal(SoftwareReleaseSelector.StableSettingValue, SoftwareReleaseSelector.NormalizeChannelSetting(null));
     }
 
+    [Fact]
+    public void PublishedAt_AcceptsNewtonsoftDateTokenReturnedByGitHub()
+    {
+        JObject release = JObject.Parse("""{"published_at":"2026-09-14T07:40:29Z"}""");
+
+        DateTimeOffset? publishedAt = SoftwareUpdateUtils.ParsePublishedAt(release["published_at"]);
+
+        Assert.Equal(JTokenType.Date, release["published_at"]?.Type);
+        Assert.Equal(DateTimeOffset.Parse("2026-09-14T07:40:29Z"), publishedAt);
+    }
+
+    [Fact]
+    public void PublishedAt_AcceptsStringTokenAndMissingValue()
+    {
+        JValue value = new("2026-09-14T07:40:29Z");
+
+        Assert.Equal(DateTimeOffset.Parse("2026-09-14T07:40:29Z"), SoftwareUpdateUtils.ParsePublishedAt(value));
+        Assert.Null(SoftwareUpdateUtils.ParsePublishedAt(null));
+    }
+
     private static JObject Release(string tag, bool prerelease) => new()
     {
         ["tag_name"] = tag,
