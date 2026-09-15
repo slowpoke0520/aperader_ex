@@ -79,11 +79,10 @@ namespace ApeRadar.Utils
 
     public sealed class ShipTypeIconBadge : Border
     {
-        private static readonly SolidColorBrush BadgeBackground = CreateFrozenBrush(Color.FromRgb(37, 55, 78));
-        private static readonly SolidColorBrush BadgeBorder = CreateFrozenBrush(Color.FromRgb(88, 111, 139));
-        private readonly Image icon = new()
+        private static readonly SolidColorBrush NeutralTint = CreateFrozenBrush(Color.FromRgb(76, 96, 120));
+        private readonly Border iconShape = new()
         {
-            Stretch = Stretch.Uniform,
+            Background = NeutralTint,
             SnapsToDevicePixels = true
         };
 
@@ -99,18 +98,31 @@ namespace ApeRadar.Utils
             set => SetValue(ShipTypeProperty, value);
         }
 
+        public static readonly DependencyProperty TintBrushProperty = DependencyProperty.Register(
+            nameof(TintBrush),
+            typeof(Brush),
+            typeof(ShipTypeIconBadge),
+            new FrameworkPropertyMetadata(NeutralTint, (dependencyObject, _) => ((ShipTypeIconBadge)dependencyObject).Refresh()));
+
+        public Brush TintBrush
+        {
+            get => (Brush)GetValue(TintBrushProperty);
+            set => SetValue(TintBrushProperty, value);
+        }
+
+        internal ImageSource? IconSource { get; private set; }
+
         public ShipTypeIconBadge()
         {
-            Width = 22;
-            Height = 22;
-            Padding = new Thickness(2);
-            CornerRadius = new CornerRadius(4);
-            BorderThickness = new Thickness(1);
-            Background = BadgeBackground;
-            BorderBrush = BadgeBorder;
+            Width = 20;
+            Height = 20;
+            Padding = new Thickness(0);
+            BorderThickness = new Thickness(0);
+            Background = Brushes.Transparent;
+            BorderBrush = Brushes.Transparent;
             VerticalAlignment = VerticalAlignment.Center;
             SnapsToDevicePixels = true;
-            Child = icon;
+            Child = iconShape;
             Refresh();
         }
 
@@ -119,7 +131,16 @@ namespace ApeRadar.Utils
             ImageSource? source = Properties.Settings.Default.ShowShipTypeIcon
                 ? ShipTypePresentation.GetIcon(ShipType)
                 : null;
-            icon.Source = source;
+            IconSource = source;
+            iconShape.Background = TintBrush ?? NeutralTint;
+            iconShape.OpacityMask = source == null
+                ? null
+                : new ImageBrush(source)
+                {
+                    Stretch = Stretch.Uniform,
+                    AlignmentX = AlignmentX.Center,
+                    AlignmentY = AlignmentY.Center
+                };
             ToolTip = source == null ? null : ShipTypePresentation.GetDisplayName(ShipType);
             Visibility = source == null ? Visibility.Collapsed : Visibility.Visible;
         }
@@ -130,6 +151,45 @@ namespace ApeRadar.Utils
             brush.Freeze();
             return brush;
         }
+    }
+
+    public sealed class ShipRelationBrushConverter : IValueConverter
+    {
+        private static readonly SolidColorBrush Ally = CreateFrozenBrush(Color.FromRgb(35, 126, 78));
+        private static readonly SolidColorBrush Enemy = CreateFrozenBrush(Color.FromRgb(184, 50, 50));
+        private static readonly SolidColorBrush Neutral = CreateFrozenBrush(Color.FromRgb(76, 96, 120));
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => (value as string) switch
+        {
+            "0" or "1" => Ally,
+            "2" => Enemy,
+            _ => Neutral
+        };
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+            throw new NotSupportedException();
+
+        private static SolidColorBrush CreateFrozenBrush(Color color)
+        {
+            SolidColorBrush brush = new(color);
+            brush.Freeze();
+            return brush;
+        }
+    }
+
+    public sealed class WidthReductionConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            double width = value is double number && double.IsFinite(number) ? number : 0;
+            double reduction = double.TryParse(parameter?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed)
+                ? parsed
+                : 0;
+            return Math.Max(0, width - reduction);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+            throw new NotSupportedException();
     }
 
     internal sealed class ShipTypeIconConverter : IValueConverter

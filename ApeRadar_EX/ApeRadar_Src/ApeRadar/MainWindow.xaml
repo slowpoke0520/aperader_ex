@@ -22,6 +22,7 @@
     </Window.Title>
     <Window.Resources>
         <cvt:ShipTierConverter x:Key="CvtShipTier"/>
+        <utils:ShipRelationBrushConverter x:Key="CvtShipRelationBrush"/>
         <cvt:BattleDataAvailabilityConverter x:Key="CvtBattleData"/>
         <cvt:TagDataConverter x:Key="CvtTagData"/>
         <cvt:TagBackgroundColorConverter x:Key="CvtBackgroundColor"/>
@@ -169,7 +170,7 @@
                 <Grid Grid.Row="1" Margin="5,0" ClipToBounds="True">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}" Foreground="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusColor}}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"><Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/></TextBlock>
-                    <utils:ShipTypeIconBadge Grid.Column="1" ShipType="{Binding ShipType}" Margin="4,0,0,0"/>
+                    <utils:ShipTypeIconBadge Grid.Column="1" ShipType="{Binding ShipType}" TintBrush="{Binding Relation, Converter={StaticResource CvtShipRelationBrush}}" Margin="4,0,0,0"/>
                 </Grid>
             </Grid>
         </DataTemplate>
@@ -254,7 +255,7 @@
                 <Grid Grid.Row="1" Margin="5,0" ClipToBounds="True">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}" TextAlignment="Right" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"><Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/></TextBlock>
-                    <utils:ShipTypeIconBadge Grid.Column="1" ShipType="{Binding ShipType}" Margin="4,0,0,0"/>
+                    <utils:ShipTypeIconBadge Grid.Column="1" ShipType="{Binding ShipType}" TintBrush="{Binding Relation, Converter={StaticResource CvtShipRelationBrush}}" Margin="4,0,0,0"/>
                 </Grid>
             </Grid>
         </DataTemplate>
@@ -457,7 +458,7 @@
                     </TextBlock>
                     <StackPanel Orientation="Horizontal" Margin="20,5,5,5">
                         <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}"><Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/></TextBlock>
-                        <utils:ShipTypeIconBadge ShipType="{Binding ShipType}" Margin="4,0,0,0"/>
+                        <utils:ShipTypeIconBadge ShipType="{Binding ShipType}" TintBrush="{Binding Relation, Converter={StaticResource CvtShipRelationBrush}}" Margin="4,0,0,0"/>
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">

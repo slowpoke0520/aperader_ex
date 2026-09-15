@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Globalization;
 using ApeRadar.History;
 using ApeRadar.Models;
 using ApeRadar.Services;
@@ -191,10 +192,25 @@ public sealed class HistoryWindowSmokeTests
         Assert.All(icons, badge =>
         {
             Assert.Equal(Visibility.Visible, badge.Visibility);
-            Assert.Equal(22, badge.Width);
+            Assert.Equal(20, badge.Width);
             SolidColorBrush background = Assert.IsType<SolidColorBrush>(badge.Background);
-            Assert.True(background.Color.R < 100 && background.Color.G < 120 && background.Color.B < 150);
-            Assert.NotNull(Assert.IsType<Image>(badge.Child).Source);
+            Assert.Equal(0, background.Color.A);
+            Assert.Equal(new Thickness(0), badge.BorderThickness);
+            Assert.NotNull(badge.IconSource);
+
+            PlayerRosterRowViewModel row = Assert.IsType<PlayerRosterRowViewModel>(badge.DataContext);
+            SolidColorBrush tint = Assert.IsType<SolidColorBrush>(badge.TintBrush);
+            if (row.Player.Relation is "0" or "1")
+                Assert.True(tint.Color.G > tint.Color.R && tint.Color.G > tint.Color.B);
+            else
+                Assert.True(tint.Color.R > tint.Color.G && tint.Color.R > tint.Color.B);
+
+            StackPanel shipLine = Assert.IsType<StackPanel>(VisualTreeHelper.GetParent(badge));
+            Assert.Equal(1, shipLine.Children.IndexOf(badge));
+            TextBlock shipName = Assert.IsType<TextBlock>(shipLine.Children[0]);
+            Rect shipNameBounds = shipName.TransformToAncestor(shipLine).TransformBounds(new Rect(shipName.RenderSize));
+            Rect iconBounds = badge.TransformToAncestor(shipLine).TransformBounds(new Rect(badge.RenderSize));
+            Assert.InRange(iconBounds.Left - shipNameBounds.Right, 4, 6);
         });
 
         ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = false;
@@ -202,7 +218,7 @@ public sealed class HistoryWindowSmokeTests
         Assert.All(icons, badge =>
         {
             Assert.Equal(Visibility.Collapsed, badge.Visibility);
-            Assert.Null(Assert.IsType<Image>(badge.Child).Source);
+            Assert.Null(badge.IconSource);
         });
 
         ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
@@ -210,7 +226,7 @@ public sealed class HistoryWindowSmokeTests
         Assert.All(icons, badge =>
         {
             Assert.Equal(Visibility.Visible, badge.Visibility);
-            Assert.NotNull(Assert.IsType<Image>(badge.Child).Source);
+            Assert.NotNull(badge.IconSource);
         });
     }
 
@@ -282,6 +298,12 @@ public sealed class HistoryWindowSmokeTests
             ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
             Assert.True(ShipTypePresentation.ShouldShow("Cruiser"));
             Assert.Equal(language == "zh-cn" ? "巡洋舰" : "Cruiser", ShipTypePresentation.GetDisplayName("Cruiser"));
+
+            ShipRelationBrushConverter converter = new();
+            SolidColorBrush ally = Assert.IsType<SolidColorBrush>(converter.Convert("1", typeof(Brush), null!, CultureInfo.InvariantCulture));
+            SolidColorBrush enemy = Assert.IsType<SolidColorBrush>(converter.Convert("2", typeof(Brush), null!, CultureInfo.InvariantCulture));
+            Assert.True(ally.Color.G > ally.Color.R);
+            Assert.True(enemy.Color.R > enemy.Color.G);
         }
         finally
         {

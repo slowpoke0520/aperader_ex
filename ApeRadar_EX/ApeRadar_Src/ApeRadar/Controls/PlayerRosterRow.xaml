@@ -13,6 +13,8 @@
         <cvt:WatchStatusColorConverter x:Key="WatchColor"/>
         <cvt:WatchStatusIconConverter x:Key="WatchIcon"/>
         <cvt:NoteIconConverter x:Key="NoteIcon"/>
+        <utils:ShipRelationBrushConverter x:Key="ShipRelationBrush"/>
+        <utils:WidthReductionConverter x:Key="WidthReduction"/>
         <Style x:Key="IdentityLine" TargetType="TextBlock">
             <Setter Property="TextAlignment" Value="Left"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -41,18 +43,29 @@
             <Run Foreground="#9B6A00" Text="{Binding Player.CustomMarkerIcon, Mode=OneWay}"/>
             <Run Foreground="#B54708" Text="{Binding Player.RecentEncounterIcon, Mode=OneWay}"/>
         </TextBlock>
-        <Grid Grid.Row="1" ClipToBounds="True">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Style="{StaticResource IdentityLine}"
-                       FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}"
-                       Foreground="{Binding Player.WatchStatus, Converter={StaticResource WatchColor}}"
-                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding Player.ShipName}">
-                <Run Text="{Binding Player.ShipTier, Converter={StaticResource ShipTier}}"/><Run Text="  "/><Run Text="{Binding Player.ShipName}"/>
-            </TextBlock>
-            <utils:ShipTypeIconBadge Grid.Column="1" ShipType="{Binding Player.ShipType}" Margin="5,0,0,0" Width="22" Height="22"/>
+        <Grid x:Name="ShipLineContainer" Grid.Row="1" ClipToBounds="True">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsMirrored, ElementName=Root}" Value="True">
+                                <Setter Property="HorizontalAlignment" Value="Right"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <TextBlock Style="{StaticResource IdentityLine}"
+                           MaxWidth="{Binding ActualWidth, ElementName=ShipLineContainer, Converter={StaticResource WidthReduction}, ConverterParameter=25}"
+                           FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}"
+                           Foreground="{Binding Player.WatchStatus, Converter={StaticResource WatchColor}}"
+                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding Player.ShipName}">
+                    <Run Text="{Binding Player.ShipTier, Converter={StaticResource ShipTier}}"/><Run Text="  "/><Run Text="{Binding Player.ShipName}"/>
+                </TextBlock>
+                <utils:ShipTypeIconBadge ShipType="{Binding Player.ShipType}"
+                                         TintBrush="{Binding Player.Relation, Converter={StaticResource ShipRelationBrush}}"
+                                         Margin="5,0,0,0" Width="20" Height="20"/>
+            </StackPanel>
         </Grid>
         <TextBlock Grid.Row="2" Text="{Binding StatusSummary}" FontSize="10"
                    Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding StatusSummary}">
