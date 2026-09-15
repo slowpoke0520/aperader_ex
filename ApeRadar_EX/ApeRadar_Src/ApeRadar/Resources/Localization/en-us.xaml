@@ -11,6 +11,7 @@
     <system:String x:Key="DataGridHeaderStatisticsTier">Tier</system:String>
     <system:String x:Key="DataGridHeaderStatisticsPR">PR</system:String>
     <system:String x:Key="DataGridHeaderTag">Tag</system:String>
+    <system:String x:Key="DataGridHeaderStatus">Status</system:String>
     <system:String x:Key="DataGridHeaderServer">Server</system:String>
     <system:String x:Key="DataGridHeaderID">ID</system:String>
     <system:String x:Key="DataGridHeaderName">Name</system:String>
@@ -31,6 +32,12 @@
     <system:String x:Key="DataGridToolTipDiv3">Div 3</system:String>
     <system:String x:Key="DataGridToolTipAccountPR">Account PR</system:String>
     <system:String x:Key="DataGridToolTipShipPR">Ship PR</system:String>
+    <system:String x:Key="RosterMetricWinrate">WR</system:String>
+    <system:String x:Key="RosterMetricBattles">Games</system:String>
+    <system:String x:Key="RosterMetricAvgExp">XP</system:String>
+    <system:String x:Key="RosterMetricAvgDamage">Dmg</system:String>
+    <system:String x:Key="RosterMetricWeighted">Adjusted</system:String>
+    <system:String x:Key="RosterMetricTier">Tier</system:String>
     
     <system:String x:Key="BtnSave">Save</system:String>
     <system:String x:Key="BtnCancel">Cancel</system:String>
@@ -42,6 +49,8 @@
     <TextBlock x:Key="BtnUpdateShipList" TextAlignment="Center">Update<LineBreak/>Ship List</TextBlock>
     <system:String x:Key="BtnRefresh">Refresh</system:String>
     <system:String x:Key="BtnAnalysis">Charts &amp; analysis</system:String>
+    <system:String x:Key="BtnCloseAnalysis">Close analysis panel</system:String>
+    <system:String x:Key="BtnMore">More</system:String>
     <system:String x:Key="HistoryPreviousPage">Previous</system:String>
     <system:String x:Key="HistoryNextPage">Next</system:String>
     <system:String x:Key="AnalysisPanelTitle">Charts and display options</system:String>
@@ -53,6 +62,13 @@
     <system:String x:Key="MainSessionTitle">Current session</system:String>
     <system:String x:Key="MainSessionBattles">Battles</system:String>
     <system:String x:Key="MainSessionOpenHint">Open the personal improvement center</system:String>
+    <system:String x:Key="RosterStateHidden">Hidden stats</system:String>
+    <system:String x:Key="RosterStateCached">Cached data</system:String>
+    <system:String x:Key="RosterStateSmallSample">Small same-tier sample</system:String>
+    <system:String x:Key="RosterStateLowTier">Low-tier heavy record</system:String>
+    <system:String x:Key="RosterStateLoading">Waiting for statistics</system:String>
+    <system:String x:Key="RosterStateReady">Statistics ready</system:String>
+    <system:String x:Key="RosterStateSampleReady">Sample available</system:String>
     <system:String x:Key="HistoryWindowTitle">Battle History</system:String>
     <system:String x:Key="HistoryTabCurrentSession">Current session</system:String>
     <system:String x:Key="HistoryTabShipTrends">Ship trends</system:String>

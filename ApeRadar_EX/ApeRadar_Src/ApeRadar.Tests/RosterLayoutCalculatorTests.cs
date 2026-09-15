@@ -6,31 +6,31 @@ namespace ApeRadar.Tests;
 public sealed class RosterLayoutCalculatorTests
 {
     [Theory]
-    [InlineData(689, true)]
-    [InlineData(690, false)]
-    [InlineData(750, false)]
-    public void CompactColumns_AreSelectedFromEachTeamGridWidth(double rosterGridWidth, bool expected)
+    [InlineData(639, true)]
+    [InlineData(640, false)]
+    [InlineData(900, false)]
+    public void HorizontalScrolling_IsSelectedOnlyBelowTheSemanticMinimum(double rosterGridWidth, bool expected)
     {
-        Assert.Equal(expected, RosterLayoutCalculator.ShouldUseCompactColumns(rosterGridWidth));
+        Assert.Equal(expected, RosterLayoutCalculator.RequiresHorizontalScroll(rosterGridWidth));
     }
 
     [Theory]
-    [InlineData(631, 12, 50)]
-    [InlineData(559, 12, 44)]
-    [InlineData(400, 12, 42)]
+    [InlineData(849, 12, 68)]
+    [InlineData(753, 12, 60)]
+    [InlineData(600, 12, 58)]
     public void RowHeight_UsesAvailableViewportAndStaysWithinReadableBounds(double gridHeight, int players, double expected)
     {
         RosterLayoutMetrics result = RosterLayoutCalculator.Calculate(gridHeight, players, 18, 16);
 
         Assert.Equal(expected, result.RowHeight);
-        Assert.InRange(result.PlayerFontSize, 10, 18);
-        Assert.InRange(result.StatisticsFontSize, 10, 16);
+        Assert.InRange(result.PlayerFontSize, 11, 15.5);
+        Assert.InRange(result.StatisticsFontSize, 10.5, 13.5);
     }
 
     [Fact]
     public void LargeConfiguredFonts_AreTreatedAsUpperBounds()
     {
-        RosterLayoutMetrics result = RosterLayoutCalculator.Calculate(400, 12, 22, 22);
+        RosterLayoutMetrics result = RosterLayoutCalculator.Calculate(600, 12, 22, 22);
 
         Assert.Equal(RosterLayoutCalculator.MinimumRowHeight, result.RowHeight);
         Assert.True(result.PlayerFontSize < 22);

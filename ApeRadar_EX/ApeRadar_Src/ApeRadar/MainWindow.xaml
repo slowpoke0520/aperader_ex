@@ -8,6 +8,7 @@
         xmlns:cvt="clr-namespace:ApeRadar.Utils.Converters"
         xmlns:model="clr-namespace:ApeRadar.Models"
         xmlns:p="clr-namespace:ApeRadar.Properties"
+        xmlns:controls="clr-namespace:ApeRadar.Controls"
         xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
         mc:Ignorable="d"
         Tag="{DynamicResource WindowTitleApeRadar}" ResizeMode="CanResize" AllowDrop="True" Drop="Window_Drop" WindowStartupLocation="CenterScreen" WindowState="Maximized"
@@ -362,7 +363,68 @@
         <DataGridTemplateColumn x:Key="EnemiesNameColumnCompactMirrored" x:Shared="False" HeaderTemplate="{StaticResource NameHeaderTemplate}" CellTemplate="{StaticResource NameTemplateMirrored}" Width="*" MinWidth="108"/>
         <DataGridTemplateColumn x:Key="EnemiesStatisticsColumnCompact" x:Shared="False" HeaderTemplate="{StaticResource CompactStatisticsHeaderTemplate}" CellTemplate="{StaticResource CompactStatisticsTemplate}" Width="182" MinWidth="182" MaxWidth="182"/>
 
-        <ContextMenu x:Key="RowMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+        <DataTemplate x:Key="RosterPlayerHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderPlayer}" FontSize="13" FontWeight="SemiBold"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterPlayerHeaderTemplateMirrored">
+            <TextBlock Text="{DynamicResource DataGridHeaderPlayer}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterAccountHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsAccount}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterShipHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsShip}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterTierHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsTier}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterStatusHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderStatus}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+
+        <DataTemplate x:Key="RosterPlayerTemplate">
+            <controls:PlayerRosterRow/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterPlayerTemplateMirrored">
+            <controls:PlayerRosterRow IsMirrored="True"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterAccountTemplate">
+            <controls:PlayerMetricGroup DataContext="{Binding AccountMetrics}"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterShipTemplate">
+            <controls:PlayerMetricGroup DataContext="{Binding ShipMetrics}"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterTierTemplate">
+            <controls:PlayerMetricGroup DataContext="{Binding TierMetrics}"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterStatusTemplate">
+            <Grid DataContext="{Binding Player}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border Width="34" Height="34" CornerRadius="17" Background="{StaticResource SurfaceMutedBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                        Visibility="{Binding Source={x:Static p:Settings.Default}, Path=TagVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
+                    <TextBlock FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusColor}}">
+                        <TextBlock.Text>
+                            <MultiBinding Converter="{StaticResource CvtTagData}">
+                                <Binding Path="AccountWinrate"/>
+                                <Binding Path="WeightedWinrate"/>
+                                <Binding Path="Battles"/>
+                                <Binding Path="IsHidden"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                </Border>
+                <Ellipse Width="7" Height="7" Fill="#D97706" Stroke="White" StrokeThickness="1" HorizontalAlignment="Right" VerticalAlignment="Top"
+                         Visibility="{Binding IsDataStale, Converter={StaticResource BoolToVisibility}}" ToolTip="{DynamicResource RosterStateCached}"/>
+            </Grid>
+        </DataTemplate>
+
+        <DataGridTemplateColumn x:Key="RosterPlayerColumn" x:Shared="False" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplate}" CellTemplate="{StaticResource RosterPlayerTemplate}" Width="2.05*" MinWidth="175"/>
+        <DataGridTemplateColumn x:Key="RosterPlayerColumnMirrored" x:Shared="False" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplateMirrored}" CellTemplate="{StaticResource RosterPlayerTemplateMirrored}" Width="2.05*" MinWidth="175"/>
+        <DataGridTemplateColumn x:Key="RosterAccountColumn" x:Shared="False" HeaderTemplate="{StaticResource RosterAccountHeaderTemplate}" CellTemplate="{StaticResource RosterAccountTemplate}" Width="1.16*" MinWidth="126"/>
+        <DataGridTemplateColumn x:Key="RosterShipColumn" x:Shared="False" HeaderTemplate="{StaticResource RosterShipHeaderTemplate}" CellTemplate="{StaticResource RosterShipTemplate}" Width="1.28*" MinWidth="154"/>
+        <DataGridTemplateColumn x:Key="RosterTierColumn" x:Shared="False" HeaderTemplate="{StaticResource RosterTierHeaderTemplate}" CellTemplate="{StaticResource RosterTierTemplate}" Width="1.12*" MinWidth="126"/>
+        <DataGridTemplateColumn x:Key="RosterStatusColumn" x:Shared="False" HeaderTemplate="{StaticResource RosterStatusHeaderTemplate}" CellTemplate="{StaticResource RosterStatusTemplate}" Width="52" MinWidth="52" MaxWidth="52"/>
+
+        <ContextMenu x:Key="RowMenu" DataContext="{Binding PlacementTarget.DataContext.Player, RelativeSource={RelativeSource Self}}">
             <MenuItem x:Name="ContextMenuCopyPlayerStatistics" Header="{DynamicResource ContextMenuCopyPlayerStatistics}" Click="ContextMenuCopyPlayerStatistics_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemCopyPlayerStatisticsIsEnabled}}"/>
             <MenuItem x:Name="ContextMenuRefreshPlayer" Header="{DynamicResource ContextMenuRefreshPlayer}" Click="ContextMenuRefreshPlayer_Click" IsEnabled="{Binding CanRefreshData}"/>
             <MenuItem x:Name="ContextMenuFixedTeammate" Header="{DynamicResource ContextMenuFixedTeammate}" Click="ContextMenuFixedTeammate_Click" IsCheckable="True" IsChecked="{Binding IsFixedTeammate, Mode=OneWay}" IsEnabled="{Binding CanBeFixedTeammate}"/>
@@ -388,7 +450,7 @@
         </ContextMenu>
 
         <ToolTip x:Key="ToolTipPlayerDetails">
-            <StackPanel Orientation="Vertical">
+            <StackPanel Orientation="Vertical" DataContext="{Binding Player}">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock Margin="5,5,20,5" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}">
                     <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/>
@@ -504,7 +566,7 @@
                 </StackPanel>
             </StackPanel>
         </ToolTip>
-        <Style x:Key="DataGridPlayerListRowStyle" TargetType="DataGridRow">
+        <Style x:Key="DataGridPlayerListRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
             <Setter Property="ContextMenu" Value="{StaticResource RowMenu}"/>
             <Setter Property="ToolTip" Value="{StaticResource ToolTipPlayerDetails}"/>
         </Style>
@@ -513,30 +575,28 @@
 
     </Window.Resources>
 
-    <Grid x:Name="MainWindowGrid" Margin="12">
+    <Grid x:Name="MainWindowGrid" Margin="10" PreviewKeyDown="MainWindowGrid_PreviewKeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="RosterColumn" Width="*"/>
-            <ColumnDefinition Width="8"/>
-            <ColumnDefinition x:Name="AnalysisColumn" Width="360"/>
-        </Grid.ColumnDefinitions>
 
-        <Border Grid.Row="0" Grid.ColumnSpan="3" Style="{StaticResource SurfaceCardStyle}" Padding="10,6" Margin="0,0,0,8">
+        <Border Grid.Row="0" Style="{StaticResource SurfaceCardStyle}" Padding="10,5" Margin="0,0,0,7">
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="6,0,8,0" ToolTip="https://lxdev.org/aperadar/">
+                        <Run Text="{Binding Source={x:Static p:Settings.Default}, Path=SoftwareVersion, Mode=OneWay}"/>
+                        <Run Text=" · "/><Run Text="Build "/><Run Text="{Binding Source={x:Static p:Settings.Default}, Path=SoftwareDate, Mode=OneWay}"/>
+                    </TextBlock>
+                    <Button x:Name="BtnToggleAnalysis" Content="{DynamicResource BtnAnalysis}" MinWidth="112" Margin="4,0,8,0" Click="BtnToggleAnalysis_Click"/>
                     <ComboBox x:Name="ComboBoxLanguage" DisplayMemberPath="Content" SelectedValuePath="Value" Width="92" SelectionChanged="ComboBoxLanguage_SelectionChanged"/>
                 </StackPanel>
-                <Button x:Name="BtnToggleAnalysis" DockPanel.Dock="Right" Content="{DynamicResource BtnAnalysis}" MinWidth="104" Margin="8,0" Click="BtnToggleAnalysis_Click"/>
-                <TextBlock x:Name="LabelGamePathIsSetOrNot" Text="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetText}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetColor}}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="LabelGamePathIsSetOrNot" Text="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetText}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetColor}}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
             </DockPanel>
         </Border>
 
-        <Grid Grid.Row="1" Grid.Column="0">
+        <Grid Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -578,16 +638,27 @@
             </Border>
             <Grid x:Name="RosterTablesGrid" Grid.Row="2">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <DataGrid x:Name="DataGridAlliesList" Grid.Column="0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" SelectionMode="Single" ItemsSource="{Binding Allies}" CanUserReorderColumns="False" CanUserSortColumns="False" RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
-                <DataGrid x:Name="DataGridEnemiesList" Grid.Column="2" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" SelectionMode="Single" ItemsSource="{Binding Enemies}" CanUserReorderColumns="False" CanUserSortColumns="False" RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
+                <DataGrid x:Name="DataGridAlliesList" Grid.Column="0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" SelectionMode="Single"
+                          ItemsSource="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=AlliesRosterRows}" CanUserReorderColumns="False" CanUserSortColumns="False"
+                          RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ColumnHeaderHeight="32" AlternationCount="2"/>
+                <DataGrid x:Name="DataGridEnemiesList" Grid.Column="2" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" SelectionMode="Single"
+                          ItemsSource="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EnemiesRosterRows}" CanUserReorderColumns="False" CanUserSortColumns="False"
+                          RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ColumnHeaderHeight="32" AlternationCount="2"/>
             </Grid>
         </Grid>
 
-        <Border x:Name="AnalysisPanel" Grid.Row="1" Grid.Column="2" Style="{StaticResource SurfaceCardStyle}" Padding="8">
+        <Border x:Name="AnalysisPanel" Grid.Row="1" Width="420" MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+                HorizontalAlignment="Right" Style="{StaticResource SurfaceCardStyle}" Padding="10" Panel.ZIndex="30" Visibility="Collapsed">
+            <Border.Effect>
+                <DropShadowEffect Color="#29415F" BlurRadius="18" ShadowDepth="-3" Opacity="0.22"/>
+            </Border.Effect>
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="3*"/><RowDefinition Height="1*"/><RowDefinition Height="92"/></Grid.RowDefinitions>
                 <StackPanel Grid.Row="0">
-                    <TextBlock Text="{DynamicResource AnalysisPanelTitle}" FontSize="16" FontWeight="SemiBold" Margin="4,0,4,6"/>
+                    <DockPanel Margin="4,0,0,6">
+                        <Button DockPanel.Dock="Right" Content="×" Width="30" Height="30" Padding="0" Margin="4,0,0,0" Click="BtnToggleAnalysis_Click" ToolTip="{DynamicResource BtnCloseAnalysis}"/>
+                        <TextBlock Text="{DynamicResource AnalysisPanelTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </DockPanel>
                     <WrapPanel>
                         <StackPanel Margin="4"><TextBlock Text="{DynamicResource LabelDisplayStyle}"/><ComboBox x:Name="ComboBoxMirrored" DisplayMemberPath="Content" SelectedValuePath="Value" Width="100" SelectionChanged="ComboBoxMirrored_SelectionChanged"/></StackPanel>
                         <StackPanel Margin="4"><TextBlock Text="{DynamicResource LabelPlayerListSortBy}"/><ComboBox x:Name="ComboBoxSortBy" DisplayMemberPath="Content" SelectedValuePath="Value" Width="190" SelectionChanged="ComboBoxSortBy_SelectionChanged"/></StackPanel>
@@ -601,46 +672,28 @@
             </Grid>
         </Border>
 
-        <Grid x:Name="MainFooterTop" Grid.Row="2" Grid.ColumnSpan="3" Margin="0,5,0,0">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <Grid Grid.Column="0" Margin="0,0,8,0">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <Button x:Name="BtnToggleNotifications" Grid.Column="0" Content="+" Width="32" Height="32" Margin="0" Click="BtnToggleNotifications_Click" ToolTip="{DynamicResource NotificationExpand}"/>
-            <DataGrid x:Name="DataGridNotificationMessages" Grid.Column="1" Height="32" MaxHeight="120" HeadersVisibility="None" RowHeight="26" Margin="5,0,0,0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single" ItemsSource="{Binding Source={x:Static utils:NotificationMessageUtils.NotificationMessageCollection}}" CanUserReorderColumns="False" CanUserSortColumns="False">
-                <DataGrid.Resources>
-                    <DataTemplate x:Key="TimeHeaderTemplate">
-                        <TextBlock Text="{DynamicResource DataGridHeaderTime}" FontSize="11"/>
-                    </DataTemplate>
-                    <DataTemplate x:Key="TimeTemplate">
-                        <TextBlock Text="{Binding Time, StringFormat='{}{0:HH:mm:ss}'}" FontSize="11" Foreground="{Binding Type, Converter={StaticResource CvtNotificationMessageColor}}" Margin="5,0,0,0"/>
-                    </DataTemplate>
-                    <DataTemplate x:Key="MessageHeaderTemplate">
-                        <TextBlock Text="{DynamicResource DataGridHeaderMessage}" FontSize="11"/>
-                    </DataTemplate>
-                    <DataTemplate x:Key="MessageTemplate">
-                        <TextBlock Text="{Binding Message}" FontSize="11" Foreground="{Binding Type, Converter={StaticResource CvtNotificationMessageColor}}" Margin="5,0,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Message}"/>
-                    </DataTemplate>
-                </DataGrid.Resources>
-                <DataGrid.Columns>
-                    <DataGridTemplateColumn HeaderTemplate="{StaticResource TimeHeaderTemplate}" CellTemplate="{StaticResource TimeTemplate}" Width="72"/>
-                    <DataGridTemplateColumn HeaderTemplate="{StaticResource MessageHeaderTemplate}" CellTemplate="{StaticResource MessageTemplate}" Width="*" MinWidth="220"/>
-                </DataGrid.Columns>
-            </DataGrid>
-            </Grid>
-            <WrapPanel x:Name="MainFooterButtons" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" MaxWidth="540">
-                <Button x:Name="BtnRefresh" Content="{DynamicResource BtnRefresh}" MinWidth="78" Click="BtnRefresh_Click" Style="{StaticResource PrimaryButtonStyle}"/>
-                <Button x:Name="BtnOpen" Content="{DynamicResource BtnOpen}" MinWidth="78" Click="BtnOpen_Click"/>
-                <Button x:Name="BtnHistory" Content="{DynamicResource BtnHistory}" MinWidth="78" Click="BtnHistory_Click"/>
-                <Button x:Name="BtnSoftwareUpdate" Content="{DynamicResource BtnSoftwareUpdate}" MinWidth="78" Click="BtnSoftwareUpdate_Click"/>
-                <Button x:Name="BtnConfig" Content="{DynamicResource BtnConfig}" MinWidth="78" Click="BtnConfig_Click"/>
-                <Button x:Name="BtnScreenshot" Content="{DynamicResource BtnScreenshot}" MinWidth="78" Click="BtnScreenshot_Click"/>
-            </WrapPanel>
-        </Grid>
-        <Grid x:Name="MainFooterBottom" Grid.Row="3" Grid.ColumnSpan="3" Margin="0,5,0,0">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <Border Grid.Column="0" x:Name="CurrentSessionSummaryCard" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="5,0,8,0" Padding="10,4" MaxWidth="760"
-                    BorderBrush="#CCD6E2" BorderThickness="1" CornerRadius="5" Background="#F8FAFD" Cursor="Hand"
-                    MouseLeftButtonDown="CurrentSessionSummaryCard_MouseLeftButtonDown" ToolTip="{DynamicResource MainSessionOpenHint}">
+        <Border Grid.Row="2" Style="{StaticResource SurfaceCardStyle}" Padding="5" Margin="0,7,0,0">
+            <DockPanel LastChildFill="True">
+                <WrapPanel x:Name="MainFooterButtons" DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button x:Name="BtnRefresh" Content="{DynamicResource BtnRefresh}" MinWidth="72" Click="BtnRefresh_Click" Style="{StaticResource PrimaryButtonStyle}"/>
+                    <Button x:Name="BtnOpen" Content="{DynamicResource BtnOpen}" MinWidth="72" Click="BtnOpen_Click"/>
+                    <Button x:Name="BtnHistory" Content="{DynamicResource BtnHistory}" MinWidth="72" Click="BtnHistory_Click"/>
+                    <Button x:Name="BtnSoftwareUpdate" Content="{DynamicResource BtnSoftwareUpdate}" MinWidth="72" Click="BtnSoftwareUpdate_Click"/>
+                    <Button x:Name="BtnConfig" Content="{DynamicResource BtnConfig}" MinWidth="72" Click="BtnConfig_Click"/>
+                    <Button x:Name="BtnScreenshot" Content="{DynamicResource BtnScreenshot}" MinWidth="72" Click="BtnScreenshot_Click"/>
+                    <Button x:Name="BtnMore" Content="{DynamicResource BtnMore}" MinWidth="72" Click="BtnMore_Click" Visibility="Collapsed">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="{DynamicResource BtnSoftwareUpdate}" Click="BtnSoftwareUpdate_Click"/>
+                                <MenuItem Header="{DynamicResource BtnConfig}" Click="BtnConfig_Click"/>
+                                <MenuItem Header="{DynamicResource BtnScreenshot}" Click="BtnScreenshot_Click"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </WrapPanel>
+                <Border DockPanel.Dock="Left" x:Name="CurrentSessionSummaryCard" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,8,0" Padding="9,4" MaxWidth="650"
+                        BorderBrush="#CCD6E2" BorderThickness="1" CornerRadius="5" Background="#F8FAFD" Cursor="Hand"
+                        MouseLeftButtonDown="CurrentSessionSummaryCard_MouseLeftButtonDown" ToolTip="{DynamicResource MainSessionOpenHint}">
                 <WrapPanel>
                     <TextBlock Text="{DynamicResource MainSessionTitle}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <TextBlock Text="{DynamicResource MainSessionBattles}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionBattles" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
@@ -648,22 +701,31 @@
                     <TextBlock Text="{DynamicResource HistoryAverageDamage}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionDamage" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
                     <TextBlock Text="PR" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionPr" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,0,0"/>
                 </WrapPanel>
+                </Border>
+                <Grid Margin="0,0,6,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Button x:Name="BtnToggleNotifications" Grid.Column="0" Content="＋" Width="32" Height="32" Padding="0" Margin="0" Click="BtnToggleNotifications_Click" ToolTip="{DynamicResource NotificationExpand}"/>
+                    <DataGrid x:Name="DataGridNotificationMessages" Grid.Column="1" Height="32" HeadersVisibility="None" RowHeight="28" Margin="5,0,0,0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single" ItemsSource="{Binding Source={x:Static utils:NotificationMessageUtils.NotificationMessageCollection}}" CanUserReorderColumns="False" CanUserSortColumns="False" VerticalScrollBarVisibility="Hidden">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Width="66"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Time, StringFormat='{}{0:HH:mm:ss}'}" FontSize="10" Foreground="{Binding Type, Converter={StaticResource CvtNotificationMessageColor}}" Margin="4,0"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                            <DataGridTemplateColumn Width="*" MinWidth="150"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Message}" FontSize="11" Foreground="{Binding Type, Converter={StaticResource CvtNotificationMessageColor}}" Margin="4,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Message}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <Popup x:Name="NotificationPopup" PlacementTarget="{Binding ElementName=BtnToggleNotifications}" Placement="Top" StaysOpen="False" AllowsTransparency="True" Closed="NotificationPopup_Closed">
+            <Border Width="560" Height="150" Style="{StaticResource SurfaceCardStyle}" Padding="6" Margin="0,0,0,5">
+                <Border.Effect><DropShadowEffect Color="#29415F" BlurRadius="14" ShadowDepth="2" Opacity="0.20"/></Border.Effect>
+                <DataGrid x:Name="DataGridNotificationHistory" HeadersVisibility="Column" RowHeight="27" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" ItemsSource="{Binding Source={x:Static utils:NotificationMessageUtils.NotificationMessageCollection}}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource DataGridHeaderTime}" Binding="{Binding Time, StringFormat='{}{0:HH:mm:ss}'}" Width="78"/>
+                        <DataGridTextColumn Header="{DynamicResource DataGridHeaderMessage}" Binding="{Binding Message}" Width="*" MinWidth="360"/>
+                    </DataGrid.Columns>
+                </DataGrid>
             </Border>
-            <StackPanel x:Name="MainFooterAbout" Grid.Column="1" Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Right">
-                <TextBlock HorizontalAlignment="Right" FontSize="11">
-                    <Run Text="{DynamicResource WindowTitleApeRadar}"/>
-                    <Run Text="{Binding Source={x:Static p:Settings.Default}, Mode=OneWay,Path=SoftwareVersion}"/>
-                    <Run Text="Build"/>
-                    <Run Text="{Binding Source={x:Static p:Settings.Default}, Mode=OneWay,Path=SoftwareDate}"/>
-                </TextBlock>
-                <TextBlock Text="{DynamicResource LabelAboutLine1}" HorizontalAlignment="Right" FontSize="11" Margin="0,5,0,5"/>
-                <TextBlock HorizontalAlignment="Right" FontSize="11">
-                    <Run Text="{DynamicResource LabelAboutLine2Part1}"/>
-                    <Hyperlink x:Name="HyperLinkApeRadarWebsite" NavigateUri="https://lxdev.org/aperadar/" RequestNavigate="HyperLinkApeRadarWebsite_RequestNavigate">https://lxdev.org/aperadar/</Hyperlink>
-                    <Run Text="{DynamicResource LabelAboutLine2Part2}"/>
-                </TextBlock>
-            </StackPanel>
-        </Grid>
+        </Popup>
     </Grid>
 
 

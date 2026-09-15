@@ -11,6 +11,7 @@
     <system:String x:Key="DataGridHeaderStatisticsTier">同阶</system:String>
     <system:String x:Key="DataGridHeaderStatisticsPR">PR</system:String>
     <system:String x:Key="DataGridHeaderTag">成分</system:String>
+    <system:String x:Key="DataGridHeaderStatus">状态</system:String>
     <system:String x:Key="DataGridHeaderServer">服务器</system:String>
     <system:String x:Key="DataGridHeaderID">ID</system:String>
     <system:String x:Key="DataGridHeaderName">名称</system:String>
@@ -31,6 +32,12 @@
     <system:String x:Key="DataGridToolTipDiv3">三排</system:String>
     <system:String x:Key="DataGridToolTipAccountPR">账号PR</system:String>
     <system:String x:Key="DataGridToolTipShipPR">单船PR</system:String>
+    <system:String x:Key="RosterMetricWinrate">胜率</system:String>
+    <system:String x:Key="RosterMetricBattles">场次</system:String>
+    <system:String x:Key="RosterMetricAvgExp">均经</system:String>
+    <system:String x:Key="RosterMetricAvgDamage">均伤</system:String>
+    <system:String x:Key="RosterMetricWeighted">加权</system:String>
+    <system:String x:Key="RosterMetricTier">等级</system:String>
 
     <system:String x:Key="BtnSave">保存</system:String>
     <system:String x:Key="BtnCancel">取消</system:String>
@@ -42,6 +49,8 @@
     <TextBlock x:Key="BtnUpdateShipList" TextAlignment="Center">更新船名列表</TextBlock>
     <system:String x:Key="BtnRefresh">刷新</system:String>
     <system:String x:Key="BtnAnalysis">图表与分析</system:String>
+    <system:String x:Key="BtnCloseAnalysis">关闭分析面板</system:String>
+    <system:String x:Key="BtnMore">更多</system:String>
     <system:String x:Key="HistoryPreviousPage">上一页</system:String>
     <system:String x:Key="HistoryNextPage">下一页</system:String>
     <system:String x:Key="AnalysisPanelTitle">图表与显示选项</system:String>
@@ -53,6 +62,13 @@
     <system:String x:Key="MainSessionTitle">本次时段</system:String>
     <system:String x:Key="MainSessionBattles">场次</system:String>
     <system:String x:Key="MainSessionOpenHint">点击打开个人提升中心</system:String>
+    <system:String x:Key="RosterStateHidden">隐藏战绩</system:String>
+    <system:String x:Key="RosterStateCached">缓存数据</system:String>
+    <system:String x:Key="RosterStateSmallSample">同阶样本较少</system:String>
+    <system:String x:Key="RosterStateLowTier">低级场次占比较高</system:String>
+    <system:String x:Key="RosterStateLoading">等待战绩数据</system:String>
+    <system:String x:Key="RosterStateReady">数据已就绪</system:String>
+    <system:String x:Key="RosterStateSampleReady">样本可用</system:String>
     <system:String x:Key="HistoryWindowTitle">对局历史中心</system:String>
     <system:String x:Key="HistoryTabCurrentSession">本次时段</system:String>
     <system:String x:Key="HistoryTabShipTrends">舰船趋势</system:String>

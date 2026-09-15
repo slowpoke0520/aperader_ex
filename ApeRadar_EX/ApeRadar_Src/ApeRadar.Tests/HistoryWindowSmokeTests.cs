@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ApeRadar.History;
 using ApeRadar.Models;
+using ApeRadar.Services;
 using ApeRadar.Utils;
 using ApeRadar.ViewModels;
 using Xunit;
@@ -16,6 +17,7 @@ public sealed class HistoryWindowSmokeTests
     public void HistoryWindow_ConstructsWithApplicationResources()
     {
         Exception? error = null;
+        string progress = "starting";
         Thread thread = new(() =>
         {
             try
@@ -23,6 +25,7 @@ public sealed class HistoryWindowSmokeTests
                 Application app = new() { ShutdownMode = ShutdownMode.OnExplicitShutdown };
                 foreach (string language in new[] { "en-us", "zh-cn" })
                 {
+                    progress = $"{language}: resources";
                     app.Resources.MergedDictionaries.Clear();
                     app.Resources.MergedDictionaries.Add(new ResourceDictionary
                     {
@@ -33,6 +36,7 @@ public sealed class HistoryWindowSmokeTests
                         Source = new Uri("/ApeRadar;component/Resources/Styles/ModernLight.xaml", UriKind.Relative)
                     });
                     ValidateShipTypePresentation(language);
+                    progress = $"{language}: history window";
                     bool previousShipTypeIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
                     ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
                     HistoryWindow window = new(initializeOnLoaded: false);
@@ -58,7 +62,9 @@ public sealed class HistoryWindowSmokeTests
                     }
                     window.Close();
                     ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = previousShipTypeIconSetting;
+                    progress = $"{language}: main window";
                     ValidateMainWindowLayout(language);
+                    progress = $"{language}: config window";
                     ValidateConfigWindowLayout(language);
                 }
                 app.Shutdown();
@@ -67,7 +73,7 @@ public sealed class HistoryWindowSmokeTests
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(60)), "The history window constructor did not complete in time.");
+        Assert.True(thread.Join(TimeSpan.FromSeconds(60)), $"The UI smoke test did not complete in time; last stage: {progress}.");
         Assert.Null(error);
     }
 
@@ -110,14 +116,15 @@ public sealed class HistoryWindowSmokeTests
             WindowState = WindowState.Normal,
             ShowInTaskbar = false
         };
-        window.DataGridAlliesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("AlliesNameColumn")));
-        window.DataGridAlliesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("AlliesStatisticsColumn")));
-        window.DataGridAlliesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("AlliesTagColumn")));
-        window.DataGridEnemiesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("EnemiesNameColumn")));
-        window.DataGridEnemiesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("EnemiesStatisticsColumn")));
-        window.DataGridEnemiesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource("EnemiesTagColumn")));
-        window.DataGridAlliesList.ItemsSource = Enumerable.Range(1, 12).Select(i => CreateTierPerformancePlayer($"Allied sample {i}", i == 1 ? "0" : "1")).ToArray();
-        window.DataGridEnemiesList.ItemsSource = Enumerable.Range(1, 12).Select(i => CreateTierPerformancePlayer($"Enemy sample {i}", "2")).ToArray();
+        foreach (string key in new[] { "RosterPlayerColumn", "RosterAccountColumn", "RosterShipColumn", "RosterTierColumn", "RosterStatusColumn" })
+        {
+            window.DataGridAlliesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource(key)));
+            window.DataGridEnemiesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource(key)));
+        }
+        RosterPresentationService presentation = new();
+        RosterPresentationOptions options = RosterPresentationOptions.FromCurrentSettings();
+        window.DataGridAlliesList.ItemsSource = presentation.CreateRows(Enumerable.Range(1, 12).Select(i => CreateTierPerformancePlayer($"Allied sample {i}", i == 1 ? "0" : "1")), options);
+        window.DataGridEnemiesList.ItemsSource = presentation.CreateRows(Enumerable.Range(1, 12).Select(i => CreateTierPerformancePlayer($"Enemy sample {i}", "2")), options);
         window.Show();
         window.UpdateLayout();
         window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
@@ -133,24 +140,14 @@ public sealed class HistoryWindowSmokeTests
             FrameworkElement messages = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("DataGridNotificationMessages"));
             FrameworkElement buttons = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("MainFooterButtons"));
             FrameworkElement summary = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("CurrentSessionSummaryCard"));
-            FrameworkElement about = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("MainFooterAbout"));
             AssertElementsDoNotOverlap(window, messages, buttons, width, height);
             AssertElementsDoNotOverlap(window, messages, summary, width, height);
-            AssertElementsDoNotOverlap(window, summary, about, width, height);
             FrameworkElement analysis = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("AnalysisPanel"));
-            Assert.Equal(renderedWidth >= 1440 ? Visibility.Visible : Visibility.Collapsed, analysis.Visibility);
-            Assert.Equal(renderedWidth >= 1900 ? 3 : 2, window.DataGridAlliesList.Columns.Count);
-            Assert.Equal(renderedWidth < 900 ? Visibility.Collapsed : Visibility.Visible, about.Visibility);
-            if (renderedWidth < 1900)
-            {
-                Assert.InRange(window.DataGridAlliesList.Columns[1].ActualWidth, 181, 183);
-                Assert.InRange(window.DataGridEnemiesList.Columns[1].ActualWidth, 181, 183);
-            }
-            else
-            {
-                Assert.InRange(window.DataGridAlliesList.Columns[1].ActualWidth, RosterLayoutCalculator.FullStatisticsColumnWidth - 1, RosterLayoutCalculator.FullStatisticsColumnWidth + 1);
-                Assert.InRange(window.DataGridEnemiesList.Columns[1].ActualWidth, RosterLayoutCalculator.FullStatisticsColumnWidth - 1, RosterLayoutCalculator.FullStatisticsColumnWidth + 1);
-            }
+            Assert.Equal(Visibility.Collapsed, analysis.Visibility);
+            Assert.Equal(5, window.DataGridAlliesList.Columns.Count);
+            Assert.Equal(5, window.DataGridEnemiesList.Columns.Count);
+            Assert.Equal(renderedWidth < 1030 ? Visibility.Collapsed : Visibility.Visible, summary.Visibility);
+            Assert.Equal(window.DataGridAlliesList.Columns[1].ActualWidth, window.DataGridEnemiesList.Columns[1].ActualWidth, 1);
             AssertDataGridCellContentsStayInside(window.DataGridAlliesList, width, height);
             AssertDataGridCellContentsStayInside(window.DataGridEnemiesList, width, height);
 
@@ -160,7 +157,18 @@ public sealed class HistoryWindowSmokeTests
                 ScrollViewer enemiesScroll = Assert.IsType<ScrollViewer>(FindVisualChild<ScrollViewer>(window.DataGridEnemiesList));
                 Assert.Equal(Visibility.Collapsed, alliesScroll.ComputedVerticalScrollBarVisibility);
                 Assert.Equal(Visibility.Collapsed, enemiesScroll.ComputedVerticalScrollBarVisibility);
+                Assert.Equal(Visibility.Collapsed, alliesScroll.ComputedHorizontalScrollBarVisibility);
+                Assert.Equal(Visibility.Collapsed, enemiesScroll.ComputedHorizontalScrollBarVisibility);
                 Assert.InRange(window.DataGridAlliesList.RowHeight, RosterLayoutCalculator.MinimumRowHeight, RosterLayoutCalculator.PreferredRowHeight);
+
+                double alliesWidthBeforeDrawer = window.DataGridAlliesList.ActualWidth;
+                window.BtnToggleAnalysis.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                window.UpdateLayout();
+                Assert.Equal(Visibility.Visible, analysis.Visibility);
+                Assert.Equal(alliesWidthBeforeDrawer, window.DataGridAlliesList.ActualWidth, 1);
+                window.BtnToggleAnalysis.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                window.UpdateLayout();
+                Assert.Equal(Visibility.Collapsed, analysis.Visibility);
             }
 
             if (Math.Abs(width - 800) < 0.1 || Math.Abs(width - 1280) < 0.1 || Math.Abs(width - 1366) < 0.1 || Math.Abs(width - 1600) < 0.1 || Math.Abs(width - 1920) < 0.1)
@@ -250,7 +258,8 @@ public sealed class HistoryWindowSmokeTests
             {
                 Rect bounds = content.TransformToAncestor(cell).TransformBounds(new Rect(content.RenderSize));
                 Assert.True(bounds.Left >= -1 && bounds.Right <= cell.ActualWidth + 1,
-                    $"{content.GetType().Name} escapes its roster cell at {width}x{height}: {bounds} outside width {cell.ActualWidth:0.##}.");
+                    $"{content.GetType().Name} '{(content as TextBlock)?.Text}' escapes roster column {cell.Column?.DisplayIndex} " +
+                    $"at {width}x{height}: {bounds} outside width {cell.ActualWidth:0.##}.");
             }
         }
     }
@@ -307,11 +316,11 @@ public sealed class HistoryWindowSmokeTests
         bool persistedIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
         try
         {
-            ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
-            window.ChkBoxShowShipTypeIcon.IsChecked = true;
+            ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = false;
+            window.ChkBoxShowShipTypeIcon.IsChecked = false;
             window.ApplyDefaultsForSelectedPage();
-            Assert.False(window.ChkBoxShowShipTypeIcon.IsChecked);
-            Assert.True(ApeRadar.Properties.Settings.Default.ShowShipTypeIcon);
+            Assert.True(window.ChkBoxShowShipTypeIcon.IsChecked);
+            Assert.False(ApeRadar.Properties.Settings.Default.ShowShipTypeIcon);
         }
         finally
         {

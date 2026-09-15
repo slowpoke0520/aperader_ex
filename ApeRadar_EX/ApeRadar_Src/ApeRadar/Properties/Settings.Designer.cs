@@ -25,7 +25,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.9")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.10")]
         public string SoftwareVersion {
             get {
                 return ((string)(this["SoftwareVersion"]));
@@ -127,7 +127,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2")]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
         public int MaximumRetryAttemptsOnError {
             get {
                 return ((int)(this["MaximumRetryAttemptsOnError"]));
@@ -271,7 +271,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2")]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
         public int ShipAvgExpVisibility {
             get {
                 return ((int)(this["ShipAvgExpVisibility"]));
@@ -633,7 +633,7 @@ namespace ApeRadar.Properties {
 
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool ShowTierPerformanceStats {
             get {
                 return ((bool)(this["ShowTierPerformanceStats"]));
@@ -645,7 +645,7 @@ namespace ApeRadar.Properties {
 
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool ShowShipTypeIcon {
             get {
                 return ((bool)(this["ShowShipTypeIcon"]));

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -37,12 +39,15 @@ namespace ApeRadar
         private bool sessionSummaryRefreshing;
         private CancellationTokenSource? rosterLoadCancellation;
         private long rosterLoadGeneration;
-        private bool analysisExpandedInCompactMode;
-        private bool analysisCollapsedByUser;
+        private bool analysisDrawerOpen;
         private bool notificationsExpanded;
-        private bool? compactRosterColumns;
-        private const double CompactLayoutThreshold = 1440;
         private readonly IBattleRosterCoordinator battleRosterCoordinator = new BattleRosterCoordinator();
+        private readonly IRosterPresentationService rosterPresentationService = new RosterPresentationService();
+
+        private readonly ObservableCollection<PlayerRosterRowViewModel> alliesRosterRows = new();
+        private readonly ObservableCollection<PlayerRosterRowViewModel> enemiesRosterRows = new();
+        public IEnumerable AlliesRosterRows => alliesRosterRows;
+        public IEnumerable EnemiesRosterRows => enemiesRosterRows;
 
         public static readonly DependencyProperty EffectivePlayerFontSizeProperty = DependencyProperty.Register(
             nameof(EffectivePlayerFontSize), typeof(double), typeof(MainWindow), new PropertyMetadata(18d));
@@ -113,18 +118,22 @@ namespace ApeRadar
             ComboBoxPlayerNamesVisibility.Items.Add(new ListItem() { Content = Application.Current.FindResource("ComboBoxItemPlayerNamesHidden"), Value = "False" });
             ComboBoxPlayerNamesVisibility.SelectedValue = Properties.Settings.Default.PlayerNamesVisibility.ToString();
             ComboBoxPlayerNamesVisibility.SelectionChanged += ComboBoxPlayerNamesVisibility_SelectionChanged;
+
+            if (DataContext is Battlefield battlefield)
+            {
+                RefreshRosterRows(battlefield);
+                RefreshDataGridColumns(Properties.Settings.Default.EnemiesDisplayMirrored);
+                SwitchSorting(Properties.Settings.Default.PlayerListSortBy);
+            }
         }
 
         private void SwitchSorting(int sorting)
         {
-            if (this.DataContext is not Battlefield battlefield)
+            if (this.DataContext is not Battlefield)
             {
                 return;
             }
-            ListCollectionView? alliesCollectionView = CollectionViewSource.GetDefaultView(battlefield.Allies) as ListCollectionView;
-            ListCollectionView? enemiesCollectionView = CollectionViewSource.GetDefaultView(battlefield.Enemies) as ListCollectionView;
-
-            alliesCollectionView!.CustomSort = enemiesCollectionView!.CustomSort = sorting switch
+            IComparer playerComparer = sorting switch
             {
                 0 => new CustomSorterByShipTypeAndShipTierAndWinrateDescending(),
                 1 => new CustomSorterByShipTierAndShipTypeAndWinrateDescending(),
@@ -136,6 +145,11 @@ namespace ApeRadar
                 7 => new CustomSorterByBattlesAscending(),
                 _ => new CustomSorterByShipTypeAndShipTierAndWinrateDescending(),
             };
+            PlayerRosterRowComparer comparer = new(playerComparer);
+            if (CollectionViewSource.GetDefaultView(alliesRosterRows) is ListCollectionView alliesCollectionView)
+                alliesCollectionView.CustomSort = comparer;
+            if (CollectionViewSource.GetDefaultView(enemiesRosterRows) is ListCollectionView enemiesCollectionView)
+                enemiesCollectionView.CustomSort = comparer;
         }
 
         private void SwitchWinrateChartType(int chartType)
@@ -150,26 +164,23 @@ namespace ApeRadar
 
         private void RefreshDataGridColumns(bool mirrored)
         {
-            bool useCompactColumns = compactRosterColumns ?? true;
-            DataGridAlliesList.HorizontalScrollBarVisibility = useCompactColumns ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
-            DataGridEnemiesList.HorizontalScrollBarVisibility = useCompactColumns ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
             DataGridAlliesList.Columns.Clear();
-            DataGridAlliesList.Columns.Add(TryFindResource(useCompactColumns ? "AlliesNameColumnCompact" : "AlliesNameColumn") as DataGridTemplateColumn);
-            DataGridAlliesList.Columns.Add(TryFindResource(useCompactColumns ? "AlliesStatisticsColumnCompact" : "AlliesStatisticsColumn") as DataGridTemplateColumn);
-            if (!useCompactColumns) DataGridAlliesList.Columns.Add(TryFindResource("AlliesTagColumn") as DataGridTemplateColumn);
+            AddRosterColumn(DataGridAlliesList, "RosterPlayerColumn");
+            AddVisibleMetricColumns(DataGridAlliesList, mirrored: false);
+            AddRosterColumn(DataGridAlliesList, "RosterStatusColumn");
+
+            DataGridEnemiesList.Columns.Clear();
             if (mirrored)
             {
-                DataGridEnemiesList.Columns.Clear();
-                if (!useCompactColumns) DataGridEnemiesList.Columns.Add(TryFindResource("EnemiesTagColumn") as DataGridTemplateColumn);
-                DataGridEnemiesList.Columns.Add(TryFindResource(useCompactColumns ? "EnemiesStatisticsColumnCompact" : "EnemiesStatisticsColumnMirrored") as DataGridTemplateColumn);
-                DataGridEnemiesList.Columns.Add(TryFindResource(useCompactColumns ? "EnemiesNameColumnCompactMirrored" : "EnemiesNameColumnMirrored") as DataGridTemplateColumn);
+                AddRosterColumn(DataGridEnemiesList, "RosterStatusColumn");
+                AddVisibleMetricColumns(DataGridEnemiesList, mirrored: true);
+                AddRosterColumn(DataGridEnemiesList, "RosterPlayerColumnMirrored");
             }
             else
             {
-                DataGridEnemiesList.Columns.Clear();
-                DataGridEnemiesList.Columns.Add(TryFindResource(useCompactColumns ? "EnemiesNameColumnCompact" : "EnemiesNameColumn") as DataGridTemplateColumn);
-                DataGridEnemiesList.Columns.Add(TryFindResource(useCompactColumns ? "EnemiesStatisticsColumnCompact" : "EnemiesStatisticsColumn") as DataGridTemplateColumn);
-                if (!useCompactColumns) DataGridEnemiesList.Columns.Add(TryFindResource("EnemiesTagColumn") as DataGridTemplateColumn);
+                AddRosterColumn(DataGridEnemiesList, "RosterPlayerColumn");
+                AddVisibleMetricColumns(DataGridEnemiesList, mirrored: false);
+                AddRosterColumn(DataGridEnemiesList, "RosterStatusColumn");
             }
             Dispatcher.BeginInvoke(() =>
             {
@@ -178,6 +189,35 @@ namespace ApeRadar
                 ResetHorizontalScroll(DataGridAlliesList);
                 ResetHorizontalScroll(DataGridEnemiesList);
             }, DispatcherPriority.ContextIdle);
+        }
+
+        private void AddVisibleMetricColumns(DataGrid dataGrid, bool mirrored)
+        {
+            bool accountVisible = Properties.Settings.Default.AccountWinrateVisibility != 2 ||
+                Properties.Settings.Default.WeightedWinrateVisibility != 2 ||
+                Properties.Settings.Default.AccountAvgExpVisibility != 2 ||
+                Properties.Settings.Default.PRVisibility != 2;
+            bool shipVisible = Properties.Settings.Default.ShipWinrateVisibility != 2 ||
+                Properties.Settings.Default.ShipAvgDmgVisibility != 2 ||
+                Properties.Settings.Default.ShipAvgExpVisibility != 2 ||
+                Properties.Settings.Default.PRVisibility != 2;
+
+            string[] keys = mirrored
+                ? new[] { "RosterTierColumn", "RosterShipColumn", "RosterAccountColumn" }
+                : new[] { "RosterAccountColumn", "RosterShipColumn", "RosterTierColumn" };
+            foreach (string key in keys)
+            {
+                if (key == "RosterAccountColumn" && !accountVisible) continue;
+                if (key == "RosterShipColumn" && !shipVisible) continue;
+                if (key == "RosterTierColumn" && !Properties.Settings.Default.ShowTierPerformanceStats) continue;
+                AddRosterColumn(dataGrid, key);
+            }
+        }
+
+        private void AddRosterColumn(DataGrid dataGrid, string resourceKey)
+        {
+            if (TryFindResource(resourceKey) is DataGridColumn column)
+                dataGrid.Columns.Add(column);
         }
 
         private static void ResetHorizontalScroll(DataGrid dataGrid)
@@ -323,43 +363,47 @@ namespace ApeRadar
 
         private void BtnToggleAnalysis_Click(object sender, RoutedEventArgs e)
         {
-            if (ActualWidth < CompactLayoutThreshold)
-            {
-                analysisExpandedInCompactMode = !analysisExpandedInCompactMode;
-            }
-            else
-            {
-                analysisCollapsedByUser = !analysisCollapsedByUser;
-            }
+            analysisDrawerOpen = !analysisDrawerOpen;
             UpdateResponsiveLayout();
+        }
+
+        private void MainWindowGrid_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Escape && analysisDrawerOpen)
+            {
+                analysisDrawerOpen = false;
+                UpdateResponsiveLayout();
+                BtnToggleAnalysis.Focus();
+                e.Handled = true;
+            }
         }
 
         private void UpdateResponsiveLayout()
         {
             if (!IsLoaded && ActualWidth <= 0) return;
-            bool compact = ActualWidth < CompactLayoutThreshold;
-            bool showAnalysis = compact ? analysisExpandedInCompactMode : !analysisCollapsedByUser;
-            bool narrow = ActualWidth < 1000;
-            AnalysisPanel.Visibility = showAnalysis ? Visibility.Visible : Visibility.Collapsed;
-            RosterColumn.Width = narrow && showAnalysis ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
-            AnalysisColumn.Width = showAnalysis ? (narrow ? new GridLength(1, GridUnitType.Star) : new GridLength(compact ? 360 : 380)) : new GridLength(0);
-            double mainWidth = MainWindowGrid.ActualWidth > 0 ? MainWindowGrid.ActualWidth : Math.Max(0, ActualWidth - 24);
-            double analysisWidth = showAnalysis && !narrow ? AnalysisColumn.Width.Value : 0;
-            double rosterWidth = narrow && showAnalysis ? 0 : Math.Max(0, mainWidth - 8 - analysisWidth);
-            double rosterGridWidth = Math.Max(0, (rosterWidth - 8) / 2);
-            bool useCompactRosterColumns = RosterLayoutCalculator.ShouldUseCompactColumns(rosterGridWidth);
-            if (compactRosterColumns != useCompactRosterColumns)
-            {
-                compactRosterColumns = useCompactRosterColumns;
-                RefreshDataGridColumns(Properties.Settings.Default.EnemiesDisplayMirrored);
-            }
-            BtnToggleAnalysis.FontWeight = showAnalysis ? FontWeights.SemiBold : FontWeights.Normal;
-            MainFooterAbout.Visibility = ActualWidth < 900 ? Visibility.Collapsed : Visibility.Visible;
+            AnalysisPanel.Visibility = analysisDrawerOpen ? Visibility.Visible : Visibility.Collapsed;
+            AnalysisPanel.Width = Math.Min(420, Math.Max(300, MainWindowGrid.ActualWidth - 16));
+            BtnToggleAnalysis.FontWeight = analysisDrawerOpen ? FontWeights.SemiBold : FontWeights.Normal;
+
+            bool useOverflowMenu = ActualWidth < 1420;
+            BtnSoftwareUpdate.Visibility = useOverflowMenu ? Visibility.Collapsed : Visibility.Visible;
+            BtnConfig.Visibility = useOverflowMenu ? Visibility.Collapsed : Visibility.Visible;
+            BtnScreenshot.Visibility = useOverflowMenu ? Visibility.Collapsed : Visibility.Visible;
+            BtnMore.Visibility = useOverflowMenu ? Visibility.Visible : Visibility.Collapsed;
+            CurrentSessionSummaryCard.Visibility = ActualWidth < 1030 ? Visibility.Collapsed : Visibility.Visible;
+
+            double teamGridWidth = Math.Max(0, (RosterTablesGrid.ActualWidth - 8) / 2);
+            ScrollBarVisibility horizontalScroll = RosterLayoutCalculator.RequiresHorizontalScroll(teamGridWidth)
+                ? ScrollBarVisibility.Auto
+                : ScrollBarVisibility.Disabled;
+            DataGridAlliesList.HorizontalScrollBarVisibility = horizontalScroll;
+            DataGridEnemiesList.HorizontalScrollBarVisibility = horizontalScroll;
+
             int playerCount = DataContext is Battlefield battlefield
                 ? Math.Max(12, Math.Max(battlefield.Allies.Count, battlefield.Enemies.Count))
                 : 12;
             double gridHeight = Math.Min(DataGridAlliesList.ActualHeight, DataGridEnemiesList.ActualHeight);
-            if (gridHeight <= 0) gridHeight = Math.Max(0, ActualHeight - 230);
+            if (gridHeight <= 0) gridHeight = Math.Max(0, ActualHeight - 155);
             RosterLayoutMetrics metrics = RosterLayoutCalculator.Calculate(
                 gridHeight,
                 playerCount,
@@ -373,13 +417,25 @@ namespace ApeRadar
         private void BtnToggleNotifications_Click(object sender, RoutedEventArgs e)
         {
             notificationsExpanded = !notificationsExpanded;
-            DataGridNotificationMessages.Height = notificationsExpanded ? double.NaN : 32;
-            DataGridNotificationMessages.MaxHeight = notificationsExpanded ? 120 : 32;
-            BtnToggleNotifications.Content = notificationsExpanded ? "−" : "+";
+            NotificationPopup.IsOpen = notificationsExpanded;
+            BtnToggleNotifications.Content = notificationsExpanded ? "−" : "＋";
             BtnToggleNotifications.ToolTip = FindResource(notificationsExpanded ? "NotificationCollapse" : "NotificationExpand");
-            if (DataGridNotificationMessages.Items.Count > 0)
-                DataGridNotificationMessages.ScrollIntoView(DataGridNotificationMessages.Items[^1]);
-            Dispatcher.BeginInvoke(UpdateResponsiveLayout, DispatcherPriority.Loaded);
+            if (DataGridNotificationHistory.Items.Count > 0)
+                DataGridNotificationHistory.ScrollIntoView(DataGridNotificationHistory.Items[^1]);
+        }
+
+        private void NotificationPopup_Closed(object? sender, EventArgs e)
+        {
+            notificationsExpanded = false;
+            BtnToggleNotifications.Content = "＋";
+            BtnToggleNotifications.ToolTip = FindResource("NotificationExpand");
+        }
+
+        private void BtnMore_Click(object sender, RoutedEventArgs e)
+        {
+            if (BtnMore.ContextMenu == null) return;
+            BtnMore.ContextMenu.PlacementTarget = BtnMore;
+            BtnMore.ContextMenu.IsOpen = true;
         }
 
         private async void Timer_Tick(object? sender, EventArgs e)
@@ -606,6 +662,7 @@ namespace ApeRadar
         private void ApplyBattlefieldToUI(Battlefield battlefield)
         {
             this.DataContext = battlefield;
+            RefreshRosterRows(battlefield);
             UpdateResponsiveLayout();
 
             TxtOutputText.Text = TextUtils.GenerateGeneralStatisticsOutputText(battlefield);
@@ -688,6 +745,11 @@ namespace ApeRadar
             configWindow.ShowDialog();
             _ = InitializeHistoryAsync();
             RefreshDataGridColumns(Properties.Settings.Default.EnemiesDisplayMirrored);
+            if (DataContext is Battlefield battlefield)
+            {
+                RefreshRosterRows(battlefield);
+                SwitchSorting(Properties.Settings.Default.PlayerListSortBy);
+            }
 
             if (!tierPerformanceWasEnabled && Properties.Settings.Default.ShowTierPerformanceStats)
             {
@@ -1003,10 +1065,25 @@ namespace ApeRadar
 
         private void RefreshPlayerList()
         {
-            //force the datagrid to refresh to show the note icon change
-            object tmpDataContext = this.DataContext;
-            this.DataContext = null;
-            this.DataContext = tmpDataContext;
+            if (DataContext is not Battlefield battlefield) return;
+            RefreshRosterRows(battlefield);
+            SwitchSorting(Properties.Settings.Default.PlayerListSortBy);
+        }
+
+        private void RefreshRosterRows(Battlefield battlefield)
+        {
+            RosterPresentationOptions options = RosterPresentationOptions.FromCurrentSettings();
+            IReadOnlyList<PlayerRosterRowViewModel> allies = rosterPresentationService.CreateRows(battlefield.Allies, options);
+            IReadOnlyList<PlayerRosterRowViewModel> enemies = rosterPresentationService.CreateRows(battlefield.Enemies, options);
+            ReplaceRows(alliesRosterRows, allies);
+            ReplaceRows(enemiesRosterRows, enemies);
+        }
+
+        private static void ReplaceRows(ObservableCollection<PlayerRosterRowViewModel> target, IReadOnlyList<PlayerRosterRowViewModel> source)
+        {
+            target.Clear();
+            foreach (PlayerRosterRowViewModel row in source)
+                target.Add(row);
         }
 
         private void ComboBoxChartType_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1035,10 +1112,7 @@ namespace ApeRadar
             Properties.Settings.Default.PlayerNamesVisibility = Convert.ToBoolean(ComboBoxPlayerNamesVisibility.SelectedValue);
             Properties.Settings.Default.Save();
 
-            //force the datagrid to refresh. a dumb way but it works
-            object tmpDataContext = this.DataContext;
-            this.DataContext = null;
-            this.DataContext = tmpDataContext;
+            RefreshPlayerList();
         }
 
         private void HyperLinkApeRadarWebsite_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)

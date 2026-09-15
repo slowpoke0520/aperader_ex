@@ -6,15 +6,14 @@ namespace ApeRadar.Utils
 
     internal static class RosterLayoutCalculator
     {
-        internal const double MinimumRowHeight = 42;
-        internal const double PreferredRowHeight = 50;
-        internal const double FullStatisticsColumnWidth = 474;
-        internal const double MinimumFullRosterGridWidth = 690;
-        private const double ColumnHeaderAllowance = 31;
+        internal const double MinimumRowHeight = 58;
+        internal const double PreferredRowHeight = 68;
+        internal const double MinimumSemanticRosterWidth = 640;
+        private const double ColumnHeaderAllowance = 33;
 
-        public static bool ShouldUseCompactColumns(double rosterGridWidth)
+        public static bool RequiresHorizontalScroll(double rosterGridWidth)
         {
-            return rosterGridWidth < MinimumFullRosterGridWidth;
+            return rosterGridWidth < MinimumSemanticRosterWidth;
         }
 
         public static RosterLayoutMetrics Calculate(double gridHeight, int playerCount, double configuredPlayerFontSize, double configuredStatisticsFontSize)
@@ -22,13 +21,13 @@ namespace ApeRadar.Utils
             int rows = Math.Max(1, playerCount);
             double available = Math.Max(0, gridHeight - ColumnHeaderAllowance);
             double rowHeight = Math.Clamp(Math.Floor(available / rows), MinimumRowHeight, PreferredRowHeight);
-            double maximumFont = Math.Max(configuredPlayerFontSize, configuredStatisticsFontSize);
-            double usableLineHeight = Math.Max(20, (rowHeight - 4) / 2);
-            double scale = maximumFont <= 0 ? 1 : Math.Min(1, usableLineHeight / (maximumFont * 1.2));
+            double lineBudget = Math.Max(15, (rowHeight - 8) / 3);
+            double playerFont = Math.Min(configuredPlayerFontSize, lineBudget * 0.78);
+            double statisticsFont = Math.Min(configuredStatisticsFontSize, lineBudget * 0.68);
             return new RosterLayoutMetrics(
                 rowHeight,
-                Math.Max(10, Math.Round(configuredPlayerFontSize * scale, 1)),
-                Math.Max(10, Math.Round(configuredStatisticsFontSize * scale, 1)));
+                Math.Clamp(Math.Round(playerFont, 1), 11, 15.5),
+                Math.Clamp(Math.Round(statisticsFont, 1), 10.5, 13.5));
         }
     }
 }

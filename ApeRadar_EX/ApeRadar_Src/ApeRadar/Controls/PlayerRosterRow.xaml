@@ -1,0 +1,72 @@
+<UserControl x:Class="ApeRadar.Controls.PlayerRosterRow"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:ApeRadar"
+             xmlns:utils="clr-namespace:ApeRadar.Utils"
+             xmlns:cvt="clr-namespace:ApeRadar.Utils.Converters"
+             x:Name="Root" Focusable="False" IsTabStop="False"
+             UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <UserControl.Resources>
+        <cvt:ShipTierConverter x:Key="ShipTier"/>
+        <cvt:BattleDataAvailabilityConverter x:Key="BattleData"/>
+        <cvt:PlayerNamesVisibilityConverter x:Key="PlayerNames"/>
+        <cvt:WatchStatusColorConverter x:Key="WatchColor"/>
+        <cvt:WatchStatusIconConverter x:Key="WatchIcon"/>
+        <cvt:NoteIconConverter x:Key="NoteIcon"/>
+        <Style x:Key="IdentityLine" TargetType="TextBlock">
+            <Setter Property="TextAlignment" Value="Left"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMirrored, ElementName=Root}" Value="True">
+                    <Setter Property="TextAlignment" Value="Right"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+    <Grid Margin="7,2" ClipToBounds="True">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="18"/>
+            <RowDefinition Height="21"/>
+            <RowDefinition Height="17"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Style="{StaticResource IdentityLine}"
+                   FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}"
+                   Foreground="{Binding Player.WatchStatus, Converter={StaticResource WatchColor}}"
+                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding Player.Name}">
+            <Run Text="{Binding Player.ClanTag, Converter={StaticResource PlayerNames}}"/>
+            <Run Text=" "/><Run Text="{Binding Player.Name, Converter={StaticResource PlayerNames}}"/>
+            <Run BaselineAlignment="Superscript" FontSize="9" Text="{Binding Player.Karma, Converter={StaticResource BattleData}}"/>
+            <Run Text="{Binding Player.WatchStatus, Converter={StaticResource WatchIcon}}"/>
+            <Run Text="{Binding Player.Note, Converter={StaticResource NoteIcon}}"/>
+            <Run Foreground="#9B6A00" Text="{Binding Player.CustomMarkerIcon, Mode=OneWay}"/>
+            <Run Foreground="#B54708" Text="{Binding Player.RecentEncounterIcon, Mode=OneWay}"/>
+        </TextBlock>
+        <Grid Grid.Row="1" ClipToBounds="True">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource IdentityLine}"
+                       FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}"
+                       Foreground="{Binding Player.WatchStatus, Converter={StaticResource WatchColor}}"
+                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding Player.ShipName}">
+                <Run Text="{Binding Player.ShipTier, Converter={StaticResource ShipTier}}"/><Run Text="  "/><Run Text="{Binding Player.ShipName}"/>
+            </TextBlock>
+            <utils:ShipTypeIconBadge Grid.Column="1" ShipType="{Binding Player.ShipType}" Margin="5,0,0,0" Width="22" Height="22"/>
+        </Grid>
+        <TextBlock Grid.Row="2" Text="{Binding StatusSummary}" FontSize="10"
+                   Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding StatusSummary}">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock" BasedOn="{StaticResource IdentityLine}">
+                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasAttention}" Value="True">
+                            <Setter Property="Foreground" Value="#946200"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+    </Grid>
+</UserControl>
