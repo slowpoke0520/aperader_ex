@@ -25,7 +25,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.11")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.12")]
         public string SoftwareVersion {
             get {
                 return ((string)(this["SoftwareVersion"]));
@@ -34,7 +34,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("20260915")]
+        [global::System.Configuration.DefaultSettingValueAttribute("20260916")]
         public string SoftwareDate {
             get {
                 return ((string)(this["SoftwareDate"]));
@@ -652,6 +652,30 @@ namespace ApeRadar.Properties {
             }
             set {
                 this["ShowShipTypeIcon"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Standard")]
+        public string RosterDisplayDensity {
+            get {
+                return ((string)(this["RosterDisplayDensity"]));
+            }
+            set {
+                this["RosterDisplayDensity"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ShowLegacyPerformanceTag {
+            get {
+                return ((bool)(this["ShowLegacyPerformanceTag"]));
+            }
+            set {
+                this["ShowLegacyPerformanceTag"] = value;
             }
         }
 

@@ -233,33 +233,29 @@
                                     <ComboBoxItem Content="{DynamicResource ComboBoxItemRainbow}"/>
                                 </ComboBox>
                             </Grid>
-                            <Grid Grid.Row="3" Grid.Column="1">
-                                <Label Content="{DynamicResource LabelIcon}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5"/>
-                            </Grid>
-                            <Grid Grid.Row="3" Grid.Column="3">
-                                <StackPanel Orientation="Vertical">
-                                    <Label Content="{DynamicResource LabelApeIcon}"/>
-                                    <TextBox x:Name="TxtApeIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="3" Grid.Column="4">
-                                <StackPanel Orientation="Vertical">
-                                    <Label Content="{DynamicResource LabelUnicumIcon}"/>
-                                    <TextBox x:Name="TxtUnicumIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="3" Grid.Column="5">
-                                <StackPanel Orientation="Vertical">
-                                    <Label Content="{DynamicResource LabelHiddenIcon}"/>
-                                    <TextBox x:Name="TxtHiddenIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="3" Grid.Column="6">
-                                <StackPanel Orientation="Vertical">
-                                    <Label Content="{DynamicResource LabelWatchIcon}"/>
-                                    <TextBox x:Name="TxtWatchIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Grid>
+                            <Expander Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="7" Header="{DynamicResource ExpanderLegacyDisplay}" Margin="5,2">
+                                <Grid Margin="145,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="145"/><ColumnDefinition Width="145"/><ColumnDefinition Width="145"/><ColumnDefinition Width="145"/><ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <Label Content="{DynamicResource LabelApeIcon}"/>
+                                        <TextBox x:Name="TxtApeIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <Label Content="{DynamicResource LabelUnicumIcon}"/>
+                                        <TextBox x:Name="TxtUnicumIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <Label Content="{DynamicResource LabelHiddenIcon}"/>
+                                        <TextBox x:Name="TxtHiddenIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3">
+                                        <Label Content="{DynamicResource LabelWatchIcon}"/>
+                                        <TextBox x:Name="TxtWatchIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Expander>
                             <Grid Grid.Row="5" Grid.Column="1">
                                 <Label Content="{DynamicResource LabelColumnVisibility}" Margin="5" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                             </Grid>
@@ -371,12 +367,19 @@
                                 </StackPanel>
                             </Grid>
                             <Grid Grid.Row="8" Grid.Column="1">
-                                <Label Content="{DynamicResource LabelIcon}" Margin="5" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                <Label Content="{DynamicResource LabelRosterDisplay}" Margin="5" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                             </Grid>
                             <Grid Grid.Row="8" Grid.Column="3" Grid.ColumnSpan="5">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,5,0,0">
+                                    <ComboBox x:Name="ComboBoxRosterDisplayDensity" SelectedValuePath="Tag" Width="125" Margin="5">
+                                        <ComboBoxItem Tag="Standard" Content="{DynamicResource RosterDensityStandard}"/>
+                                        <ComboBoxItem Tag="Compact" Content="{DynamicResource RosterDensityCompact}"/>
+                                        <ComboBoxItem Tag="Comfortable" Content="{DynamicResource RosterDensityComfortable}"/>
+                                    </ComboBox>
                                     <CheckBox x:Name="ChkBoxShowShipTypeIcon" Content="{DynamicResource ChkBoxShowShipTypeIcon}" VerticalAlignment="Center" Margin="5"/>
                                     <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipShowShipTypeIcon}" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="ChkBoxShowLegacyPerformanceTag" Content="{DynamicResource ChkBoxShowLegacyPerformanceTag}" VerticalAlignment="Center" Margin="14,5,5,5"/>
+                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipShowLegacyPerformanceTag}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
                         </Grid>

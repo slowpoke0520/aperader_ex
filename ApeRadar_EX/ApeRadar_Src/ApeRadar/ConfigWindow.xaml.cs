@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Forms;
 using ApeRadar.Models;
 using ApeRadar.Utils;
+using ApeRadar.ViewModels;
 using Microsoft.Win32;
 using Newtonsoft.Json.Linq;
 
@@ -71,6 +72,8 @@ namespace ApeRadar
             ChkBoxShowExperimentalReplayMetrics.IsChecked = Properties.Settings.Default.ShowExperimentalReplayMetrics;
             ChkBoxShowTierPerformanceStats.IsChecked = Properties.Settings.Default.ShowTierPerformanceStats;
             ChkBoxShowShipTypeIcon.IsChecked = Properties.Settings.Default.ShowShipTypeIcon;
+            ComboBoxRosterDisplayDensity.SelectedValue = RosterDisplayDensityExtensions.Parse(Properties.Settings.Default.RosterDisplayDensity).ToSettingValue();
+            ChkBoxShowLegacyPerformanceTag.IsChecked = Properties.Settings.Default.ShowLegacyPerformanceTag;
             LabelShipListVersionDateStr.Content = $"{ShipInfoUtils.GetShipInfoVersion()} ({ShipInfoUtils.GetShipInfoDate()})";
             if (PRUtils.GetExpectedValuesTime() <= 0)
             {
@@ -182,6 +185,8 @@ namespace ApeRadar
                     bool tierPerformanceSettingChanged = Properties.Settings.Default.ShowTierPerformanceStats != (ChkBoxShowTierPerformanceStats.IsChecked ?? false);
                     Properties.Settings.Default.ShowTierPerformanceStats = ChkBoxShowTierPerformanceStats.IsChecked ?? false;
                     Properties.Settings.Default.ShowShipTypeIcon = ChkBoxShowShipTypeIcon.IsChecked ?? false;
+                    Properties.Settings.Default.RosterDisplayDensity = RosterDisplayDensityExtensions.Parse(ComboBoxRosterDisplayDensity.SelectedValue?.ToString()).ToSettingValue();
+                    Properties.Settings.Default.ShowLegacyPerformanceTag = ChkBoxShowLegacyPerformanceTag.IsChecked ?? false;
                     Properties.Settings.Default.OutputTextUnlock = ChkBoxTextOutputUnlocked.IsChecked ?? false;
                     Properties.Settings.Default.Save();
                     ShipTypePresentation.RefreshOpenWindows();
@@ -374,6 +379,8 @@ namespace ApeRadar
                     ComboBoxTagVisibility.SelectedIndex = Default<int>(nameof(Properties.Settings.TagVisibility));
                     ComboBoxPRVisibility.SelectedIndex = Default<int>(nameof(Properties.Settings.PRVisibility));
                     ChkBoxShowShipTypeIcon.IsChecked = Default<bool>(nameof(Properties.Settings.ShowShipTypeIcon));
+                    ComboBoxRosterDisplayDensity.SelectedValue = RosterDisplayDensityExtensions.Parse(Default<string>(nameof(Properties.Settings.RosterDisplayDensity))).ToSettingValue();
+                    ChkBoxShowLegacyPerformanceTag.IsChecked = Default<bool>(nameof(Properties.Settings.ShowLegacyPerformanceTag));
                     break;
                 case 2:
                     ComboBoxWinrateTypeSelect.SelectedIndex = Default<int>(nameof(Properties.Settings.WinrateTypeUsed));

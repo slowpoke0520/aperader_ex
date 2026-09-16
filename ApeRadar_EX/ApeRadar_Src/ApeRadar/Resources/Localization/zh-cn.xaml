@@ -658,4 +658,42 @@
     <system:String x:Key="NotificationMessageCacheCleared">缓存已清空。</system:String>
     <system:String x:Key="BtnClearCache">清空缓存</system:String>
 
+    <system:String x:Key="LabelRosterDisplay">阵容显示</system:String>
+    <system:String x:Key="RosterDensityStandard">标准</system:String>
+    <system:String x:Key="RosterDensityCompact">紧凑</system:String>
+    <system:String x:Key="RosterDensityComfortable">舒适</system:String>
+    <system:String x:Key="ExpanderLegacyDisplay">兼容显示（旧版实力图标）</system:String>
+    <system:String x:Key="ChkBoxShowLegacyPerformanceTag">显示旧版实力徽章</system:String>
+    <system:String x:Key="ToolTipShowLegacyPerformanceTag">在状态区末尾以小徽章显示原有猴子或奖牌；默认关闭。</system:String>
+
+    <system:String x:Key="RosterBadgeWatchPositive">正面关注</system:String>
+    <system:String x:Key="RosterBadgeWatchPositiveTip">特别关注：正面评价</system:String>
+    <system:String x:Key="RosterBadgeWatchNegative">重点关注</system:String>
+    <system:String x:Key="RosterBadgeWatchNegativeTip">特别关注：负面评价</system:String>
+    <system:String x:Key="RosterBadgeWatchCheater">可疑</system:String>
+    <system:String x:Key="RosterBadgeWatchCheaterTip">特别关注：疑似外挂或脚本</system:String>
+    <system:String x:Key="RosterBadgeWatch">关注</system:String>
+    <system:String x:Key="RosterBadgeWatchTip">特别关注玩家</system:String>
+    <system:String x:Key="RosterBadgeMarked">标记</system:String>
+    <system:String x:Key="RosterBadgeMarkedTip">你为该玩家添加了自定义标记</system:String>
+    <system:String x:Key="RosterBadgeTeammate">队友</system:String>
+    <system:String x:Key="RosterBadgeTeammateTip">固定队友</system:String>
+    <system:String x:Key="RosterBadgeHidden">隐藏</system:String>
+    <system:String x:Key="RosterBadgeCached">缓存</system:String>
+    <system:String x:Key="RosterBadgeCachedTip">正在显示缓存数据，后台会继续刷新</system:String>
+    <system:String x:Key="RosterBadgeLowTier">低级偏多</system:String>
+    <system:String x:Key="RosterBadgeLoading">加载中</system:String>
+    <system:String x:Key="RosterBadgeLegacyLowTip">旧版低胜率实力标记</system:String>
+    <system:String x:Key="RosterBadgeLegacyHighTip">旧版高胜率实力标记</system:String>
+    <system:String x:Key="RosterRecentEncounterPreview">近期遇到 {0} 次</system:String>
+
+    <system:String x:Key="DetailOverall">总体</system:String>
+    <system:String x:Key="DetailContextTitle">备注与近期遭遇</system:String>
+    <system:String x:Key="DetailNoContext">暂无备注或近期遭遇记录</system:String>
+    <system:String x:Key="DetailHoverMode">悬浮详情 · 点击玩家可固定</system:String>
+    <system:String x:Key="DetailPinnedMode">已固定 · Esc 或再次点击关闭</system:String>
+    <system:String x:Key="DetailClose">关闭详情</system:String>
+    <system:String x:Key="DetailCopySummary">复制摘要</system:String>
+    <system:String x:Key="NotificationMessagePlayerDetailCopied">玩家数据摘要已复制。</system:String>
+
 </ResourceDictionary>
