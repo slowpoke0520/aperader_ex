@@ -9,13 +9,13 @@
     "sha256": "BD950FE1CAA252990E4896C4A24B67AACE52FE622A6302F987EAE9BD2D9B07E4"
   },
   "prData": {
-    "timestamp": 1789347962,
-    "date": "2026-09-14",
+    "timestamp": 1789434379,
+    "date": "2026-09-15",
     "ships": 1040,
     "usableShips": 971,
     "repository": "wowsinfo/WoWs-Info-Seven",
     "ref": "API",
-    "commit": "f405d4f18dd997f5a6c0f7f61bddf309cda802a0",
-    "sha256": "A860CB98C5B5F3249682B9BE5AAFE0F62EAFD0BFF5F9A3FCAF6E828192280707"
+    "commit": "597423f64cdf4d6ef19b79663c348bb076b4b824",
+    "sha256": "357EE6B165D5B049372A2E79980356272AC78D0BDFD11B1A5201FA0E9782D63A"
   }
 }
