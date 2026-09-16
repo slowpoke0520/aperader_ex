@@ -658,4 +658,42 @@
     <system:String x:Key="NotificationMessageCacheCleared">Cache cleared.</system:String>
     <system:String x:Key="BtnClearCache">Clear Cache</system:String>
 
+    <system:String x:Key="LabelRosterDisplay">Roster display</system:String>
+    <system:String x:Key="RosterDensityStandard">Standard</system:String>
+    <system:String x:Key="RosterDensityCompact">Compact</system:String>
+    <system:String x:Key="RosterDensityComfortable">Comfortable</system:String>
+    <system:String x:Key="ExpanderLegacyDisplay">Compatibility display (legacy performance icons)</system:String>
+    <system:String x:Key="ChkBoxShowLegacyPerformanceTag">Show legacy performance badge</system:String>
+    <system:String x:Key="ToolTipShowLegacyPerformanceTag">Show the original monkey or medal as a small badge at the end of the status area. Off by default.</system:String>
+
+    <system:String x:Key="RosterBadgeWatchPositive">Positive</system:String>
+    <system:String x:Key="RosterBadgeWatchPositiveTip">Watch list: positive assessment</system:String>
+    <system:String x:Key="RosterBadgeWatchNegative">Watch</system:String>
+    <system:String x:Key="RosterBadgeWatchNegativeTip">Watch list: negative assessment</system:String>
+    <system:String x:Key="RosterBadgeWatchCheater">Suspicious</system:String>
+    <system:String x:Key="RosterBadgeWatchCheaterTip">Watch list: suspected cheat or bot</system:String>
+    <system:String x:Key="RosterBadgeWatch">Watch</system:String>
+    <system:String x:Key="RosterBadgeWatchTip">Player is on the watch list</system:String>
+    <system:String x:Key="RosterBadgeMarked">Marked</system:String>
+    <system:String x:Key="RosterBadgeMarkedTip">You added a custom marker to this player</system:String>
+    <system:String x:Key="RosterBadgeTeammate">Teammate</system:String>
+    <system:String x:Key="RosterBadgeTeammateTip">Regular teammate</system:String>
+    <system:String x:Key="RosterBadgeHidden">Hidden</system:String>
+    <system:String x:Key="RosterBadgeCached">Cached</system:String>
+    <system:String x:Key="RosterBadgeCachedTip">Showing cached data while refreshing in the background</system:String>
+    <system:String x:Key="RosterBadgeLowTier">Low-tier bias</system:String>
+    <system:String x:Key="RosterBadgeLoading">Loading</system:String>
+    <system:String x:Key="RosterBadgeLegacyLowTip">Legacy low win-rate performance marker</system:String>
+    <system:String x:Key="RosterBadgeLegacyHighTip">Legacy high win-rate performance marker</system:String>
+    <system:String x:Key="RosterRecentEncounterPreview">Met recently {0} times</system:String>
+
+    <system:String x:Key="DetailOverall">Overall</system:String>
+    <system:String x:Key="DetailContextTitle">Notes and recent encounters</system:String>
+    <system:String x:Key="DetailNoContext">No notes or recent encounter records</system:String>
+    <system:String x:Key="DetailHoverMode">Hover details · click the player to pin</system:String>
+    <system:String x:Key="DetailPinnedMode">Pinned · press Esc or click again to close</system:String>
+    <system:String x:Key="DetailClose">Close details</system:String>
+    <system:String x:Key="DetailCopySummary">Copy summary</system:String>
+    <system:String x:Key="NotificationMessagePlayerDetailCopied">Player statistics summary copied.</system:String>
+
 </ResourceDictionary>

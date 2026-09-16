@@ -11,8 +11,7 @@
         <cvt:BattleDataAvailabilityConverter x:Key="BattleData"/>
         <cvt:PlayerNamesVisibilityConverter x:Key="PlayerNames"/>
         <cvt:WatchStatusColorConverter x:Key="WatchColor"/>
-        <cvt:WatchStatusIconConverter x:Key="WatchIcon"/>
-        <cvt:NoteIconConverter x:Key="NoteIcon"/>
+        <cvt:NoteVisibilityConverter x:Key="TextVisibility"/>
         <utils:ShipRelationBrushConverter x:Key="ShipRelationBrush"/>
         <utils:WidthReductionConverter x:Key="WidthReduction"/>
         <Style x:Key="IdentityLine" TargetType="TextBlock">
@@ -25,24 +24,27 @@
             </Style.Triggers>
         </Style>
     </UserControl.Resources>
-    <Grid Margin="7,2" ClipToBounds="True">
+    <Grid Margin="7,2" ClipToBounds="True" VerticalAlignment="Center">
         <Grid.RowDefinitions>
-            <RowDefinition Height="18"/>
-            <RowDefinition Height="21"/>
-            <RowDefinition Height="17"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <TextBlock Grid.Row="0" Style="{StaticResource IdentityLine}"
-                   FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}"
-                   Foreground="{Binding Player.WatchStatus, Converter={StaticResource WatchColor}}"
-                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding Player.Name}">
-            <Run Text="{Binding Player.ClanTag, Converter={StaticResource PlayerNames}}"/>
-            <Run Text=" "/><Run Text="{Binding Player.Name, Converter={StaticResource PlayerNames}}"/>
-            <Run BaselineAlignment="Superscript" FontSize="9" Text="{Binding Player.Karma, Converter={StaticResource BattleData}}"/>
-            <Run Text="{Binding Player.WatchStatus, Converter={StaticResource WatchIcon}}"/>
-            <Run Text="{Binding Player.Note, Converter={StaticResource NoteIcon}}"/>
-            <Run Foreground="#9B6A00" Text="{Binding Player.CustomMarkerIcon, Mode=OneWay}"/>
-            <Run Foreground="#B54708" Text="{Binding Player.RecentEncounterIcon, Mode=OneWay}"/>
-        </TextBlock>
+        <Grid Grid.Row="0" ClipToBounds="True">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource IdentityLine}"
+                       FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}"
+                       Foreground="{Binding Player.WatchStatus, Converter={StaticResource WatchColor}}"
+                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding Player.Name}">
+                <Run Text="{Binding Player.ClanTag, Converter={StaticResource PlayerNames}}"/>
+                <Run Text=" "/><Run Text="{Binding Player.Name, Converter={StaticResource PlayerNames}}"/>
+            </TextBlock>
+            <TextBlock Grid.Column="1" Text="{Binding Player.Karma, Converter={StaticResource BattleData}}" FontSize="9" Foreground="{StaticResource TextSecondaryBrush}"
+                       FontFamily="{StaticResource NumericFontFamily}" Typography.NumeralAlignment="Tabular" VerticalAlignment="Top" Margin="4,0,0,0"/>
+        </Grid>
         <Grid x:Name="ShipLineContainer" Grid.Row="1" ClipToBounds="True">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <StackPanel.Style>
@@ -58,7 +60,7 @@
                 <TextBlock Style="{StaticResource IdentityLine}"
                            MaxWidth="{Binding ActualWidth, ElementName=ShipLineContainer, Converter={StaticResource WidthReduction}, ConverterParameter=25}"
                            FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}"
-                           Foreground="{Binding Player.WatchStatus, Converter={StaticResource WatchColor}}"
+                           Foreground="{StaticResource TextPrimaryBrush}"
                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding Player.ShipName}">
                     <Run Text="{Binding Player.ShipTier, Converter={StaticResource ShipTier}}"/><Run Text="  "/><Run Text="{Binding Player.ShipName}"/>
                 </TextBlock>
@@ -67,15 +69,14 @@
                                          Margin="5,0,0,0" Width="20" Height="20"/>
             </StackPanel>
         </Grid>
-        <TextBlock Grid.Row="2" Text="{Binding StatusSummary}" FontSize="10"
-                   Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding StatusSummary}">
+        <TextBlock Grid.Row="2" Text="{Binding ContextPreview}" FontSize="10"
+                   Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding ContextPreview}">
             <TextBlock.Style>
                 <Style TargetType="TextBlock" BasedOn="{StaticResource IdentityLine}">
                     <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding HasAttention}" Value="True">
-                            <Setter Property="Foreground" Value="#946200"/>
-                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=IsCompactRoster}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed"/>
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
