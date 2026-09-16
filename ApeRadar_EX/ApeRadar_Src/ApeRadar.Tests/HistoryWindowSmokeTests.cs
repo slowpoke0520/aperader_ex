@@ -110,8 +110,12 @@ public sealed class HistoryWindowSmokeTests
     {
         bool previousTierPerformanceSetting = ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats;
         bool previousShipTypeIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
+        string previousDensity = ApeRadar.Properties.Settings.Default.RosterDisplayDensity;
+        bool previousLegacyTag = ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag;
         ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats = true;
         ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
+        ApeRadar.Properties.Settings.Default.RosterDisplayDensity = "Standard";
+        ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag = false;
         MainWindow window = new(initializeRuntime: false)
         {
             WindowState = WindowState.Normal,
@@ -177,9 +181,24 @@ public sealed class HistoryWindowSmokeTests
                 SaveWindowSnapshot(window, $"main-{language}-{width:0}x{height:0}.png");
             }
         }
+        DataGridRow firstRow = Assert.IsType<DataGridRow>(window.DataGridAlliesList.ItemContainerGenerator.ContainerFromIndex(0));
+        firstRow.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left)
+        {
+            RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent,
+            Source = firstRow
+        });
+        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        Assert.True(window.PlayerDetailPopup.IsOpen);
+        PlayerDetailCardViewModel detail = Assert.IsType<PlayerDetailCardViewModel>(window.PlayerDetailCardContent.DataContext);
+        Assert.Equal("Allied sample 1", detail.Player.Name);
+        Assert.InRange(window.PlayerDetailCardBorder.Width, 420, 680);
+        window.BtnClosePlayerDetail.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.False(window.PlayerDetailPopup.IsOpen);
         window.Close();
         ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats = previousTierPerformanceSetting;
         ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = previousShipTypeIconSetting;
+        ApeRadar.Properties.Settings.Default.RosterDisplayDensity = previousDensity;
+        ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag = previousLegacyTag;
     }
 
     private static void AssertShipTypeIconsRefreshWithoutReload(MainWindow window, string language)
@@ -336,17 +355,29 @@ public sealed class HistoryWindowSmokeTests
         Assert.False(window.BtnDefault.IsEnabled);
         window.ConfigTabs.SelectedIndex = 1;
         bool persistedIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
+        string persistedDensity = ApeRadar.Properties.Settings.Default.RosterDisplayDensity;
+        bool persistedLegacyTag = ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag;
         try
         {
             ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = false;
+            ApeRadar.Properties.Settings.Default.RosterDisplayDensity = "Comfortable";
+            ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag = true;
             window.ChkBoxShowShipTypeIcon.IsChecked = false;
+            window.ComboBoxRosterDisplayDensity.SelectedValue = "Comfortable";
+            window.ChkBoxShowLegacyPerformanceTag.IsChecked = true;
             window.ApplyDefaultsForSelectedPage();
             Assert.True(window.ChkBoxShowShipTypeIcon.IsChecked);
+            Assert.Equal("Standard", window.ComboBoxRosterDisplayDensity.SelectedValue);
+            Assert.False(window.ChkBoxShowLegacyPerformanceTag.IsChecked);
             Assert.False(ApeRadar.Properties.Settings.Default.ShowShipTypeIcon);
+            Assert.Equal("Comfortable", ApeRadar.Properties.Settings.Default.RosterDisplayDensity);
+            Assert.True(ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag);
         }
         finally
         {
             ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = persistedIconSetting;
+            ApeRadar.Properties.Settings.Default.RosterDisplayDensity = persistedDensity;
+            ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag = persistedLegacyTag;
         }
         window.ConfigTabs.SelectedIndex = window.ConfigTabs.Items.Count - 1;
         foreach ((double width, double height) in new[] { (600d, 360d), (900d, 560d), (1100d, 700d) })
