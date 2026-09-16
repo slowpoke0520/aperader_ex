@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Input;
 
 using System.IO;
 using System.Diagnostics;
@@ -41,6 +42,12 @@ namespace ApeRadar
         private long rosterLoadGeneration;
         private bool analysisDrawerOpen;
         private bool notificationsExpanded;
+        private readonly DispatcherTimer playerDetailOpenTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
+        private readonly DispatcherTimer playerDetailCloseTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+        private PlayerRosterRowViewModel? pendingDetailRow;
+        private FrameworkElement? pendingDetailTarget;
+        private PlayerRosterRowViewModel? currentDetailRow;
+        private bool playerDetailPinned;
         private readonly IBattleRosterCoordinator battleRosterCoordinator = new BattleRosterCoordinator();
         private readonly IRosterPresentationService rosterPresentationService = new RosterPresentationService();
 
@@ -53,6 +60,10 @@ namespace ApeRadar
             nameof(EffectivePlayerFontSize), typeof(double), typeof(MainWindow), new PropertyMetadata(18d));
         public static readonly DependencyProperty EffectiveStatisticsFontSizeProperty = DependencyProperty.Register(
             nameof(EffectiveStatisticsFontSize), typeof(double), typeof(MainWindow), new PropertyMetadata(16d));
+        public static readonly DependencyProperty IsCompactRosterProperty = DependencyProperty.Register(
+            nameof(IsCompactRoster), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
+        public static readonly DependencyProperty UseCompactStatusBadgesProperty = DependencyProperty.Register(
+            nameof(UseCompactStatusBadges), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
 
         public double EffectivePlayerFontSize
         {
@@ -64,6 +75,18 @@ namespace ApeRadar
         {
             get => (double)GetValue(EffectiveStatisticsFontSizeProperty);
             private set => SetValue(EffectiveStatisticsFontSizeProperty, value);
+        }
+
+        public bool IsCompactRoster
+        {
+            get => (bool)GetValue(IsCompactRosterProperty);
+            private set => SetValue(IsCompactRosterProperty, value);
+        }
+
+        public bool UseCompactStatusBadges
+        {
+            get => (bool)GetValue(UseCompactStatusBadgesProperty);
+            private set => SetValue(UseCompactStatusBadgesProperty, value);
         }
 
         public RosterStatusViewModel RosterStatus { get; } = new();
@@ -188,6 +211,7 @@ namespace ApeRadar
                 DataGridEnemiesList.UpdateLayout();
                 ResetHorizontalScroll(DataGridAlliesList);
                 ResetHorizontalScroll(DataGridEnemiesList);
+                UpdateResponsiveLayout();
             }, DispatcherPriority.ContextIdle);
         }
 
@@ -247,6 +271,8 @@ namespace ApeRadar
         {
             InitializeComponent();
             WinrateChart.Tooltip = new ShipAwareChartTooltip();
+            playerDetailOpenTimer.Tick += PlayerDetailOpenTimer_Tick;
+            playerDetailCloseTimer.Tick += PlayerDetailCloseTimer_Tick;
 
             Loaded += (_, _) => UpdateResponsiveLayout();
 
@@ -369,7 +395,13 @@ namespace ApeRadar
 
         private void MainWindowGrid_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            if (e.Key == System.Windows.Input.Key.Escape && analysisDrawerOpen)
+            if (e.Key != Key.Escape) return;
+            if (PlayerDetailPopup.IsOpen)
+            {
+                ClosePlayerDetail();
+                e.Handled = true;
+            }
+            else if (analysisDrawerOpen)
             {
                 analysisDrawerOpen = false;
                 UpdateResponsiveLayout();
@@ -393,11 +425,22 @@ namespace ApeRadar
             CurrentSessionSummaryCard.Visibility = ActualWidth < 1030 ? Visibility.Collapsed : Visibility.Visible;
 
             double teamGridWidth = Math.Max(0, (RosterTablesGrid.ActualWidth - 8) / 2);
-            ScrollBarVisibility horizontalScroll = RosterLayoutCalculator.RequiresHorizontalScroll(teamGridWidth)
-                ? ScrollBarVisibility.Auto
-                : ScrollBarVisibility.Disabled;
+            RosterDisplayDensity density = RosterDisplayDensityExtensions.Parse(Properties.Settings.Default.RosterDisplayDensity);
+            bool showAccount = Properties.Settings.Default.AccountWinrateVisibility != 2 ||
+                Properties.Settings.Default.WeightedWinrateVisibility != 2 ||
+                Properties.Settings.Default.AccountAvgExpVisibility != 2 ||
+                Properties.Settings.Default.PRVisibility != 2;
+            bool showShip = Properties.Settings.Default.ShipWinrateVisibility != 2 ||
+                Properties.Settings.Default.ShipAvgDmgVisibility != 2 ||
+                Properties.Settings.Default.ShipAvgExpVisibility != 2 ||
+                Properties.Settings.Default.PRVisibility != 2;
+            bool showTier = Properties.Settings.Default.ShowTierPerformanceStats;
+            RosterColumnWidths columnWidths = RosterLayoutCalculator.CalculateColumns(teamGridWidth, density, showAccount, showShip, showTier);
+            ScrollBarVisibility horizontalScroll = columnWidths.RequiresHorizontalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
             DataGridAlliesList.HorizontalScrollBarVisibility = horizontalScroll;
             DataGridEnemiesList.HorizontalScrollBarVisibility = horizontalScroll;
+            ApplyRosterColumnWidths(DataGridAlliesList, columnWidths);
+            ApplyRosterColumnWidths(DataGridEnemiesList, columnWidths);
 
             int playerCount = DataContext is Battlefield battlefield
                 ? Math.Max(12, Math.Max(battlefield.Allies.Count, battlefield.Enemies.Count))
@@ -408,10 +451,147 @@ namespace ApeRadar
                 gridHeight,
                 playerCount,
                 Properties.Settings.Default.PlayerColumnFontSize,
-                Properties.Settings.Default.StatisticsColumnFontSize);
+                Properties.Settings.Default.StatisticsColumnFontSize,
+                density,
+                teamGridWidth);
             DataGridAlliesList.RowHeight = DataGridEnemiesList.RowHeight = metrics.RowHeight;
             EffectivePlayerFontSize = metrics.PlayerFontSize;
             EffectiveStatisticsFontSize = metrics.StatisticsFontSize;
+            IsCompactRoster = density == RosterDisplayDensity.Compact;
+            UseCompactStatusBadges = metrics.UseCompactStatusBadges;
+            UpdatePlayerDetailBounds();
+        }
+
+        private static void ApplyRosterColumnWidths(DataGrid dataGrid, RosterColumnWidths widths)
+        {
+            foreach (DataGridColumn column in dataGrid.Columns)
+            {
+                double width = column.SortMemberPath switch
+                {
+                    "Player" => widths.Player,
+                    "Account" => widths.Account,
+                    "Ship" => widths.Ship,
+                    "Tier" => widths.Tier,
+                    "Status" => widths.Status,
+                    _ => column.ActualWidth
+                };
+                if (width > 0) column.Width = new DataGridLength(width, DataGridLengthUnitType.Pixel);
+            }
+        }
+
+        private void UpdatePlayerDetailBounds()
+        {
+            System.Windows.Forms.Screen screen = System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Cursor.Position);
+            DpiScale dpi = VisualTreeHelper.GetDpi(this);
+            PlayerDetailCardBorder.Width = Math.Min(680, Math.Max(420, screen.WorkingArea.Width / dpi.DpiScaleX - 32));
+            PlayerDetailCardBorder.MaxHeight = Math.Min(720, Math.Max(300, screen.WorkingArea.Height / dpi.DpiScaleY - 48));
+        }
+
+        private void RosterRow_MouseEnter(object sender, MouseEventArgs e)
+        {
+            if (playerDetailPinned || sender is not DataGridRow row || row.DataContext is not PlayerRosterRowViewModel rosterRow) return;
+            playerDetailCloseTimer.Stop();
+            playerDetailOpenTimer.Stop();
+            pendingDetailRow = rosterRow;
+            pendingDetailTarget = row;
+            playerDetailOpenTimer.Start();
+        }
+
+        private void RosterRow_MouseLeave(object sender, MouseEventArgs e)
+        {
+            playerDetailOpenTimer.Stop();
+            if (!playerDetailPinned)
+            {
+                playerDetailCloseTimer.Stop();
+                playerDetailCloseTimer.Start();
+            }
+        }
+
+        private void RosterRow_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not DataGridRow row || row.DataContext is not PlayerRosterRowViewModel rosterRow) return;
+            playerDetailOpenTimer.Stop();
+            if (playerDetailPinned && currentDetailRow?.Detail.IdentityKey == rosterRow.Detail.IdentityKey)
+                ClosePlayerDetail();
+            else
+                ShowPlayerDetail(rosterRow, row, pinned: true);
+            e.Handled = true;
+        }
+
+        private void RosterRow_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter || sender is not DataGridRow row || row.DataContext is not PlayerRosterRowViewModel rosterRow) return;
+            ShowPlayerDetail(rosterRow, row, pinned: true);
+            e.Handled = true;
+        }
+
+        private void PlayerDetailOpenTimer_Tick(object? sender, EventArgs e)
+        {
+            playerDetailOpenTimer.Stop();
+            if (pendingDetailRow != null && pendingDetailTarget != null)
+                ShowPlayerDetail(pendingDetailRow, pendingDetailTarget, pinned: false);
+        }
+
+        private void PlayerDetailCloseTimer_Tick(object? sender, EventArgs e)
+        {
+            playerDetailCloseTimer.Stop();
+            if (!playerDetailPinned && !PlayerDetailPopup.IsMouseOver)
+                ClosePlayerDetail();
+        }
+
+        private void ShowPlayerDetail(PlayerRosterRowViewModel row, FrameworkElement target, bool pinned)
+        {
+            playerDetailOpenTimer.Stop();
+            playerDetailCloseTimer.Stop();
+            currentDetailRow = row;
+            playerDetailPinned = pinned;
+            PlayerDetailCardContent.DataContext = row.Detail;
+            PlayerDetailPopup.PlacementTarget = target;
+            PlayerDetailPopup.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+            PlayerDetailPopup.StaysOpen = pinned;
+            TxtPlayerDetailMode.Text = FindResource(pinned ? "DetailPinnedMode" : "DetailHoverMode") as string ?? "";
+            UpdatePlayerDetailBounds();
+            PlayerDetailPopup.IsOpen = true;
+        }
+
+        private void ClosePlayerDetail()
+        {
+            playerDetailOpenTimer.Stop();
+            playerDetailCloseTimer.Stop();
+            pendingDetailRow = null;
+            pendingDetailTarget = null;
+            playerDetailPinned = false;
+            PlayerDetailPopup.StaysOpen = false;
+            PlayerDetailPopup.IsOpen = false;
+            currentDetailRow = null;
+            PlayerDetailCardContent.DataContext = null;
+        }
+
+        private void PlayerDetailPopup_MouseEnter(object sender, MouseEventArgs e) => playerDetailCloseTimer.Stop();
+
+        private void PlayerDetailPopup_MouseLeave(object sender, MouseEventArgs e)
+        {
+            if (playerDetailPinned) return;
+            playerDetailCloseTimer.Stop();
+            playerDetailCloseTimer.Start();
+        }
+
+        private void PlayerDetailPopup_Closed(object? sender, EventArgs e)
+        {
+            if (!playerDetailPinned)
+            {
+                currentDetailRow = null;
+                PlayerDetailCardContent.DataContext = null;
+            }
+        }
+
+        private void BtnClosePlayerDetail_Click(object sender, RoutedEventArgs e) => ClosePlayerDetail();
+
+        private void BtnCopyPlayerDetail_Click(object sender, RoutedEventArgs e)
+        {
+            if (currentDetailRow == null) return;
+            Clipboard.SetDataObject(TextUtils.GenerateParticularPlayerStatisticsOutputText(currentDetailRow.Player));
+            NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessagePlayerDetailCopied") as string);
         }
 
         private void BtnToggleNotifications_Click(object sender, RoutedEventArgs e)
@@ -1072,11 +1252,29 @@ namespace ApeRadar
 
         private void RefreshRosterRows(Battlefield battlefield)
         {
+            string? pinnedIdentity = playerDetailPinned ? currentDetailRow?.Detail.IdentityKey : null;
             RosterPresentationOptions options = RosterPresentationOptions.FromCurrentSettings();
             IReadOnlyList<PlayerRosterRowViewModel> allies = rosterPresentationService.CreateRows(battlefield.Allies, options);
             IReadOnlyList<PlayerRosterRowViewModel> enemies = rosterPresentationService.CreateRows(battlefield.Enemies, options);
             ReplaceRows(alliesRosterRows, allies);
             ReplaceRows(enemiesRosterRows, enemies);
+            if (pinnedIdentity != null)
+            {
+                PlayerRosterRowViewModel? updated = allies.Concat(enemies).FirstOrDefault(row => row.Detail.IdentityKey == pinnedIdentity);
+                if (updated == null)
+                {
+                    ClosePlayerDetail();
+                }
+                else
+                {
+                    currentDetailRow = updated;
+                    PlayerDetailCardContent.DataContext = updated.Detail;
+                }
+            }
+            else if (PlayerDetailPopup.IsOpen)
+            {
+                ClosePlayerDetail();
+            }
         }
 
         private static void ReplaceRows(ObservableCollection<PlayerRosterRowViewModel> target, IReadOnlyList<PlayerRosterRowViewModel> source)
@@ -1122,6 +1320,8 @@ namespace ApeRadar
 
         protected override void OnClosed(EventArgs e)
         {
+            playerDetailOpenTimer.Stop();
+            playerDetailCloseTimer.Stop();
             rosterLoadCancellation?.Cancel();
             rosterLoadCancellation?.Dispose();
             rosterLoadCancellation = null;
