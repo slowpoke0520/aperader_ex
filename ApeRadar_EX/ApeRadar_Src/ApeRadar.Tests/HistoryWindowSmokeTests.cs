@@ -240,6 +240,9 @@ public sealed class HistoryWindowSmokeTests
         });
         PumpDispatcher(TimeSpan.FromMilliseconds(300));
         Assert.True(window.PlayerDetailPopup.IsOpen);
+        System.Drawing.Rectangle virtualScreen = System.Windows.Forms.SystemInformation.VirtualScreen;
+        System.Windows.Forms.Cursor.Position = new System.Drawing.Point(virtualScreen.Right - 2, virtualScreen.Bottom - 2);
+        PumpDispatcher(TimeSpan.FromMilliseconds(50));
         window.PlayerDetailPopup.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
         {
             RoutedEvent = System.Windows.Input.Mouse.MouseLeaveEvent,
