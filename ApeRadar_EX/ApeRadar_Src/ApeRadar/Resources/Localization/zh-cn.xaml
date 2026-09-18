@@ -37,6 +37,11 @@
     <system:String x:Key="RosterMetricAvgExp">均经</system:String>
     <system:String x:Key="RosterMetricAvgDamage">均伤</system:String>
     <system:String x:Key="RosterMetricWeighted">加权</system:String>
+    <system:String x:Key="RosterMetricBattlesShort">场</system:String>
+    <system:String x:Key="RosterMetricWinrateShort">胜</system:String>
+    <system:String x:Key="RosterMetricAvgExpShort">经</system:String>
+    <system:String x:Key="RosterMetricAvgDamageShort">伤</system:String>
+    <system:String x:Key="RosterMetricWeightedShort">加</system:String>
     <system:String x:Key="RosterMetricTier">等级</system:String>
 
     <system:String x:Key="BtnSave">保存</system:String>
@@ -546,7 +551,7 @@
     <system:String x:Key="ToolTipCheckForUpdatesOnStartup">开启后，软件启动时会按所选更新渠道在后台检查新版本；只提醒，不会自动安装。关闭后仍可点击“检查并更新”。</system:String>
     <system:String x:Key="ChkBoxShowExperimentalReplayMetrics">显示实验性 Replay 指标</system:String>
     <system:String x:Key="ToolTipShowExperimentalReplayMetrics">开启后显示尚未覆盖所有游戏版本验证的承受伤害和伤害分类。实验值会明确标记，缺失值不会按 0 计算。</system:String>
-    <system:String x:Key="ChkBoxShowTierPerformanceStats">在玩家列表显示同阶战绩</system:String>
+    <system:String x:Key="ChkBoxShowTierPerformanceStats">同阶数据列（默认关闭）</system:String>
     <system:String x:Key="ToolTipShowTierPerformanceStats">显示玩家在当前舰船等级的总场次、胜率和 PR。同阶不足 50 场时会警告，并在悬浮详情中提供邻近等级参考；不会增加 API 请求。</system:String>
     <system:String x:Key="ChkBoxShowShipTypeIcon">在舰船名称后显示舰种图标</system:String>
     <system:String x:Key="ToolTipShowShipTypeIcon">使用战舰世界官方 Wiki 的舰种图标标识航母、战列舰、巡洋舰、驱逐舰和潜艇。默认关闭。</system:String>
@@ -564,7 +569,7 @@
     <system:String x:Key="TierStatsBattlesSuffix"> 场</system:String>
     <system:String x:Key="TierStatsSharePrefix">，占已识别场次 </system:String>
     <system:String x:Key="TierStatsSmallSample">⚠ 同阶不足 50 场，胜率和 PR 波动可能很大。</system:String>
-    <system:String x:Key="TierStatsLowTierBias">⚠ 已识别对局中至少 60% 位于 1–5 级，总胜率可能高估其高等级表现。</system:String>
+    <system:String x:Key="TierStatsLowTierBias">低级与高级战绩差异显著，详情请查看“屠幼”标签说明。</system:String>
     <system:String x:Key="TierStatsReferenceNotice">参考值只用于补充判断，不会替代同阶数据。</system:String>
     <system:String x:Key="BtnViewChangelog">查看更新日志</system:String>
     <system:String x:Key="TextViewChangelogHint">打开稳定版与开发版的更新说明</system:String>
@@ -665,6 +670,13 @@
     <system:String x:Key="ExpanderLegacyDisplay">兼容显示（旧版实力图标）</system:String>
     <system:String x:Key="ChkBoxShowLegacyPerformanceTag">显示旧版实力徽章</system:String>
     <system:String x:Key="ToolTipShowLegacyPerformanceTag">在状态区末尾以小徽章显示原有猴子或奖牌；默认关闭。</system:String>
+    <system:String x:Key="ChkBoxShowAccountRosterColumn">账号数据列</system:String>
+    <system:String x:Key="ChkBoxShowShipRosterColumn">单船数据列</system:String>
+    <system:String x:Key="ChkBoxShowPerformanceRosterColumn">账号 PR 实力色块</system:String>
+    <system:String x:Key="ChkBoxShowRecentEncounterBadges">近期遭遇标签</system:String>
+    <system:String x:Key="ChkBoxShowFixedTeammateBadges">固定队友标签</system:String>
+    <system:String x:Key="ChkBoxShowCachedDataBadges">缓存状态标签</system:String>
+    <system:String x:Key="DataGridHeaderPerformance">实力</system:String>
 
     <system:String x:Key="RosterBadgeWatchPositive">正面关注</system:String>
     <system:String x:Key="RosterBadgeWatchPositiveTip">特别关注：正面评价</system:String>
@@ -682,6 +694,9 @@
     <system:String x:Key="RosterBadgeCached">缓存</system:String>
     <system:String x:Key="RosterBadgeCachedTip">正在显示缓存数据，后台会继续刷新</system:String>
     <system:String x:Key="RosterBadgeLowTier">低级偏多</system:String>
+    <system:String x:Key="RosterBadgeSealClubCompact">屠</system:String>
+    <system:String x:Key="RosterBadgeSealClub">屠幼</system:String>
+    <system:String x:Key="RosterBadgeSealClubTip">低级（I–V）：{0:N0} 场、胜率 {1:P1}、PR {2:N0}；高级（VIII–XI）：{3:N0} 场、胜率 {4:P1}、PR {5:N0}。该标签仅在全部严格条件同时满足时显示。</system:String>
     <system:String x:Key="RosterBadgeLoading">加载中</system:String>
     <system:String x:Key="RosterBadgeLegacyLowTip">旧版低胜率实力标记</system:String>
     <system:String x:Key="RosterBadgeLegacyHighTip">旧版高胜率实力标记</system:String>
@@ -690,10 +705,26 @@
     <system:String x:Key="DetailOverall">总体</system:String>
     <system:String x:Key="DetailContextTitle">备注与近期遭遇</system:String>
     <system:String x:Key="DetailNoContext">暂无备注或近期遭遇记录</system:String>
-    <system:String x:Key="DetailHoverMode">悬浮详情 · 点击玩家可固定</system:String>
+    <system:String x:Key="DetailHoverMode">悬浮详情 · 移开鼠标自动关闭</system:String>
     <system:String x:Key="DetailPinnedMode">已固定 · Esc 或再次点击关闭</system:String>
     <system:String x:Key="DetailClose">关闭详情</system:String>
     <system:String x:Key="DetailCopySummary">复制摘要</system:String>
     <system:String x:Key="NotificationMessagePlayerDetailCopied">玩家数据摘要已复制。</system:String>
+    <system:String x:Key="RosterSkillBad">较差</system:String>
+    <system:String x:Key="RosterSkillBelowAverage">偏低</system:String>
+    <system:String x:Key="RosterSkillAverage">平均</system:String>
+    <system:String x:Key="RosterSkillGood">良好</system:String>
+    <system:String x:Key="RosterSkillVeryGood">很好</system:String>
+    <system:String x:Key="RosterSkillGreat">优秀</system:String>
+    <system:String x:Key="RosterSkillUnicum">顶尖</system:String>
+    <system:String x:Key="RosterSkillSuperUnicum">超级顶尖</system:String>
+    <system:String x:Key="RosterSkillTip">账号 PR {0:N0}：{1}</system:String>
+    <system:String x:Key="RosterSkillUnavailableTip">账号 PR 不可用</system:String>
+    <system:String x:Key="LabelRosterPerformanceMetric">实力色块依据：</system:String>
+    <system:String x:Key="RosterPerformancePR">账号 PR</system:String>
+    <system:String x:Key="RosterPerformanceWinrate">胜率</system:String>
+    <system:String x:Key="RosterPerformanceAccountWinrate">账号胜率</system:String>
+    <system:String x:Key="RosterPerformanceWeightedWinrate">加权胜率</system:String>
+    <system:String x:Key="RosterPerformanceTip">{0} {1}：{2}</system:String>
 
 </ResourceDictionary>

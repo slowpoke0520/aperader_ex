@@ -16,26 +16,26 @@ public sealed class RosterPresentationServiceTests
 
         PlayerRosterRowViewModel row = CreateRow(player, options);
 
-        Assert.Equal(3, row.AccountMetrics.Lines.Count);
-        Assert.Equal(3, row.ShipMetrics.Lines.Count);
-        Assert.Equal(2, row.TierMetrics.Lines.Count);
-        Assert.Equal(new[] { RosterMetricKind.Winrate, RosterMetricKind.PersonalRating }, row.AccountMetrics.Lines[0].Items.Select(item => item.Kind));
-        Assert.All(row.AccountMetrics.Lines[0].Items, item => Assert.Equal(RosterMetricEmphasis.Primary, item.Emphasis));
-        Assert.Equal(RosterMetricKind.DamageRating, row.ShipMetrics.Lines[1].Items[1].Kind);
+        Assert.Single(row.AccountMetrics.Lines);
+        Assert.Single(row.ShipMetrics.Lines);
+        Assert.Single(row.TierMetrics.Lines);
+        Assert.Equal(new[] { RosterMetricKind.Neutral, RosterMetricKind.Winrate, RosterMetricKind.PersonalRating, RosterMetricKind.Neutral, RosterMetricKind.Winrate }, row.AccountMetrics.Items.Select(item => item.Kind));
+        Assert.Equal(RosterMetricKind.DamageRating, row.ShipMetrics.Items[3].Kind);
         Assert.Empty(row.StatusBadges);
         Assert.Equal(string.Empty, row.ContextPreview);
+        Assert.Equal(PlayerSkillBand.VeryGood, row.SkillBand);
     }
 
     [Fact]
-    public void CompactDensity_KeepsOnlyTwoCoreLines()
+    public void CompactDensity_KeepsTheSameSemanticColumnOrder()
     {
         PlayerRosterRowViewModel row = CreateRow(CreatePlayer("Compact", 8_000),
             new RosterPresentationOptions(0, 0, 0, 0, 0, 0, 0, true, RosterDisplayDensity.Compact));
 
-        Assert.Equal(2, row.AccountMetrics.Lines.Count);
-        Assert.Equal(2, row.ShipMetrics.Lines.Count);
-        Assert.DoesNotContain(row.AccountMetrics.Lines.SelectMany(line => line.Items), item => item.Emphasis == RosterMetricEmphasis.Tertiary);
-        Assert.DoesNotContain(row.ShipMetrics.Lines.SelectMany(line => line.Items), item => item.Emphasis == RosterMetricEmphasis.Tertiary);
+        Assert.Single(row.AccountMetrics.Lines);
+        Assert.Single(row.ShipMetrics.Lines);
+        Assert.Equal("Games", row.AccountMetrics.Items[0].Label);
+        Assert.Equal("Games", row.ShipMetrics.Items[0].Label);
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class RosterPresentationServiceTests
         player.IsTierSampleSmall = true;
 
         PlayerRosterRowViewModel row = CreateRow(player, new(0, 0, 0, 0, 0, 0, 0, true));
-        MetricItemViewModel tierBattles = Assert.Single(row.TierMetrics.Lines[1].Items);
+        MetricItemViewModel tierBattles = row.TierMetrics.Items[0];
 
         Assert.Equal("⚠", tierBattles.WarningGlyph);
         Assert.NotEmpty(tierBattles.ToolTip);
@@ -88,7 +88,7 @@ public sealed class RosterPresentationServiceTests
     }
 
     [Fact]
-    public void LegacyPerformanceBadge_IsOffByDefaultAndOptional()
+    public void LegacyPerformanceIcon_IsOffByDefaultAndOptionalInsideColorCell()
     {
         Player player = CreatePlayer("Legacy", 8_000);
         double oldThreshold = ApeRadar.Properties.Settings.Default.ApeWinrateThreshold;
@@ -102,13 +102,60 @@ public sealed class RosterPresentationServiceTests
             PlayerRosterRowViewModel disabled = CreateRow(player, new(0, 0, 0, 0, 0, 0, 0, true));
             PlayerRosterRowViewModel enabled = CreateRow(player, new(0, 0, 0, 0, 0, 0, 0, true, ShowLegacyPerformanceTag: true, LegacyTagVisibility: 0));
 
-            Assert.DoesNotContain(disabled.StatusBadges, badge => badge.Kind == RosterBadgeKind.LegacySkill);
-            Assert.Contains(enabled.StatusBadges, badge => badge.Kind == RosterBadgeKind.LegacySkill);
+            Assert.Empty(disabled.Performance.Icon);
+            Assert.Equal(ApeRadar.Properties.Settings.Default.ApeIcon, enabled.Performance.Icon);
         }
         finally
         {
             ApeRadar.Properties.Settings.Default.ApeWinrateThreshold = oldThreshold;
             ApeRadar.Properties.Settings.Default.ApeBattleCountThreshold = oldBattles;
+        }
+    }
+
+    [Fact]
+    public void PerformanceCell_CanUseAccountPrOrSelectedWinrate()
+    {
+        Player player = CreatePlayer("Performance", 8_000);
+        int oldWinrateType = ApeRadar.Properties.Settings.Default.WinrateTypeUsed;
+        int oldColorStyle = ApeRadar.Properties.Settings.Default.ColorStyle;
+        try
+        {
+            ApeRadar.Properties.Settings.Default.ColorStyle = 2;
+            ApeRadar.Properties.Settings.Default.WinrateTypeUsed = 0;
+            PlayerRosterRowViewModel pr = CreateRow(player,
+                new(0, 0, 0, 0, 0, 0, 0, true, PerformanceMetric: RosterPerformanceMetric.PR));
+            PlayerRosterRowViewModel winrate = CreateRow(player,
+                new(0, 0, 0, 0, 0, 0, 0, true, PerformanceMetric: RosterPerformanceMetric.Winrate));
+
+            Assert.Equal(1_650, pr.Performance.RawValue);
+            Assert.Equal(player.AccountWinrate, winrate.Performance.RawValue);
+            Assert.Equal(RosterPerformanceMetric.PR, pr.Performance.Metric);
+            Assert.Equal(RosterPerformanceMetric.Winrate, winrate.Performance.Metric);
+            Assert.NotEqual(pr.Performance.ToolTip, winrate.Performance.ToolTip);
+        }
+        finally
+        {
+            ApeRadar.Properties.Settings.Default.WinrateTypeUsed = oldWinrateType;
+            ApeRadar.Properties.Settings.Default.ColorStyle = oldColorStyle;
+        }
+    }
+
+    [Fact]
+    public void PerformanceCell_UsesWeightedWinrateWhenConfigured()
+    {
+        Player player = CreatePlayer("Weighted", 8_000);
+        int oldWinrateType = ApeRadar.Properties.Settings.Default.WinrateTypeUsed;
+        try
+        {
+            ApeRadar.Properties.Settings.Default.WinrateTypeUsed = 1;
+            PlayerRosterRowViewModel row = CreateRow(player,
+                new(0, 0, 0, 0, 0, 0, 0, true, PerformanceMetric: RosterPerformanceMetric.Winrate));
+
+            Assert.Equal(player.WeightedWinrate, row.Performance.RawValue);
+        }
+        finally
+        {
+            ApeRadar.Properties.Settings.Default.WinrateTypeUsed = oldWinrateType;
         }
     }
 

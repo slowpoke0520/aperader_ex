@@ -29,7 +29,23 @@ namespace ApeRadar.Utils
         int MostPlayedTier,
         double MostPlayedBattles,
         double MostPlayedShare,
-        bool IsLowTierBiased);
+        bool IsLowTierBiased,
+        SealClubAnalysis SealClub);
+
+    internal sealed record SealClubAnalysis(
+        double TotalBattles,
+        double LowTierBattles,
+        double HighTierBattles,
+        double LowTierWinrate,
+        double HighTierWinrate,
+        double LowTierPr,
+        double HighTierPr,
+        double LowTierPrCoverage,
+        double HighTierPrCoverage,
+        bool IsMatch)
+    {
+        internal static readonly SealClubAnalysis Empty = new(-1, -1, -1, -1, -1, -1, -1, 0, 0, false);
+    }
 
     internal static class TierPerformanceUtils
     {
@@ -59,7 +75,8 @@ namespace ApeRadar.Utils
                     0,
                     -1,
                     -1,
-                    false);
+                    false,
+                    SealClubAnalysis.Empty);
             }
 
             List<TierShipStatistics> exact = valid.Where(x => x.Tier == currentTier).ToList();
@@ -91,8 +108,8 @@ namespace ApeRadar.Utils
             double mostPlayedBattles = mostPlayed?.Sum(x => x.Battles) ?? 0;
             int mostPlayedTier = mostPlayed?.Key ?? 0;
             double mostPlayedShare = recognizedBattles > 0 ? mostPlayedBattles / recognizedBattles : 0;
-            double lowTierBattles = valid.Where(x => x.Tier <= 5).Sum(x => x.Battles);
-            bool isLowTierBiased = currentTier >= 8 && recognizedBattles >= 500 && lowTierBattles / recognizedBattles >= 0.6;
+            SealClubAnalysis sealClub = CalculateSealClubAnalysis(valid);
+            bool isLowTierBiased = sealClub.IsMatch;
 
             return new TierPerformanceSummary(
                 currentTier,
@@ -110,7 +127,8 @@ namespace ApeRadar.Utils
                 mostPlayedTier,
                 mostPlayedBattles,
                 mostPlayedShare,
-                isLowTierBiased);
+                isLowTierBiased,
+                sealClub);
         }
 
         internal static void ApplyTo(Player player, IEnumerable<TierShipStatistics> shipStatistics)
@@ -132,6 +150,64 @@ namespace ApeRadar.Utils
             player.MostPlayedTierBattles = summary.MostPlayedBattles;
             player.MostPlayedTierShare = summary.MostPlayedShare;
             player.IsLowTierBiased = summary.IsLowTierBiased;
+            player.LowTierBattles = summary.SealClub.LowTierBattles;
+            player.HighTierBattles = summary.SealClub.HighTierBattles;
+            player.LowTierWinrate = summary.SealClub.LowTierWinrate;
+            player.HighTierWinrate = summary.SealClub.HighTierWinrate;
+            player.LowTierPR = summary.SealClub.LowTierPr;
+            player.HighTierPR = summary.SealClub.HighTierPr;
+        }
+
+        internal static SealClubAnalysis EvaluateSealClub(
+            double totalBattles,
+            double lowTierBattles,
+            double highTierBattles,
+            double lowTierWinrate,
+            double highTierWinrate,
+            double lowTierPr,
+            double highTierPr,
+            double lowTierPrCoverage = 1,
+            double highTierPrCoverage = 1,
+            bool reachedTierEight = true)
+        {
+            bool match = reachedTierEight &&
+                totalBattles >= 1_000 &&
+                lowTierBattles >= 500 &&
+                highTierBattles >= 200 &&
+                lowTierBattles / totalBattles >= 0.50 &&
+                lowTierWinrate >= 0.56 &&
+                lowTierWinrate - highTierWinrate >= 0.06 &&
+                lowTierPr >= 1_600 &&
+                highTierPr > 0 &&
+                lowTierPr >= highTierPr * 1.25 &&
+                lowTierPrCoverage >= 0.90 &&
+                highTierPrCoverage >= 0.90;
+            return new(totalBattles, lowTierBattles, highTierBattles, lowTierWinrate, highTierWinrate,
+                lowTierPr, highTierPr, lowTierPrCoverage, highTierPrCoverage, match);
+        }
+
+        private static SealClubAnalysis CalculateSealClubAnalysis(IReadOnlyCollection<TierShipStatistics> valid)
+        {
+            double totalBattles = valid.Sum(x => x.Battles);
+            TierShipStatistics[] low = valid.Where(x => x.Tier <= 5).ToArray();
+            TierShipStatistics[] high = valid.Where(x => x.Tier >= 8).ToArray();
+            double lowBattles = low.Sum(x => x.Battles);
+            double highBattles = high.Sum(x => x.Battles);
+            double lowWinrate = lowBattles > 0 ? low.Sum(x => x.Wins) / lowBattles : -1;
+            double highWinrate = highBattles > 0 ? high.Sum(x => x.Wins) / highBattles : -1;
+            (double lowPr, double lowCoverage) = CalculatePrAndCoverage(low);
+            (double highPr, double highCoverage) = CalculatePrAndCoverage(high);
+            return EvaluateSealClub(totalBattles, lowBattles, highBattles, lowWinrate, highWinrate,
+                lowPr, highPr, lowCoverage, highCoverage, high.Any());
+        }
+
+        private static (double pr, double coverage) CalculatePrAndCoverage(IEnumerable<TierShipStatistics> ships)
+        {
+            TierShipStatistics[] values = ships.ToArray();
+            double battles = values.Sum(x => x.Battles);
+            double covered = values.Where(x => PRUtils.TryGetExpectedValues(x.ShipId, out _, out _, out _)).Sum(x => x.Battles);
+            double pr = PRUtils.CalculateAccountPR(values.Select(x => (x.ShipId, x.Battles, x.DamageDealt, x.Frags, x.Wins)));
+            return (pr, battles > 0 ? covered / battles : 0);
         }
 
         private static (int minTier, int maxTier) GetReferenceRange(int currentTier)

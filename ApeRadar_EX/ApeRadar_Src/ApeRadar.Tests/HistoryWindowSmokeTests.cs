@@ -112,20 +112,40 @@ public sealed class HistoryWindowSmokeTests
         bool previousShipTypeIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
         string previousDensity = ApeRadar.Properties.Settings.Default.RosterDisplayDensity;
         bool previousLegacyTag = ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag;
-        ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats = true;
+        bool previousAccountColumn = ApeRadar.Properties.Settings.Default.ShowAccountRosterColumn;
+        bool previousShipColumn = ApeRadar.Properties.Settings.Default.ShowShipRosterColumn;
+        bool previousPerformanceColumn = ApeRadar.Properties.Settings.Default.ShowPerformanceRosterColumn;
+        string previousPerformanceMetric = ApeRadar.Properties.Settings.Default.RosterPerformanceMetric;
+        bool previousAnalysisExpanded = ApeRadar.Properties.Settings.Default.AnalysisPanelExpanded;
+        int previousAccountWinrate = ApeRadar.Properties.Settings.Default.AccountWinrateVisibility;
+        int previousAccountAvgExp = ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility;
+        int previousWeightedWinrate = ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility;
+        int previousShipWinrate = ApeRadar.Properties.Settings.Default.ShipWinrateVisibility;
+        int previousShipAvgDamage = ApeRadar.Properties.Settings.Default.ShipAvgDmgVisibility;
+        int previousShipAvgExp = ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility;
+        int previousPr = ApeRadar.Properties.Settings.Default.PRVisibility;
+        ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats = false;
         ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
         ApeRadar.Properties.Settings.Default.RosterDisplayDensity = "Standard";
         ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag = false;
+        ApeRadar.Properties.Settings.Default.ShowAccountRosterColumn = true;
+        ApeRadar.Properties.Settings.Default.ShowShipRosterColumn = true;
+        ApeRadar.Properties.Settings.Default.ShowPerformanceRosterColumn = true;
+        ApeRadar.Properties.Settings.Default.RosterPerformanceMetric = "PR";
+        ApeRadar.Properties.Settings.Default.AnalysisPanelExpanded = true;
+        ApeRadar.Properties.Settings.Default.AccountWinrateVisibility = 0;
+        ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility = 2;
+        ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility = 2;
+        ApeRadar.Properties.Settings.Default.ShipWinrateVisibility = 0;
+        ApeRadar.Properties.Settings.Default.ShipAvgDmgVisibility = 0;
+        ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility = 2;
+        ApeRadar.Properties.Settings.Default.PRVisibility = 0;
         MainWindow window = new(initializeRuntime: false)
         {
             WindowState = WindowState.Normal,
             ShowInTaskbar = false
         };
-        foreach (string key in new[] { "RosterPlayerColumn", "RosterAccountColumn", "RosterShipColumn", "RosterTierColumn", "RosterStatusColumn" })
-        {
-            window.DataGridAlliesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource(key)));
-            window.DataGridEnemiesList.Columns.Add(Assert.IsType<DataGridTemplateColumn>(window.FindResource(key)));
-        }
+        window.RefreshDataGridColumns(mirrored: false);
         RosterPresentationService presentation = new();
         RosterPresentationOptions options = RosterPresentationOptions.FromCurrentSettings();
         window.DataGridAlliesList.ItemsSource = presentation.CreateRows(Enumerable.Range(1, 12).Select(i => CreateTierPerformancePlayer($"Allied sample {i}", i == 1 ? "0" : "1")), options);
@@ -148,9 +168,13 @@ public sealed class HistoryWindowSmokeTests
             AssertElementsDoNotOverlap(window, messages, buttons, width, height);
             AssertElementsDoNotOverlap(window, messages, summary, width, height);
             FrameworkElement analysis = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("AnalysisPanel"));
-            Assert.Equal(Visibility.Collapsed, analysis.Visibility);
-            Assert.Equal(5, window.DataGridAlliesList.Columns.Count);
-            Assert.Equal(5, window.DataGridEnemiesList.Columns.Count);
+            Assert.Equal(renderedWidth >= 1900 ? Visibility.Visible : Visibility.Collapsed, analysis.Visibility);
+            Assert.Equal(4, window.DataGridAlliesList.Columns.Count);
+            Assert.Equal(4, window.DataGridEnemiesList.Columns.Count);
+            Assert.False(window.DataGridAlliesList.CanUserResizeColumns);
+            Assert.False(window.DataGridEnemiesList.CanUserResizeColumns);
+            Assert.All(window.DataGridAlliesList.Columns, column => Assert.False(column.CanUserResize));
+            Assert.All(window.DataGridEnemiesList.Columns, column => Assert.False(column.CanUserResize));
             Assert.Equal(renderedWidth < 1030 ? Visibility.Collapsed : Visibility.Visible, summary.Visibility);
             Assert.Equal(window.DataGridAlliesList.Columns[1].ActualWidth, window.DataGridEnemiesList.Columns[1].ActualWidth, 1);
             AssertDataGridCellContentsStayInside(window.DataGridAlliesList, width, height);
@@ -164,8 +188,20 @@ public sealed class HistoryWindowSmokeTests
                 Assert.Equal(Visibility.Collapsed, enemiesScroll.ComputedVerticalScrollBarVisibility);
                 Assert.Equal(Visibility.Collapsed, alliesScroll.ComputedHorizontalScrollBarVisibility);
                 Assert.Equal(Visibility.Collapsed, enemiesScroll.ComputedHorizontalScrollBarVisibility);
-                Assert.InRange(window.DataGridAlliesList.RowHeight, RosterLayoutCalculator.MinimumRowHeight, RosterLayoutCalculator.PreferredRowHeight);
+                Assert.InRange(window.DataGridAlliesList.RowHeight, 54 * RosterLayoutCalculator.MinimumScale, 68);
 
+                double alliesWidthBeforeCollapse = window.DataGridAlliesList.ActualWidth;
+                window.BtnToggleAnalysis.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                window.UpdateLayout();
+                Assert.Equal(Visibility.Collapsed, analysis.Visibility);
+                Assert.True(window.DataGridAlliesList.ActualWidth > alliesWidthBeforeCollapse);
+                window.BtnToggleAnalysis.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                window.UpdateLayout();
+                Assert.Equal(Visibility.Visible, analysis.Visibility);
+            }
+
+            if (Math.Abs(width - 1280) < 0.1)
+            {
                 double alliesWidthBeforeDrawer = window.DataGridAlliesList.ActualWidth;
                 window.BtnToggleAnalysis.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 window.UpdateLayout();
@@ -182,23 +218,79 @@ public sealed class HistoryWindowSmokeTests
             }
         }
         DataGridRow firstRow = Assert.IsType<DataGridRow>(window.DataGridAlliesList.ItemContainerGenerator.ContainerFromIndex(0));
-        firstRow.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left)
+        firstRow.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
         {
-            RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent,
+            RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent,
             Source = firstRow
         });
-        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        PumpDispatcher(TimeSpan.FromMilliseconds(400));
         Assert.True(window.PlayerDetailPopup.IsOpen);
         PlayerDetailCardViewModel detail = Assert.IsType<PlayerDetailCardViewModel>(window.PlayerDetailCardContent.DataContext);
         Assert.Equal("Allied sample 1", detail.Player.Name);
-        Assert.InRange(window.PlayerDetailCardBorder.Width, 420, 680);
-        window.BtnClosePlayerDetail.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.InRange(window.PlayerDetailCardBorder.Width, 360, 560);
+        firstRow.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
+        {
+            RoutedEvent = System.Windows.Input.Mouse.MouseLeaveEvent,
+            Source = firstRow
+        });
+        window.PlayerDetailPopup.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
+        {
+            RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent,
+            Source = window.PlayerDetailPopup
+        });
+        PumpDispatcher(TimeSpan.FromMilliseconds(300));
+        Assert.True(window.PlayerDetailPopup.IsOpen);
+        window.PlayerDetailPopup.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
+        {
+            RoutedEvent = System.Windows.Input.Mouse.MouseLeaveEvent,
+            Source = window.PlayerDetailPopup
+        });
+        PumpDispatcher(TimeSpan.FromMilliseconds(300));
+        Assert.False(window.PlayerDetailPopup.IsOpen);
+        firstRow.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
+        {
+            RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent,
+            Source = firstRow
+        });
+        PumpDispatcher(TimeSpan.FromMilliseconds(400));
+        Assert.True(window.PlayerDetailPopup.IsOpen);
+        PumpDispatcher(TimeSpan.FromMilliseconds(250));
         Assert.False(window.PlayerDetailPopup.IsOpen);
         window.Close();
         ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats = previousTierPerformanceSetting;
         ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = previousShipTypeIconSetting;
         ApeRadar.Properties.Settings.Default.RosterDisplayDensity = previousDensity;
         ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag = previousLegacyTag;
+        ApeRadar.Properties.Settings.Default.ShowAccountRosterColumn = previousAccountColumn;
+        ApeRadar.Properties.Settings.Default.ShowShipRosterColumn = previousShipColumn;
+        ApeRadar.Properties.Settings.Default.ShowPerformanceRosterColumn = previousPerformanceColumn;
+        ApeRadar.Properties.Settings.Default.RosterPerformanceMetric = previousPerformanceMetric;
+        ApeRadar.Properties.Settings.Default.AnalysisPanelExpanded = previousAnalysisExpanded;
+        ApeRadar.Properties.Settings.Default.AccountWinrateVisibility = previousAccountWinrate;
+        ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility = previousAccountAvgExp;
+        ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility = previousWeightedWinrate;
+        ApeRadar.Properties.Settings.Default.ShipWinrateVisibility = previousShipWinrate;
+        ApeRadar.Properties.Settings.Default.ShipAvgDmgVisibility = previousShipAvgDamage;
+        ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility = previousShipAvgExp;
+        ApeRadar.Properties.Settings.Default.PRVisibility = previousPr;
+    }
+
+    private static void PumpDispatcher(TimeSpan duration)
+    {
+        System.Windows.Threading.DispatcherFrame frame = new();
+        System.Windows.Threading.DispatcherTimer timer = new(
+            System.Windows.Threading.DispatcherPriority.Background,
+            System.Windows.Threading.Dispatcher.CurrentDispatcher)
+        {
+            Interval = duration
+        };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            frame.Continue = false;
+        };
+        timer.Start();
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
     }
 
     private static void AssertShipTypeIconsRefreshWithoutReload(MainWindow window, string language)
@@ -347,8 +439,9 @@ public sealed class HistoryWindowSmokeTests
         Assert.Equal(3, Grid.GetColumn(Assert.IsType<Grid>(window.ComboBoxSoftwareUpdateChannel.Parent)));
         Assert.Equal(200, window.ComboBoxSoftwareUpdateChannel.Width);
         CheckBox tierPerformanceCheckBox = Assert.IsType<CheckBox>(window.FindName("ChkBoxShowTierPerformanceStats"));
-        StackPanel tierPerformancePanel = Assert.IsType<StackPanel>(tierPerformanceCheckBox.Parent);
-        Grid tierPerformanceCell = Assert.IsType<Grid>(tierPerformancePanel.Parent);
+        WrapPanel tierPerformancePanel = Assert.IsType<WrapPanel>(tierPerformanceCheckBox.Parent);
+        StackPanel rosterOptions = Assert.IsType<StackPanel>(tierPerformancePanel.Parent);
+        Grid tierPerformanceCell = Assert.IsType<Grid>(rosterOptions.Parent);
         Assert.Equal(8, Grid.GetRow(tierPerformanceCell));
         window.ConfigTabs.SelectedIndex = 5;
         window.UpdateLayout();
@@ -357,27 +450,33 @@ public sealed class HistoryWindowSmokeTests
         bool persistedIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
         string persistedDensity = ApeRadar.Properties.Settings.Default.RosterDisplayDensity;
         bool persistedLegacyTag = ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag;
+        string persistedPerformanceMetric = ApeRadar.Properties.Settings.Default.RosterPerformanceMetric;
         try
         {
             ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = false;
             ApeRadar.Properties.Settings.Default.RosterDisplayDensity = "Comfortable";
             ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag = true;
+            ApeRadar.Properties.Settings.Default.RosterPerformanceMetric = "Winrate";
             window.ChkBoxShowShipTypeIcon.IsChecked = false;
             window.ComboBoxRosterDisplayDensity.SelectedValue = "Comfortable";
             window.ChkBoxShowLegacyPerformanceTag.IsChecked = true;
+            window.ComboBoxRosterPerformanceMetric.SelectedValue = "Winrate";
             window.ApplyDefaultsForSelectedPage();
             Assert.True(window.ChkBoxShowShipTypeIcon.IsChecked);
             Assert.Equal("Standard", window.ComboBoxRosterDisplayDensity.SelectedValue);
             Assert.False(window.ChkBoxShowLegacyPerformanceTag.IsChecked);
+            Assert.Equal("PR", window.ComboBoxRosterPerformanceMetric.SelectedValue);
             Assert.False(ApeRadar.Properties.Settings.Default.ShowShipTypeIcon);
             Assert.Equal("Comfortable", ApeRadar.Properties.Settings.Default.RosterDisplayDensity);
             Assert.True(ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag);
+            Assert.Equal("Winrate", ApeRadar.Properties.Settings.Default.RosterPerformanceMetric);
         }
         finally
         {
             ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = persistedIconSetting;
             ApeRadar.Properties.Settings.Default.RosterDisplayDensity = persistedDensity;
             ApeRadar.Properties.Settings.Default.ShowLegacyPerformanceTag = persistedLegacyTag;
+            ApeRadar.Properties.Settings.Default.RosterPerformanceMetric = persistedPerformanceMetric;
         }
         window.ConfigTabs.SelectedIndex = window.ConfigTabs.Items.Count - 1;
         foreach ((double width, double height) in new[] { (600d, 360d), (900d, 560d), (1100d, 700d) })

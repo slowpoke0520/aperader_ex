@@ -370,16 +370,32 @@
                                 <Label Content="{DynamicResource LabelRosterDisplay}" Margin="5" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                             </Grid>
                             <Grid Grid.Row="8" Grid.Column="3" Grid.ColumnSpan="5">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,5,0,0">
-                                    <ComboBox x:Name="ComboBoxRosterDisplayDensity" SelectedValuePath="Tag" Width="125" Margin="5">
-                                        <ComboBoxItem Tag="Standard" Content="{DynamicResource RosterDensityStandard}"/>
-                                        <ComboBoxItem Tag="Compact" Content="{DynamicResource RosterDensityCompact}"/>
-                                        <ComboBoxItem Tag="Comfortable" Content="{DynamicResource RosterDensityComfortable}"/>
-                                    </ComboBox>
-                                    <CheckBox x:Name="ChkBoxShowShipTypeIcon" Content="{DynamicResource ChkBoxShowShipTypeIcon}" VerticalAlignment="Center" Margin="5"/>
-                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipShowShipTypeIcon}" VerticalAlignment="Center"/>
-                                    <CheckBox x:Name="ChkBoxShowLegacyPerformanceTag" Content="{DynamicResource ChkBoxShowLegacyPerformanceTag}" VerticalAlignment="Center" Margin="14,5,5,5"/>
-                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipShowLegacyPerformanceTag}" VerticalAlignment="Center"/>
+                                <StackPanel VerticalAlignment="Top" Margin="0,5,0,0">
+                                    <WrapPanel>
+                                        <ComboBox x:Name="ComboBoxRosterDisplayDensity" SelectedValuePath="Tag" Width="125" Margin="5">
+                                            <ComboBoxItem Tag="Standard" Content="{DynamicResource RosterDensityStandard}"/>
+                                            <ComboBoxItem Tag="Compact" Content="{DynamicResource RosterDensityCompact}"/>
+                                            <ComboBoxItem Tag="Comfortable" Content="{DynamicResource RosterDensityComfortable}"/>
+                                        </ComboBox>
+                                        <CheckBox x:Name="ChkBoxShowShipTypeIcon" Content="{DynamicResource ChkBoxShowShipTypeIcon}" VerticalAlignment="Center" Margin="5"/>
+                                        <CheckBox x:Name="ChkBoxShowLegacyPerformanceTag" Content="{DynamicResource ChkBoxShowLegacyPerformanceTag}" VerticalAlignment="Center" Margin="12,5,5,5"/>
+                                    </WrapPanel>
+                                    <WrapPanel>
+                                        <CheckBox x:Name="ChkBoxShowAccountRosterColumn" Content="{DynamicResource ChkBoxShowAccountRosterColumn}" Margin="5"/>
+                                        <CheckBox x:Name="ChkBoxShowShipRosterColumn" Content="{DynamicResource ChkBoxShowShipRosterColumn}" Margin="12,5,5,5"/>
+                                        <CheckBox x:Name="ChkBoxShowTierPerformanceStats" Content="{DynamicResource ChkBoxShowTierPerformanceStats}" Margin="12,5,5,5"/>
+                                        <CheckBox x:Name="ChkBoxShowPerformanceRosterColumn" Content="{DynamicResource ChkBoxShowPerformanceRosterColumn}" Margin="12,5,5,5"/>
+                                    </WrapPanel>
+                                    <WrapPanel>
+                                        <CheckBox x:Name="ChkBoxShowRecentEncounterBadges" Content="{DynamicResource ChkBoxShowRecentEncounterBadges}" Margin="5"/>
+                                        <CheckBox x:Name="ChkBoxShowFixedTeammateBadges" Content="{DynamicResource ChkBoxShowFixedTeammateBadges}" Margin="12,5,5,5"/>
+                                        <CheckBox x:Name="ChkBoxShowCachedDataBadges" Content="{DynamicResource ChkBoxShowCachedDataBadges}" Margin="12,5,5,5"/>
+                                        <TextBlock Text="{DynamicResource LabelRosterPerformanceMetric}" VerticalAlignment="Center" Margin="14,5,4,5"/>
+                                        <ComboBox x:Name="ComboBoxRosterPerformanceMetric" SelectedValuePath="Tag" Width="118" Margin="4,2,5,2">
+                                            <ComboBoxItem Tag="PR" Content="{DynamicResource RosterPerformancePR}"/>
+                                            <ComboBoxItem Tag="Winrate" Content="{DynamicResource RosterPerformanceWinrate}"/>
+                                        </ComboBox>
+                                    </WrapPanel>
                                 </StackPanel>
                             </Grid>
                         </Grid>
@@ -889,12 +905,6 @@
                                 <StackPanel Orientation="Horizontal">
                                     <CheckBox x:Name="ChkBoxShowExperimentalReplayMetrics" Content="{DynamicResource ChkBoxShowExperimentalReplayMetrics}" VerticalAlignment="Center" Margin="5"/>
                                     <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipShowExperimentalReplayMetrics}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="8" Grid.Column="3">
-                                <StackPanel Orientation="Horizontal">
-                                    <CheckBox x:Name="ChkBoxShowTierPerformanceStats" Content="{DynamicResource ChkBoxShowTierPerformanceStats}" VerticalAlignment="Center" Margin="5"/>
-                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipShowTierPerformanceStats}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
                             <Grid Grid.Row="9" Grid.Column="3">

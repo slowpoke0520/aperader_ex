@@ -6,11 +6,65 @@ using System.Linq;
 
 namespace ApeRadar.ViewModels
 {
+    internal enum RosterColumnKind
+    {
+        Player,
+        Account,
+        Ship,
+        Tier,
+        Performance
+    }
+
+    internal enum PlayerSkillBand
+    {
+        Unavailable,
+        Bad,
+        BelowAverage,
+        Average,
+        Good,
+        VeryGood,
+        Great,
+        Unicum,
+        SuperUnicum
+    }
+
+    internal static class PlayerSkillBandUtils
+    {
+        public static PlayerSkillBand FromPr(double pr) => pr switch
+        {
+            < 0 => PlayerSkillBand.Unavailable,
+            < 750 => PlayerSkillBand.Bad,
+            < 1100 => PlayerSkillBand.BelowAverage,
+            < 1350 => PlayerSkillBand.Average,
+            < 1550 => PlayerSkillBand.Good,
+            < 1750 => PlayerSkillBand.VeryGood,
+            < 2100 => PlayerSkillBand.Great,
+            < 2450 => PlayerSkillBand.Unicum,
+            _ => PlayerSkillBand.SuperUnicum
+        };
+    }
+
     internal enum RosterDisplayDensity
     {
         Compact,
         Standard,
         Comfortable
+    }
+
+    internal enum RosterPerformanceMetric
+    {
+        PR,
+        Winrate
+    }
+
+    internal static class RosterPerformanceMetricExtensions
+    {
+        public static RosterPerformanceMetric Parse(string? value) =>
+            Enum.TryParse(value, ignoreCase: true, out RosterPerformanceMetric metric)
+                ? metric
+                : RosterPerformanceMetric.PR;
+
+        public static string ToSettingValue(this RosterPerformanceMetric metric) => metric.ToString();
     }
 
     internal static class RosterDisplayDensityExtensions
@@ -48,8 +102,7 @@ namespace ApeRadar.ViewModels
         Hidden,
         Cached,
         LowTierBias,
-        Loading,
-        LegacySkill
+        Loading
     }
 
     internal enum RosterBadgeSeverity
@@ -77,11 +130,13 @@ namespace ApeRadar.ViewModels
     internal sealed class MetricGroupViewModel
     {
         public IReadOnlyList<MetricLineViewModel> Lines { get; }
+        public IReadOnlyList<MetricItemViewModel> Items { get; }
         public bool IsVisible => Lines.Count > 0;
 
         public MetricGroupViewModel(IEnumerable<MetricLineViewModel> lines)
         {
             Lines = lines.Where(line => line.Items.Count > 0).ToArray();
+            Items = Lines.SelectMany(line => line.Items).ToArray();
         }
     }
 
@@ -92,6 +147,20 @@ namespace ApeRadar.ViewModels
         string DisplayText,
         string ToolTip,
         double Opacity = 1);
+
+    internal sealed record PerformanceCellViewModel(
+        RosterPerformanceMetric Metric,
+        double? RawValue,
+        PlayerSkillBand Band,
+        string BackgroundColor,
+        string ForegroundColor,
+        string Icon,
+        double IconOpacity,
+        string ToolTip,
+        string AccessibleName)
+    {
+        public bool HasIcon => !string.IsNullOrWhiteSpace(Icon);
+    }
 
     internal sealed class PlayerDetailCardViewModel
     {
@@ -123,6 +192,10 @@ namespace ApeRadar.ViewModels
         public string AllStatusToolTip { get; }
         public bool HasOverflowBadges => OverflowBadgeCount > 0;
         public PlayerDetailCardViewModel Detail { get; }
+        public PlayerSkillBand SkillBand { get; }
+        public string SkillBandText { get; }
+        public string SkillBandToolTip { get; }
+        public PerformanceCellViewModel Performance { get; }
 
         public PlayerRosterRowViewModel(
             Player player,
@@ -130,7 +203,11 @@ namespace ApeRadar.ViewModels
             MetricGroupViewModel shipMetrics,
             MetricGroupViewModel tierMetrics,
             string contextPreview,
-            IReadOnlyList<RosterStatusBadgeViewModel> statusBadges)
+            IReadOnlyList<RosterStatusBadgeViewModel> statusBadges,
+            PlayerSkillBand skillBand,
+            string skillBandText,
+            string skillBandToolTip,
+            PerformanceCellViewModel performance)
         {
             Player = player;
             AccountMetrics = accountMetrics;
@@ -142,6 +219,10 @@ namespace ApeRadar.ViewModels
             OverflowBadgeCount = Math.Max(0, statusBadges.Count - VisibleBadgeLimit);
             AllStatusToolTip = string.Join(Environment.NewLine, statusBadges.Select(badge => badge.ToolTip));
             Detail = new PlayerDetailCardViewModel(player, statusBadges);
+            SkillBand = skillBand;
+            SkillBandText = skillBandText;
+            SkillBandToolTip = skillBandToolTip;
+            Performance = performance;
         }
     }
 
@@ -156,7 +237,14 @@ namespace ApeRadar.ViewModels
         bool ShowTierPerformance,
         RosterDisplayDensity DisplayDensity = RosterDisplayDensity.Standard,
         bool ShowLegacyPerformanceTag = false,
-        int LegacyTagVisibility = 2)
+        int LegacyTagVisibility = 2,
+        bool ShowAccountColumn = true,
+        bool ShowShipColumn = true,
+        bool ShowPerformanceColumn = true,
+        bool ShowRecentEncounterBadges = true,
+        bool ShowFixedTeammateBadges = true,
+        bool ShowCachedDataBadges = true,
+        RosterPerformanceMetric PerformanceMetric = RosterPerformanceMetric.PR)
     {
         public static RosterPresentationOptions FromCurrentSettings() => new(
             Properties.Settings.Default.AccountWinrateVisibility,
@@ -169,7 +257,14 @@ namespace ApeRadar.ViewModels
             Properties.Settings.Default.ShowTierPerformanceStats,
             RosterDisplayDensityExtensions.Parse(Properties.Settings.Default.RosterDisplayDensity),
             Properties.Settings.Default.ShowLegacyPerformanceTag,
-            Properties.Settings.Default.TagVisibility);
+            Properties.Settings.Default.TagVisibility,
+            Properties.Settings.Default.ShowAccountRosterColumn,
+            Properties.Settings.Default.ShowShipRosterColumn,
+            Properties.Settings.Default.ShowPerformanceRosterColumn,
+            Properties.Settings.Default.ShowRecentEncounterBadges,
+            Properties.Settings.Default.ShowFixedTeammateBadges,
+            Properties.Settings.Default.ShowCachedDataBadges,
+            RosterPerformanceMetricExtensions.Parse(Properties.Settings.Default.RosterPerformanceMetric));
     }
 
     internal sealed class PlayerRosterRowComparer : IComparer

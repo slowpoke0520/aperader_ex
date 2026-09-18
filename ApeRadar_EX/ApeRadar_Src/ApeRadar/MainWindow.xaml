@@ -372,16 +372,16 @@
             <TextBlock Text="{DynamicResource DataGridHeaderPlayer}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right"/>
         </DataTemplate>
         <DataTemplate x:Key="RosterAccountHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsAccount}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsAccount}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         </DataTemplate>
         <DataTemplate x:Key="RosterShipHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsShip}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsShip}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         </DataTemplate>
         <DataTemplate x:Key="RosterTierHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsTier}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsTier}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         </DataTemplate>
-        <DataTemplate x:Key="RosterStatusHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderStatus}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        <DataTemplate x:Key="RosterPerformanceHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderPerformance}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         </DataTemplate>
 
         <DataTemplate x:Key="RosterPlayerTemplate">
@@ -399,45 +399,20 @@
         <DataTemplate x:Key="RosterTierTemplate">
             <controls:PlayerMetricGroup DataContext="{Binding TierMetrics}"/>
         </DataTemplate>
-        <DataTemplate x:Key="RosterStatusTemplate">
-            <WrapPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="100" ToolTip="{Binding AllStatusToolTip}">
-                <ItemsControl ItemsSource="{Binding VisibleStatusBadges}">
-                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border CornerRadius="4" Padding="5,2" Margin="2,1" Opacity="{Binding Opacity}"
-                                    Background="{Binding Severity, Converter={StaticResource CvtRosterBadgeBrush}, ConverterParameter=Background}"
-                                    ToolTip="{Binding ToolTip}">
-                                <TextBlock FontSize="10" FontWeight="SemiBold"
-                                           Foreground="{Binding Severity, Converter={StaticResource CvtRosterBadgeBrush}, ConverterParameter=Foreground}">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Text" Value="{Binding DisplayText}"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=UseCompactStatusBadges}" Value="True">
-                                                    <Setter Property="Text" Value="{Binding CompactText}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <Border CornerRadius="4" Padding="5,2" Margin="2,1" Background="{StaticResource SurfaceMutedBrush}"
-                        Visibility="{Binding HasOverflowBadges, Converter={StaticResource BoolToVisibility}}" ToolTip="{Binding AllStatusToolTip}">
-                    <TextBlock Text="{Binding OverflowBadgeText}" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                </Border>
-            </WrapPanel>
+        <DataTemplate x:Key="RosterPerformanceTemplate">
+            <Border ToolTip="{Binding Performance.ToolTip}" Background="{Binding Performance.BackgroundColor}"
+                    AutomationProperties.Name="{Binding Performance.AccessibleName}">
+                <TextBlock Text="{Binding Performance.Icon}" TextAlignment="Center" VerticalAlignment="Center"
+                           FontSize="22" Foreground="{Binding Performance.ForegroundColor}" Opacity="{Binding Performance.IconOpacity}"/>
+            </Border>
         </DataTemplate>
 
-        <DataGridTemplateColumn x:Key="RosterPlayerColumn" x:Shared="False" SortMemberPath="Player" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplate}" CellTemplate="{StaticResource RosterPlayerTemplate}" Width="190" MinWidth="190"/>
-        <DataGridTemplateColumn x:Key="RosterPlayerColumnMirrored" x:Shared="False" SortMemberPath="Player" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplateMirrored}" CellTemplate="{StaticResource RosterPlayerTemplateMirrored}" Width="190" MinWidth="190"/>
-        <DataGridTemplateColumn x:Key="RosterAccountColumn" x:Shared="False" SortMemberPath="Account" HeaderTemplate="{StaticResource RosterAccountHeaderTemplate}" CellTemplate="{StaticResource RosterAccountTemplate}" Width="136" MinWidth="136"/>
-        <DataGridTemplateColumn x:Key="RosterShipColumn" x:Shared="False" SortMemberPath="Ship" HeaderTemplate="{StaticResource RosterShipHeaderTemplate}" CellTemplate="{StaticResource RosterShipTemplate}" Width="158" MinWidth="158"/>
-        <DataGridTemplateColumn x:Key="RosterTierColumn" x:Shared="False" SortMemberPath="Tier" HeaderTemplate="{StaticResource RosterTierHeaderTemplate}" CellTemplate="{StaticResource RosterTierTemplate}" Width="132" MinWidth="132"/>
-        <DataGridTemplateColumn x:Key="RosterStatusColumn" x:Shared="False" SortMemberPath="Status" HeaderTemplate="{StaticResource RosterStatusHeaderTemplate}" CellTemplate="{StaticResource RosterStatusTemplate}" Width="92" MinWidth="68"/>
+        <DataGridTemplateColumn x:Key="RosterPlayerColumn" x:Shared="False" SortMemberPath="Player" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplate}" CellTemplate="{StaticResource RosterPlayerTemplate}" Width="240" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterPlayerColumnMirrored" x:Shared="False" SortMemberPath="Player" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplateMirrored}" CellTemplate="{StaticResource RosterPlayerTemplateMirrored}" Width="240" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterAccountColumn" x:Shared="False" SortMemberPath="Account" HeaderTemplate="{StaticResource RosterAccountHeaderTemplate}" CellTemplate="{StaticResource RosterAccountTemplate}" Width="96" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterShipColumn" x:Shared="False" SortMemberPath="Ship" HeaderTemplate="{StaticResource RosterShipHeaderTemplate}" CellTemplate="{StaticResource RosterShipTemplate}" Width="124" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterTierColumn" x:Shared="False" SortMemberPath="Tier" HeaderTemplate="{StaticResource RosterTierHeaderTemplate}" CellTemplate="{StaticResource RosterTierTemplate}" Width="96" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterPerformanceColumn" x:Shared="False" SortMemberPath="Performance" HeaderTemplate="{StaticResource RosterPerformanceHeaderTemplate}" CellTemplate="{StaticResource RosterPerformanceTemplate}" Width="56" CanUserResize="False"/>
 
         <ContextMenu x:Key="RowMenu" DataContext="{Binding PlacementTarget.DataContext.Player, RelativeSource={RelativeSource Self}}">
             <MenuItem x:Name="ContextMenuCopyPlayerStatistics" Header="{DynamicResource ContextMenuCopyPlayerStatistics}" Click="ContextMenuCopyPlayerStatistics_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemCopyPlayerStatisticsIsEnabled}}"/>
@@ -586,8 +561,6 @@
             <Setter Property="Focusable" Value="True"/>
             <EventSetter Event="MouseEnter" Handler="RosterRow_MouseEnter"/>
             <EventSetter Event="MouseLeave" Handler="RosterRow_MouseLeave"/>
-            <EventSetter Event="PreviewMouseLeftButtonUp" Handler="RosterRow_PreviewMouseLeftButtonUp"/>
-            <EventSetter Event="PreviewKeyDown" Handler="RosterRow_PreviewKeyDown"/>
         </Style>
 
 
@@ -615,12 +588,17 @@
             </DockPanel>
         </Border>
 
-        <Grid Grid.Row="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+        <Grid x:Name="MainContentGrid" Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition x:Name="AnalysisHostColumn" Width="0"/>
+            </Grid.ColumnDefinitions>
+            <Grid x:Name="RosterContentGrid" Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
             <Grid Grid.Row="0" Margin="0,0,0,6">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <Border Grid.Column="0" Style="{StaticResource SurfaceCardStyle}" Padding="10,6" BorderBrush="#67A98A" BorderThickness="0,0,0,3">
@@ -657,16 +635,18 @@
             </Border>
             <Grid x:Name="RosterTablesGrid" Grid.Row="2">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <DataGrid x:Name="DataGridAlliesList" Grid.Column="0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" SelectionMode="Single"
+                <DataGrid x:Name="DataGridAlliesList" Grid.Column="0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single"
                           ItemsSource="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=AlliesRosterRows}" CanUserReorderColumns="False" CanUserSortColumns="False"
-                          RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ColumnHeaderHeight="32" AlternationCount="2"/>
-                <DataGrid x:Name="DataGridEnemiesList" Grid.Column="2" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" SelectionMode="Single"
+                          RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ColumnHeaderHeight="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveColumnHeaderHeight}" AlternationCount="2"
+                          ScrollViewer.ScrollChanged="RosterDataGrid_ScrollChanged"/>
+                <DataGrid x:Name="DataGridEnemiesList" Grid.Column="2" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single"
                           ItemsSource="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EnemiesRosterRows}" CanUserReorderColumns="False" CanUserSortColumns="False"
-                          RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ColumnHeaderHeight="32" AlternationCount="2"/>
+                          RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ColumnHeaderHeight="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveColumnHeaderHeight}" AlternationCount="2"
+                          ScrollViewer.ScrollChanged="RosterDataGrid_ScrollChanged"/>
             </Grid>
         </Grid>
 
-        <Border x:Name="AnalysisPanel" Grid.Row="1" Width="420" MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+            <Border x:Name="AnalysisPanel" Grid.Column="1" Width="380" MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}}"
                 HorizontalAlignment="Right" Style="{StaticResource SurfaceCardStyle}" Padding="10" Panel.ZIndex="30" Visibility="Collapsed">
             <Border.Effect>
                 <DropShadowEffect Color="#29415F" BlurRadius="18" ShadowDepth="-3" Opacity="0.22"/>
@@ -688,8 +668,9 @@
                 <lvc:CartesianChart Grid.Row="1" x:Name="WinrateChart" TooltipTextSize="13" TooltipFindingStrategy="CompareAllTakeClosest" Margin="0,-8,0,-8"/>
                 <lvc:CartesianChart Grid.Row="2" x:Name="KDEChart" Margin="0,2,0,0"/>
                 <TextBox Grid.Row="3" x:Name="TxtOutputText" Margin="0,6,0,0" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" IsEnabled="{Binding Source={x:Static p:Settings.Default}, Path=OutputTextUnlock}" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=OutputTextFontSize}"/>
-            </Grid>
-        </Border>
+                </Grid>
+            </Border>
+        </Grid>
 
         <Border Grid.Row="2" Style="{StaticResource SurfaceCardStyle}" Padding="5" Margin="0,7,0,0">
             <DockPanel LastChildFill="True">
@@ -746,16 +727,16 @@
             </Border>
         </Popup>
 
-        <Popup x:Name="PlayerDetailPopup" Placement="MousePoint" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
+        <Popup x:Name="PlayerDetailPopup" Placement="Custom" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade"
                Closed="PlayerDetailPopup_Closed" MouseEnter="PlayerDetailPopup_MouseEnter" MouseLeave="PlayerDetailPopup_MouseLeave">
-            <Border x:Name="PlayerDetailCardBorder" Width="680" MaxWidth="680" MaxHeight="720" Style="{StaticResource SurfaceCardStyle}" Padding="10" Margin="6">
+            <Border x:Name="PlayerDetailCardBorder" Width="560" MaxWidth="560" MaxHeight="720" Style="{StaticResource SurfaceCardStyle}" Padding="10" Margin="6">
                 <Border.Effect><DropShadowEffect Color="#29415F" BlurRadius="18" ShadowDepth="3" Opacity="0.24"/></Border.Effect>
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <DockPanel Grid.Row="0" Margin="0,0,0,7">
                         <Button x:Name="BtnClosePlayerDetail" DockPanel.Dock="Right" Content="×" Width="30" Height="28" Padding="0" Margin="4,0,0,0" Click="BtnClosePlayerDetail_Click" ToolTip="{DynamicResource DetailClose}"/>
                         <Button x:Name="BtnCopyPlayerDetail" DockPanel.Dock="Right" Content="{DynamicResource DetailCopySummary}" MinWidth="88" Height="28" Padding="8,2" Margin="4,0,0,0" Click="BtnCopyPlayerDetail_Click"/>
-                        <TextBlock x:Name="TxtPlayerDetailMode" Text="{DynamicResource DetailHoverMode}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource DetailHoverMode}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                     </DockPanel>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="True">
                         <controls:PlayerDetailCard x:Name="PlayerDetailCardContent"/>

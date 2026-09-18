@@ -1,35 +1,143 @@
 using ApeRadar.ViewModels;
 using System;
-using System.Collections.Generic;
 
 namespace ApeRadar.Utils
 {
     internal readonly record struct RosterLayoutMetrics(
         double RowHeight,
+        double ColumnHeaderHeight,
         double PlayerFontSize,
         double StatisticsFontSize,
-        double StatusColumnWidth,
+        double Scale,
         bool UseCompactStatusBadges,
-        bool RequiresHorizontalScroll);
+        bool RequiresHorizontalScroll,
+        bool RequiresVerticalScroll);
 
     internal readonly record struct RosterColumnWidths(
         double Player,
         double Account,
         double Ship,
         double Tier,
-        double Status,
-        bool RequiresHorizontalScroll);
+        double Performance,
+        bool RequiresHorizontalScroll)
+    {
+        public double Total => Player + Account + Ship + Tier + Performance;
+    }
+
+    internal readonly record struct RosterFitMetrics(
+        double NaturalWidth,
+        double NaturalHeight,
+        RosterColumnWidths Columns,
+        RosterLayoutMetrics Layout);
 
     internal static class RosterLayoutCalculator
     {
-        internal const double MinimumRowHeight = 58;
-        internal const double PreferredRowHeight = 68;
-        internal const double MinimumSemanticRosterWidth = 708;
-        private const double ColumnHeaderAllowance = 33;
-        private const double ScrollBarAllowance = 22;
+        internal const double MinimumScale = 0.78;
+        internal const double PlayerWidth = 240;
+        internal const double AccountWidth = 96;
+        internal const double ShipWidth = 124;
+        internal const double TierWidth = 96;
+        internal const double PerformanceWidth = 56;
+        internal const double HeaderHeight = 28;
+        internal const double ScrollBarAllowance = 18;
+        internal const double MinimumSemanticRosterWidth = PlayerWidth + AccountWidth + ShipWidth + TierWidth + PerformanceWidth;
+
+        public static RosterFitMetrics CalculateFit(
+            double availableTeamWidth,
+            double availableHeight,
+            int playerCount,
+            double configuredPlayerFontSize,
+            double configuredStatisticsFontSize,
+            RosterDisplayDensity density,
+            bool showAccount,
+            bool showShip,
+            bool showTier,
+            bool showPerformance)
+        {
+            double naturalRowHeight = density switch
+            {
+                RosterDisplayDensity.Compact => 48,
+                RosterDisplayDensity.Comfortable => 60,
+                _ => 54
+            };
+            int rows = Math.Max(1, playerCount);
+            double naturalWidth = PlayerWidth +
+                (showAccount ? AccountWidth : 0) +
+                (showShip ? ShipWidth : 0) +
+                (showTier ? TierWidth : 0) +
+                (showPerformance ? PerformanceWidth : 0);
+            double naturalHeight = HeaderHeight + rows * naturalRowHeight;
+
+            double widthRatio = availableTeamWidth > 0 ? availableTeamWidth / naturalWidth : 0;
+            double heightRatio = availableHeight > 0 ? availableHeight / naturalHeight : 0;
+            double requestedScale = Math.Min(1, Math.Min(widthRatio, heightRatio));
+            double scale = requestedScale >= MinimumScale ? requestedScale : MinimumScale;
+
+            double maximumRowHeight = density switch
+            {
+                RosterDisplayDensity.Compact => 56,
+                RosterDisplayDensity.Comfortable => 78,
+                _ => 68
+            };
+            double rowHeight = naturalRowHeight * scale;
+            if (requestedScale >= 1 && playerCount <= 12 && availableHeight > HeaderHeight)
+            {
+                rowHeight = Math.Clamp((availableHeight - HeaderHeight) / rows, naturalRowHeight, maximumRowHeight);
+            }
+
+            double arrangedHeight = HeaderHeight * scale + rows * rowHeight;
+            bool requiresVerticalScroll = playerCount > 12 || arrangedHeight > availableHeight + 0.5;
+            double usableWidth = Math.Max(0, availableTeamWidth - (requiresVerticalScroll ? ScrollBarAllowance : 0));
+            bool requiresHorizontalScroll = naturalWidth * scale > usableWidth + 0.5;
+
+            double playerWidth = PlayerWidth * scale;
+            double accountWidth = showAccount ? AccountWidth * scale : 0;
+            double shipWidth = showShip ? ShipWidth * scale : 0;
+            double tierWidth = showTier ? TierWidth * scale : 0;
+            double performanceWidth = showPerformance ? PerformanceWidth * scale : 0;
+            double scaledTotal = playerWidth + accountWidth + shipWidth + tierWidth + performanceWidth;
+            if (!requiresHorizontalScroll)
+            {
+                // Keep statistics stable and give all spare room to names.
+                playerWidth += Math.Max(0, usableWidth - scaledTotal);
+            }
+
+            double playerFontMaximum = density switch
+            {
+                RosterDisplayDensity.Compact => 13.5,
+                RosterDisplayDensity.Comfortable => 16,
+                _ => 15
+            };
+            double statisticsFontMaximum = density switch
+            {
+                RosterDisplayDensity.Compact => 10,
+                RosterDisplayDensity.Comfortable => 12.5,
+                _ => 11.5
+            };
+            double playerFont = Math.Clamp(Math.Min(configuredPlayerFontSize, playerFontMaximum) * scale, 9.5, playerFontMaximum);
+            double statisticsFont = Math.Clamp(Math.Min(configuredStatisticsFontSize, statisticsFontMaximum) * scale, 8.5, statisticsFontMaximum);
+
+            RosterColumnWidths columns = new(
+                Math.Round(playerWidth, 1),
+                Math.Round(accountWidth, 1),
+                Math.Round(shipWidth, 1),
+                Math.Round(tierWidth, 1),
+                Math.Round(performanceWidth, 1),
+                requiresHorizontalScroll);
+            RosterLayoutMetrics layout = new(
+                Math.Round(rowHeight, 1),
+                Math.Round(HeaderHeight * scale, 1),
+                Math.Round(playerFont, 1),
+                Math.Round(statisticsFont, 1),
+                Math.Round(scale, 3),
+                density == RosterDisplayDensity.Compact || scale < 0.9,
+                requiresHorizontalScroll,
+                requiresVerticalScroll);
+            return new(naturalWidth, naturalHeight, columns, layout);
+        }
 
         public static bool RequiresHorizontalScroll(double rosterGridWidth) =>
-            rosterGridWidth < MinimumSemanticRosterWidth + ScrollBarAllowance;
+            rosterGridWidth < MinimumSemanticRosterWidth * MinimumScale;
 
         public static RosterLayoutMetrics Calculate(
             double gridHeight,
@@ -39,28 +147,9 @@ namespace ApeRadar.Utils
             RosterDisplayDensity density = RosterDisplayDensity.Standard,
             double rosterGridWidth = double.PositiveInfinity)
         {
-            (double minimum, double preferred, double minimumPlayerFont, double maximumPlayerFont, double minimumStatisticsFont, double maximumStatisticsFont, double statusWidth) = density switch
-            {
-                RosterDisplayDensity.Compact => (50d, 56d, 10.5d, 14.5d, 10d, 12.5d, 68d),
-                RosterDisplayDensity.Comfortable => (68d, 78d, 12d, 17d, 11d, 15d, 100d),
-                _ => (MinimumRowHeight, PreferredRowHeight, 11d, 15.5d, 10.5d, 13.5d, 92d)
-            };
-
-            int rows = Math.Max(1, playerCount);
-            double available = Math.Max(0, gridHeight - ColumnHeaderAllowance);
-            double rowHeight = Math.Clamp(Math.Floor(available / rows), minimum, preferred);
-            int visibleLines = density == RosterDisplayDensity.Compact ? 2 : 3;
-            double lineBudget = Math.Max(15, (rowHeight - 8) / visibleLines);
-            double playerFont = Math.Min(configuredPlayerFontSize, lineBudget * (density == RosterDisplayDensity.Compact ? 0.68 : 0.78));
-            double statisticsFont = Math.Min(configuredStatisticsFontSize, lineBudget * (density == RosterDisplayDensity.Compact ? 0.58 : 0.68));
-            bool horizontalScroll = RequiresHorizontalScroll(rosterGridWidth);
-            return new RosterLayoutMetrics(
-                rowHeight,
-                Math.Clamp(Math.Round(playerFont, 1), minimumPlayerFont, maximumPlayerFont),
-                Math.Clamp(Math.Round(statisticsFont, 1), minimumStatisticsFont, maximumStatisticsFont),
-                statusWidth,
-                horizontalScroll || density == RosterDisplayDensity.Compact,
-                horizontalScroll);
+            double width = double.IsPositiveInfinity(rosterGridWidth) ? MinimumSemanticRosterWidth : rosterGridWidth;
+            return CalculateFit(width, gridHeight, playerCount, configuredPlayerFontSize,
+                configuredStatisticsFontSize, density, true, true, true, true).Layout;
         }
 
         public static RosterColumnWidths CalculateColumns(
@@ -68,43 +157,9 @@ namespace ApeRadar.Utils
             RosterDisplayDensity density,
             bool showAccount,
             bool showShip,
-            bool showTier)
-        {
-            double status = density switch
-            {
-                RosterDisplayDensity.Compact => 68,
-                RosterDisplayDensity.Comfortable => 100,
-                _ => 92
-            };
-            Dictionary<string, double> minimums = new()
-            {
-                ["Player"] = 190,
-                ["Account"] = showAccount ? 136 : 0,
-                ["Ship"] = showShip ? 158 : 0,
-                ["Tier"] = showTier ? 132 : 0
-            };
-            double minimumTotal = minimums["Player"] + minimums["Account"] + minimums["Ship"] + minimums["Tier"] + status;
-            double usableWidth = Math.Max(0, rosterGridWidth - ScrollBarAllowance);
-            bool requiresScroll = usableWidth < minimumTotal;
-            double extra = Math.Max(0, usableWidth - minimumTotal);
-
-            Dictionary<string, double> weights = new()
-            {
-                ["Player"] = 0.35,
-                ["Account"] = showAccount ? 0.20 : 0,
-                ["Ship"] = showShip ? 0.25 : 0,
-                ["Tier"] = showTier ? 0.20 : 0
-            };
-            double weightTotal = weights["Player"] + weights["Account"] + weights["Ship"] + weights["Tier"];
-            double Width(string key) => Math.Round(minimums[key] + extra * weights[key] / weightTotal, 1);
-
-            return new RosterColumnWidths(
-                Width("Player"),
-                showAccount ? Width("Account") : 0,
-                showShip ? Width("Ship") : 0,
-                showTier ? Width("Tier") : 0,
-                status,
-                requiresScroll);
-        }
+            bool showTier,
+            bool showPerformance = true) =>
+            CalculateFit(rosterGridWidth, 10_000, 12, 18, 16, density,
+                showAccount, showShip, showTier, showPerformance).Columns;
     }
 }

@@ -12,6 +12,8 @@
         <cvt:PlayerNamesVisibilityConverter x:Key="PlayerNames"/>
         <cvt:WatchStatusColorConverter x:Key="WatchColor"/>
         <cvt:NoteVisibilityConverter x:Key="TextVisibility"/>
+        <cvt:RosterBadgeBrushConverter x:Key="BadgeBrush"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <utils:ShipRelationBrushConverter x:Key="ShipRelationBrush"/>
         <utils:WidthReductionConverter x:Key="WidthReduction"/>
         <Style x:Key="IdentityLine" TargetType="TextBlock">
@@ -30,19 +32,41 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Grid Grid.Row="0" ClipToBounds="True">
+        <Grid x:Name="IdentityLineContainer" Grid.Row="0" ClipToBounds="True">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Style="{StaticResource IdentityLine}"
+                       MaxWidth="{Binding ActualWidth, ElementName=IdentityLineContainer, Converter={StaticResource WidthReduction}, ConverterParameter=96}"
                        FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}"
                        Foreground="{Binding Player.WatchStatus, Converter={StaticResource WatchColor}}"
                        TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding Player.Name}">
                 <Run Text="{Binding Player.ClanTag, Converter={StaticResource PlayerNames}}"/>
                 <Run Text=" "/><Run Text="{Binding Player.Name, Converter={StaticResource PlayerNames}}"/>
             </TextBlock>
-            <TextBlock Grid.Column="1" Text="{Binding Player.Karma, Converter={StaticResource BattleData}}" FontSize="9" Foreground="{StaticResource TextSecondaryBrush}"
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,0,0" ToolTip="{Binding AllStatusToolTip}">
+                <ItemsControl ItemsSource="{Binding VisibleStatusBadges}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border CornerRadius="3" Padding="4,1" Margin="1,0" Opacity="{Binding Opacity}"
+                                    Background="{Binding Severity, Converter={StaticResource BadgeBrush}, ConverterParameter=Background}"
+                                    ToolTip="{Binding ToolTip}">
+                                <TextBlock Text="{Binding DisplayText}" FontSize="9" FontWeight="SemiBold"
+                                           Foreground="{Binding Severity, Converter={StaticResource BadgeBrush}, ConverterParameter=Foreground}"/>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border CornerRadius="3" Padding="4,1" Margin="1,0" Background="{StaticResource SurfaceMutedBrush}"
+                        Visibility="{Binding HasOverflowBadges, Converter={StaticResource BoolToVisibility}}" ToolTip="{Binding AllStatusToolTip}">
+                    <TextBlock Text="{Binding OverflowBadgeText}" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                </Border>
+            </StackPanel>
+            <TextBlock Grid.Column="2" Text="{Binding Player.Karma, Converter={StaticResource BattleData}}" FontSize="9" Foreground="{StaticResource TextSecondaryBrush}"
                        FontFamily="{StaticResource NumericFontFamily}" Typography.NumeralAlignment="Tabular" VerticalAlignment="Top" Margin="4,0,0,0"/>
         </Grid>
         <Grid x:Name="ShipLineContainer" Grid.Row="1" ClipToBounds="True">

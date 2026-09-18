@@ -22,7 +22,41 @@ public sealed class TierPerformanceTests
         Assert.Equal(5, summary.MostPlayedTier);
         Assert.Equal(4_000, summary.MostPlayedBattles);
         Assert.Equal(4_000d / 4_100d, summary.MostPlayedShare, 6);
-        Assert.True(summary.IsLowTierBiased);
+        Assert.False(summary.IsLowTierBiased);
+    }
+
+    [Fact]
+    public void EvaluateSealClub_RequiresEveryStrictCondition()
+    {
+        SealClubAnalysis match = TierPerformanceUtils.EvaluateSealClub(
+            totalBattles: 1_200,
+            lowTierBattles: 700,
+            highTierBattles: 250,
+            lowTierWinrate: 0.58,
+            highTierWinrate: 0.50,
+            lowTierPr: 1_800,
+            highTierPr: 1_400);
+        SealClubAnalysis oneConditionMissing = TierPerformanceUtils.EvaluateSealClub(
+            totalBattles: 1_200,
+            lowTierBattles: 700,
+            highTierBattles: 250,
+            lowTierWinrate: 0.58,
+            highTierWinrate: 0.53,
+            lowTierPr: 1_800,
+            highTierPr: 1_400);
+
+        Assert.True(match.IsMatch);
+        Assert.False(oneConditionMissing.IsMatch);
+    }
+
+    [Fact]
+    public void EvaluateSealClub_RejectsIncompletePrCoverage()
+    {
+        SealClubAnalysis result = TierPerformanceUtils.EvaluateSealClub(
+            1_200, 700, 250, 0.58, 0.50, 1_800, 1_400,
+            lowTierPrCoverage: 0.89, highTierPrCoverage: 1);
+
+        Assert.False(result.IsMatch);
     }
 
     [Fact]

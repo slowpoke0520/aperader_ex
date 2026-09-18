@@ -21,38 +21,39 @@ namespace ApeRadar.Services
 
         private static PlayerRosterRowViewModel CreateRow(Player player, RosterPresentationOptions options)
         {
-            bool compact = options.DisplayDensity == RosterDisplayDensity.Compact;
             MetricGroupViewModel account = Group(
                 Line(
-                    Percent(Text("RosterMetricWinrate", "WR"), player.AccountWinrate, RosterMetricKind.Winrate, options.AccountVisibility, RosterMetricEmphasis.Primary),
-                    Number("PR", player.PR, "N0", RosterMetricKind.PersonalRating, options.PersonalRatingVisibility, emphasis: RosterMetricEmphasis.Primary)),
-                Line(
-                    Number(Text("RosterMetricBattles", "Games"), player.Battles, "N0", RosterMetricKind.Neutral, options.AccountVisibility),
-                    compact ? null : Number(Text("RosterMetricAvgExp", "XP"), player.AvgExpPerBattle, "N0", RosterMetricKind.Neutral, options.AccountAverageExperienceVisibility)),
-                compact ? null : Line(Percent(Text("RosterMetricWeighted", "Adjusted"), player.WeightedWinrate, RosterMetricKind.Winrate, options.WeightedVisibility, RosterMetricEmphasis.Tertiary)));
+                    Number(Text("RosterMetricBattlesShort", "Games"), player.Battles, "N0", RosterMetricKind.Neutral, options.AccountVisibility),
+                    Percent(Text("RosterMetricWinrateShort", "WR"), player.AccountWinrate, RosterMetricKind.Winrate, options.AccountVisibility, RosterMetricEmphasis.Primary),
+                    Number("PR", player.PR, "N0", RosterMetricKind.PersonalRating, options.PersonalRatingVisibility, emphasis: RosterMetricEmphasis.Primary),
+                    Number(Text("RosterMetricAvgExpShort", "XP"), player.AvgExpPerBattle, "N0", RosterMetricKind.Neutral, options.AccountAverageExperienceVisibility),
+                    Percent(Text("RosterMetricWeightedShort", "Adj"), player.WeightedWinrate, RosterMetricKind.Winrate, options.WeightedVisibility, RosterMetricEmphasis.Tertiary)));
 
             double damageRating = player.ShipBattles > 0 && player.ShipAvgDmgPerBattle >= 0
                 ? PRUtils.CalculateDamageRating(player.ShipID, player.ShipBattles, player.ShipAvgDmgPerBattle * player.ShipBattles)
                 : -1;
             MetricGroupViewModel ship = Group(
                 Line(
-                    Percent(Text("RosterMetricWinrate", "WR"), player.ShipWinrate, RosterMetricKind.Winrate, options.ShipVisibility, RosterMetricEmphasis.Primary),
-                    Number("PR", player.ShipPR, "N0", RosterMetricKind.PersonalRating, options.PersonalRatingVisibility, emphasis: RosterMetricEmphasis.Primary)),
-                Line(
-                    Number(Text("RosterMetricBattles", "Games"), player.ShipBattles, "N0", RosterMetricKind.Neutral, options.ShipVisibility),
-                    Number(Text("RosterMetricAvgDamage", "Dmg"), player.ShipAvgDmgPerBattle, "N0", RosterMetricKind.DamageRating, options.ShipAverageDamageVisibility, damageRating)),
-                compact ? null : Line(Number(Text("RosterMetricAvgExp", "XP"), player.ShipAvgExpPerBattle, "N0", RosterMetricKind.Neutral, options.ShipAverageExperienceVisibility, emphasis: RosterMetricEmphasis.Tertiary)));
+                    Number(Text("RosterMetricBattlesShort", "Games"), player.ShipBattles, "N0", RosterMetricKind.Neutral, options.ShipVisibility),
+                    Percent(Text("RosterMetricWinrateShort", "WR"), player.ShipWinrate, RosterMetricKind.Winrate, options.ShipVisibility, RosterMetricEmphasis.Primary),
+                    Number("PR", player.ShipPR, "N0", RosterMetricKind.PersonalRating, options.PersonalRatingVisibility, emphasis: RosterMetricEmphasis.Primary),
+                    Number(Text("RosterMetricAvgDamageShort", "Dmg"), player.ShipAvgDmgPerBattle, "N0", RosterMetricKind.DamageRating, options.ShipAverageDamageVisibility, damageRating),
+                    Number(Text("RosterMetricAvgExpShort", "XP"), player.ShipAvgExpPerBattle, "N0", RosterMetricKind.Neutral, options.ShipAverageExperienceVisibility, emphasis: RosterMetricEmphasis.Tertiary)));
 
             MetricGroupViewModel tier = options.ShowTierPerformance
                 ? Group(
                     Line(
+                        TierBattleMetric(player),
                         Percent(Text("RosterMetricWinrate", "WR"), player.TierWinrate, RosterMetricKind.Winrate, 0, RosterMetricEmphasis.Primary),
-                        Number("PR", player.TierPR, "N0", RosterMetricKind.PersonalRating, 0, emphasis: RosterMetricEmphasis.Primary)),
-                    Line(TierBattleMetric(player)))
+                        Number("PR", player.TierPR, "N0", RosterMetricKind.PersonalRating, 0, emphasis: RosterMetricEmphasis.Primary)))
                 : Group();
 
             IReadOnlyList<RosterStatusBadgeViewModel> badges = BuildStatusBadges(player, options);
-            return new PlayerRosterRowViewModel(player, account, ship, tier, BuildContextPreview(player), badges);
+            PerformanceCellViewModel performance = BuildPerformanceCell(player, options);
+            PlayerSkillBand band = performance.Band;
+            string bandText = SkillBandText(band);
+            return new PlayerRosterRowViewModel(player, account, ship, tier, BuildContextPreview(player), badges,
+                band, bandText, performance.ToolTip, performance);
         }
 
         private static MetricItemViewModel TierBattleMetric(Player player)
@@ -60,7 +61,7 @@ namespace ApeRadar.Services
             string warningGlyph = player.IsTierSampleSmall && player.TierBattles >= 0 ? "⚠" : "";
             string tooltip = player.IsTierSampleSmall ? Text("TierStatsSmallSample", "Small same-tier sample") : "";
             return new MetricItemViewModel(
-                Text("RosterMetricBattles", "Games"),
+                Text("RosterMetricBattlesShort", "Games"),
                 Format(player.TierBattles, "N0"),
                 null,
                 RosterMetricKind.Neutral,
@@ -89,50 +90,132 @@ namespace ApeRadar.Services
             if (player.IsCustomMarked)
                 badges.Add(new(RosterBadgeKind.CustomMark, RosterBadgeSeverity.Warning, "★", Text("RosterBadgeMarked", "Marked"), Text("RosterBadgeMarkedTip", "Personal marker")));
 
-            if (player.IsFixedTeammate)
+            if (player.IsFixedTeammate && options.ShowFixedTeammateBadges)
                 badges.Add(new(RosterBadgeKind.FixedTeammate, RosterBadgeSeverity.Positive, "◆", Text("RosterBadgeTeammate", "Teammate"), Text("RosterBadgeTeammateTip", "Fixed teammate")));
-            else if (player.RecentEncounterCount > 0)
+            else if (player.RecentEncounterCount > 0 && options.ShowRecentEncounterBadges)
                 badges.Add(new(RosterBadgeKind.RecentEncounter, RosterBadgeSeverity.Info, "↻", $"↻{player.RecentEncounterCount}", BuildRecentEncounterTooltip(player)));
 
             if (player.IsHidden)
                 badges.Add(new(RosterBadgeKind.Hidden, RosterBadgeSeverity.Neutral, "⊘", Text("RosterBadgeHidden", "Hidden"), Text("RosterStateHidden", "Hidden stats")));
-            if (player.IsDataStale)
+            if (player.IsDataStale && options.ShowCachedDataBadges)
                 badges.Add(new(RosterBadgeKind.Cached, RosterBadgeSeverity.Info, "◷", Text("RosterBadgeCached", "Cached"), Text("RosterBadgeCachedTip", "Showing cached data while refreshing")));
             if (player.IsLowTierBiased)
-                badges.Add(new(RosterBadgeKind.LowTierBias, RosterBadgeSeverity.Warning, "⚠", Text("RosterBadgeLowTier", "Low tier"), Text("TierStatsLowTierBias", "Low-tier heavy record")));
+                badges.Add(new(RosterBadgeKind.LowTierBias, RosterBadgeSeverity.Warning, Text("RosterBadgeSealClubCompact", "屠"), Text("RosterBadgeSealClub", "屠幼"), BuildSealClubTooltip(player)));
             if (!player.IsHidden && player.AccountWinrate < 0)
                 badges.Add(new(RosterBadgeKind.Loading, RosterBadgeSeverity.Info, "…", Text("RosterBadgeLoading", "Loading"), Text("RosterStateLoading", "Waiting for statistics")));
 
-            RosterStatusBadgeViewModel? legacy = BuildLegacyBadge(player, options);
-            if (legacy != null) badges.Add(legacy);
             return badges;
         }
 
-        private static RosterStatusBadgeViewModel? BuildLegacyBadge(Player player, RosterPresentationOptions options)
+        private static PerformanceCellViewModel BuildPerformanceCell(Player player, RosterPresentationOptions options)
         {
-            if (!options.ShowLegacyPerformanceTag || options.LegacyTagVisibility == 2 || player.IsHidden) return null;
-            double winrate = Properties.Settings.Default.WinrateTypeUsed == 0 ? player.AccountWinrate : player.WeightedWinrate;
-            string icon;
-            string tooltip;
-            RosterBadgeSeverity severity;
-            if (winrate >= 0 && winrate <= Properties.Settings.Default.ApeWinrateThreshold / 100 && player.Battles >= Properties.Settings.Default.ApeBattleCountThreshold)
+            bool hidden = player.IsHidden;
+            double winrate = Properties.Settings.Default.WinrateTypeUsed == 0
+                ? player.AccountWinrate
+                : player.WeightedWinrate;
+            double value = options.PerformanceMetric == RosterPerformanceMetric.PR ? player.PR : winrate;
+            bool available = !hidden && value >= 0;
+            PlayerSkillBand band = options.PerformanceMetric == RosterPerformanceMetric.PR
+                ? PlayerSkillBandUtils.FromPr(available ? value : -1)
+                : PlayerSkillBandFromWinrate(available ? value : -1);
+            string background = Properties.Settings.Default.ColorStyle == 0 || !available
+                ? "#B7C0CA"
+                : options.PerformanceMetric == RosterPerformanceMetric.PR
+                    ? SkillBandColor(band)
+                    : WinrateColor(value, Properties.Settings.Default.ColorStyle);
+            string foreground = band is PlayerSkillBand.Average or PlayerSkillBand.Good ? "#202A34" : "#FFFFFF";
+            string icon = hidden ? Properties.Settings.Default.HiddenIcon : "";
+
+            if (!hidden && options.ShowLegacyPerformanceTag && options.LegacyTagVisibility != 2)
             {
-                icon = Properties.Settings.Default.ApeIcon;
-                tooltip = Text("RosterBadgeLegacyLowTip", "Legacy low win-rate marker");
-                severity = RosterBadgeSeverity.Critical;
-            }
-            else if (winrate > Properties.Settings.Default.UnicumWinrateThreshold / 100 && player.Battles >= Properties.Settings.Default.UnicumBattleCountThreshold)
-            {
-                icon = Properties.Settings.Default.UnicumIcon;
-                tooltip = Text("RosterBadgeLegacyHighTip", "Legacy high win-rate marker");
-                severity = RosterBadgeSeverity.Positive;
-            }
-            else
-            {
-                return null;
+                if (winrate >= 0 && winrate <= Properties.Settings.Default.ApeWinrateThreshold / 100 &&
+                    player.Battles >= Properties.Settings.Default.ApeBattleCountThreshold)
+                    icon = Properties.Settings.Default.ApeIcon;
+                else if (winrate > Properties.Settings.Default.UnicumWinrateThreshold / 100 &&
+                    player.Battles >= Properties.Settings.Default.UnicumBattleCountThreshold)
+                    icon = Properties.Settings.Default.UnicumIcon;
             }
 
-            return new(RosterBadgeKind.LegacySkill, severity, icon, icon, tooltip, options.LegacyTagVisibility == 1 ? 0.55 : 1);
+            string metricName = options.PerformanceMetric == RosterPerformanceMetric.PR
+                ? Text("RosterPerformancePR", "Account PR")
+                : Properties.Settings.Default.WinrateTypeUsed == 0
+                    ? Text("RosterPerformanceAccountWinrate", "Account win rate")
+                    : Text("RosterPerformanceWeightedWinrate", "Weighted win rate");
+            string formatted = !available ? "—" : options.PerformanceMetric == RosterPerformanceMetric.PR
+                ? value.ToString("N0", CultureInfo.CurrentCulture)
+                : value.ToString("P1", CultureInfo.CurrentCulture);
+            string bandText = SkillBandText(band);
+            string tooltip = !available
+                ? Text("RosterSkillUnavailableTip", "Performance data is unavailable")
+                : string.Format(Text("RosterPerformanceTip", "{0} {1}: {2}"), metricName, formatted, bandText);
+            double iconOpacity = hidden || options.LegacyTagVisibility != 1 ? 1 : 0.55;
+            return new(options.PerformanceMetric, available ? value : null, band, background, foreground, icon, iconOpacity,
+                tooltip, tooltip);
+        }
+
+        private static PlayerSkillBand PlayerSkillBandFromWinrate(double value) => value switch
+        {
+            < 0 => PlayerSkillBand.Unavailable,
+            < 0.47 => PlayerSkillBand.Bad,
+            < 0.49 => PlayerSkillBand.BelowAverage,
+            < 0.52 => PlayerSkillBand.Average,
+            < 0.54 => PlayerSkillBand.Good,
+            < 0.56 => PlayerSkillBand.VeryGood,
+            < 0.60 => PlayerSkillBand.Great,
+            < 0.65 => PlayerSkillBand.Unicum,
+            _ => PlayerSkillBand.SuperUnicum
+        };
+
+        private static string SkillBandColor(PlayerSkillBand band) => band switch
+        {
+            PlayerSkillBand.Bad => "#D92D20",
+            PlayerSkillBand.BelowAverage => "#E86B19",
+            PlayerSkillBand.Average => "#E8B510",
+            PlayerSkillBand.Good => "#55A630",
+            PlayerSkillBand.VeryGood => "#2F7D32",
+            PlayerSkillBand.Great => "#089E91",
+            PlayerSkillBand.Unicum => "#A43AC2",
+            PlayerSkillBand.SuperUnicum => "#7A1593",
+            _ => "#B7C0CA"
+        };
+
+        private static string WinrateColor(double value, int colorStyle)
+        {
+            if (colorStyle == 1)
+            {
+                return value switch
+                {
+                    > 0.60 => "#D042F3",
+                    > 0.52 => "#318000",
+                    > 0.47 => "#FFC71F",
+                    _ => "#FE0E00"
+                };
+            }
+            if (colorStyle == 3)
+            {
+                double hue = value <= 0.47 ? 0 : value >= 0.65 ? 0.8 : (value - 0.47) / 0.18 * 0.8;
+                return HslColor(hue, 1, 0.5);
+            }
+            return SkillBandColor(PlayerSkillBandFromWinrate(value));
+        }
+
+        private static string HslColor(double hue, double saturation, double lightness)
+        {
+            double q = lightness < 0.5 ? lightness * (1 + saturation) : lightness + saturation - lightness * saturation;
+            double p = 2 * lightness - q;
+            double Channel(double t)
+            {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1d / 6) return p + (q - p) * 6 * t;
+                if (t < 1d / 2) return q;
+                if (t < 2d / 3) return p + (q - p) * (2d / 3 - t) * 6;
+                return p;
+            }
+            int r = (int)Math.Round(Channel(hue + 1d / 3) * 255);
+            int g = (int)Math.Round(Channel(hue) * 255);
+            int b = (int)Math.Round(Channel(hue - 1d / 3) * 255);
+            return $"#{r:X2}{g:X2}{b:X2}";
         }
 
         private static string BuildContextPreview(Player player)
@@ -148,6 +231,27 @@ namespace ApeRadar.Services
             string title = string.Format(Text("RosterRecentEncounterPreview", "Met recently {0} times"), player.RecentEncounterCount);
             return string.IsNullOrWhiteSpace(player.RecentEncounterDetails) ? title : $"{title}{Environment.NewLine}{player.RecentEncounterDetails}";
         }
+
+        private static string BuildSealClubTooltip(Player player)
+        {
+            string format = Text("RosterBadgeSealClubTip",
+                "Low tiers: {0:N0} games, {1:P1}, PR {2:N0}; high tiers: {3:N0} games, {4:P1}, PR {5:N0}.");
+            return string.Format(format, player.LowTierBattles, player.LowTierWinrate, player.LowTierPR,
+                player.HighTierBattles, player.HighTierWinrate, player.HighTierPR);
+        }
+
+        private static string SkillBandText(PlayerSkillBand band) => band switch
+        {
+            PlayerSkillBand.Bad => Text("RosterSkillBad", "Bad"),
+            PlayerSkillBand.BelowAverage => Text("RosterSkillBelowAverage", "Below average"),
+            PlayerSkillBand.Average => Text("RosterSkillAverage", "Average"),
+            PlayerSkillBand.Good => Text("RosterSkillGood", "Good"),
+            PlayerSkillBand.VeryGood => Text("RosterSkillVeryGood", "Very good"),
+            PlayerSkillBand.Great => Text("RosterSkillGreat", "Great"),
+            PlayerSkillBand.Unicum => Text("RosterSkillUnicum", "Unicum"),
+            PlayerSkillBand.SuperUnicum => Text("RosterSkillSuperUnicum", "Super unicum"),
+            _ => "—"
+        };
 
         private static MetricGroupViewModel Group(params MetricLineViewModel?[] lines) =>
             new(lines.Where(line => line != null).Cast<MetricLineViewModel>());

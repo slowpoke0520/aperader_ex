@@ -25,7 +25,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.12")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.13")]
         public string SoftwareVersion {
             get {
                 return ((string)(this["SoftwareVersion"]));
@@ -34,7 +34,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("20260916")]
+        [global::System.Configuration.DefaultSettingValueAttribute("20260918")]
         public string SoftwareDate {
             get {
                 return ((string)(this["SoftwareDate"]));
@@ -633,7 +633,7 @@ namespace ApeRadar.Properties {
 
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
         public bool ShowTierPerformanceStats {
             get {
                 return ((bool)(this["ShowTierPerformanceStats"]));
@@ -677,6 +677,78 @@ namespace ApeRadar.Properties {
             set {
                 this["ShowLegacyPerformanceTag"] = value;
             }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowAccountRosterColumn {
+            get { return ((bool)(this["ShowAccountRosterColumn"])); }
+            set { this["ShowAccountRosterColumn"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowShipRosterColumn {
+            get { return ((bool)(this["ShowShipRosterColumn"])); }
+            set { this["ShowShipRosterColumn"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowPerformanceRosterColumn {
+            get { return ((bool)(this["ShowPerformanceRosterColumn"])); }
+            set { this["ShowPerformanceRosterColumn"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("PR")]
+        public string RosterPerformanceMetric {
+            get { return ((string)(this["RosterPerformanceMetric"])); }
+            set { this["RosterPerformanceMetric"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool AnalysisPanelExpanded {
+            get { return ((bool)(this["AnalysisPanelExpanded"])); }
+            set { this["AnalysisPanelExpanded"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowRecentEncounterBadges {
+            get { return ((bool)(this["ShowRecentEncounterBadges"])); }
+            set { this["ShowRecentEncounterBadges"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowFixedTeammateBadges {
+            get { return ((bool)(this["ShowFixedTeammateBadges"])); }
+            set { this["ShowFixedTeammateBadges"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowCachedDataBadges {
+            get { return ((bool)(this["ShowCachedDataBadges"])); }
+            set { this["ShowCachedDataBadges"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool RosterClarityMigrationDone {
+            get { return ((bool)(this["RosterClarityMigrationDone"])); }
+            set { this["RosterClarityMigrationDone"] = value; }
         }
 
         [global::System.Configuration.UserScopedSettingAttribute()]

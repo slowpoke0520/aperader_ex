@@ -71,9 +71,16 @@ namespace ApeRadar
             ChkBoxCheckForUpdatesOnStartup.IsChecked = Properties.Settings.Default.CheckForUpdatesOnStartup;
             ChkBoxShowExperimentalReplayMetrics.IsChecked = Properties.Settings.Default.ShowExperimentalReplayMetrics;
             ChkBoxShowTierPerformanceStats.IsChecked = Properties.Settings.Default.ShowTierPerformanceStats;
+            ChkBoxShowAccountRosterColumn.IsChecked = Properties.Settings.Default.ShowAccountRosterColumn;
+            ChkBoxShowShipRosterColumn.IsChecked = Properties.Settings.Default.ShowShipRosterColumn;
+            ChkBoxShowPerformanceRosterColumn.IsChecked = Properties.Settings.Default.ShowPerformanceRosterColumn;
+            ChkBoxShowRecentEncounterBadges.IsChecked = Properties.Settings.Default.ShowRecentEncounterBadges;
+            ChkBoxShowFixedTeammateBadges.IsChecked = Properties.Settings.Default.ShowFixedTeammateBadges;
+            ChkBoxShowCachedDataBadges.IsChecked = Properties.Settings.Default.ShowCachedDataBadges;
             ChkBoxShowShipTypeIcon.IsChecked = Properties.Settings.Default.ShowShipTypeIcon;
             ComboBoxRosterDisplayDensity.SelectedValue = RosterDisplayDensityExtensions.Parse(Properties.Settings.Default.RosterDisplayDensity).ToSettingValue();
             ChkBoxShowLegacyPerformanceTag.IsChecked = Properties.Settings.Default.ShowLegacyPerformanceTag;
+            ComboBoxRosterPerformanceMetric.SelectedValue = RosterPerformanceMetricExtensions.Parse(Properties.Settings.Default.RosterPerformanceMetric).ToSettingValue();
             LabelShipListVersionDateStr.Content = $"{ShipInfoUtils.GetShipInfoVersion()} ({ShipInfoUtils.GetShipInfoDate()})";
             if (PRUtils.GetExpectedValuesTime() <= 0)
             {
@@ -182,18 +189,20 @@ namespace ApeRadar
                         ?? SoftwareReleaseSelector.StableSettingValue;
                     Properties.Settings.Default.CheckForUpdatesOnStartup = ChkBoxCheckForUpdatesOnStartup.IsChecked ?? false;
                     Properties.Settings.Default.ShowExperimentalReplayMetrics = ChkBoxShowExperimentalReplayMetrics.IsChecked ?? false;
-                    bool tierPerformanceSettingChanged = Properties.Settings.Default.ShowTierPerformanceStats != (ChkBoxShowTierPerformanceStats.IsChecked ?? false);
                     Properties.Settings.Default.ShowTierPerformanceStats = ChkBoxShowTierPerformanceStats.IsChecked ?? false;
+                    Properties.Settings.Default.ShowAccountRosterColumn = ChkBoxShowAccountRosterColumn.IsChecked ?? true;
+                    Properties.Settings.Default.ShowShipRosterColumn = ChkBoxShowShipRosterColumn.IsChecked ?? true;
+                    Properties.Settings.Default.ShowPerformanceRosterColumn = ChkBoxShowPerformanceRosterColumn.IsChecked ?? true;
+                    Properties.Settings.Default.ShowRecentEncounterBadges = ChkBoxShowRecentEncounterBadges.IsChecked ?? true;
+                    Properties.Settings.Default.ShowFixedTeammateBadges = ChkBoxShowFixedTeammateBadges.IsChecked ?? true;
+                    Properties.Settings.Default.ShowCachedDataBadges = ChkBoxShowCachedDataBadges.IsChecked ?? true;
                     Properties.Settings.Default.ShowShipTypeIcon = ChkBoxShowShipTypeIcon.IsChecked ?? false;
                     Properties.Settings.Default.RosterDisplayDensity = RosterDisplayDensityExtensions.Parse(ComboBoxRosterDisplayDensity.SelectedValue?.ToString()).ToSettingValue();
                     Properties.Settings.Default.ShowLegacyPerformanceTag = ChkBoxShowLegacyPerformanceTag.IsChecked ?? false;
+                    Properties.Settings.Default.RosterPerformanceMetric = RosterPerformanceMetricExtensions.Parse(ComboBoxRosterPerformanceMetric.SelectedValue?.ToString()).ToSettingValue();
                     Properties.Settings.Default.OutputTextUnlock = ChkBoxTextOutputUnlocked.IsChecked ?? false;
                     Properties.Settings.Default.Save();
                     ShipTypePresentation.RefreshOpenWindows();
-                    if (tierPerformanceSettingChanged)
-                    {
-                        PlayerDataCache.Clear();
-                    }
                     if (Properties.Settings.Default.DebugMode)
                     {
                         LogUtils.SetLogLevel(log4net.Core.Level.Debug);
@@ -381,6 +390,14 @@ namespace ApeRadar
                     ChkBoxShowShipTypeIcon.IsChecked = Default<bool>(nameof(Properties.Settings.ShowShipTypeIcon));
                     ComboBoxRosterDisplayDensity.SelectedValue = RosterDisplayDensityExtensions.Parse(Default<string>(nameof(Properties.Settings.RosterDisplayDensity))).ToSettingValue();
                     ChkBoxShowLegacyPerformanceTag.IsChecked = Default<bool>(nameof(Properties.Settings.ShowLegacyPerformanceTag));
+                    ComboBoxRosterPerformanceMetric.SelectedValue = RosterPerformanceMetricExtensions.Parse(Default<string>(nameof(Properties.Settings.RosterPerformanceMetric))).ToSettingValue();
+                    ChkBoxShowAccountRosterColumn.IsChecked = Default<bool>(nameof(Properties.Settings.ShowAccountRosterColumn));
+                    ChkBoxShowShipRosterColumn.IsChecked = Default<bool>(nameof(Properties.Settings.ShowShipRosterColumn));
+                    ChkBoxShowTierPerformanceStats.IsChecked = Default<bool>(nameof(Properties.Settings.ShowTierPerformanceStats));
+                    ChkBoxShowPerformanceRosterColumn.IsChecked = Default<bool>(nameof(Properties.Settings.ShowPerformanceRosterColumn));
+                    ChkBoxShowRecentEncounterBadges.IsChecked = Default<bool>(nameof(Properties.Settings.ShowRecentEncounterBadges));
+                    ChkBoxShowFixedTeammateBadges.IsChecked = Default<bool>(nameof(Properties.Settings.ShowFixedTeammateBadges));
+                    ChkBoxShowCachedDataBadges.IsChecked = Default<bool>(nameof(Properties.Settings.ShowCachedDataBadges));
                     break;
                 case 2:
                     ComboBoxWinrateTypeSelect.SelectedIndex = Default<int>(nameof(Properties.Settings.WinrateTypeUsed));
@@ -415,7 +432,6 @@ namespace ApeRadar
                     ChkBoxEnableDebugMode.IsChecked = Default<bool>(nameof(Properties.Settings.DebugMode));
                     ChkBoxCheckForUpdatesOnStartup.IsChecked = Default<bool>(nameof(Properties.Settings.CheckForUpdatesOnStartup));
                     ChkBoxShowExperimentalReplayMetrics.IsChecked = Default<bool>(nameof(Properties.Settings.ShowExperimentalReplayMetrics));
-                    ChkBoxShowTierPerformanceStats.IsChecked = Default<bool>(nameof(Properties.Settings.ShowTierPerformanceStats));
                     break;
             }
         }

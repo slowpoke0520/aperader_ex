@@ -6,84 +6,100 @@ namespace ApeRadar.Tests;
 
 public sealed class RosterLayoutCalculatorTests
 {
-    [Theory]
-    [InlineData(729, true)]
-    [InlineData(730, false)]
-    [InlineData(900, false)]
-    public void HorizontalScrolling_IsSelectedOnlyBelowTheSemanticMinimum(double rosterGridWidth, bool expected)
+    [Fact]
+    public void StandardRoster_FitsTwelveRowsWithoutScrollingAtDesktopSize()
     {
-        Assert.Equal(expected, RosterLayoutCalculator.RequiresHorizontalScroll(rosterGridWidth));
-    }
+        RosterFitMetrics result = RosterLayoutCalculator.CalculateFit(
+            740, 760, 12, 18, 16, RosterDisplayDensity.Standard,
+            showAccount: true, showShip: true, showTier: false, showPerformance: true);
 
-    [Theory]
-    [InlineData(849, 12, 68)]
-    [InlineData(753, 12, 60)]
-    [InlineData(600, 12, 58)]
-    public void StandardRowHeight_UsesAvailableViewportAndStaysReadable(double gridHeight, int players, double expected)
-    {
-        RosterLayoutMetrics result = RosterLayoutCalculator.Calculate(gridHeight, players, 18, 16);
-
-        Assert.Equal(expected, result.RowHeight);
-        Assert.InRange(result.PlayerFontSize, 11, 15.5);
-        Assert.InRange(result.StatisticsFontSize, 10.5, 13.5);
-        Assert.Equal(92, result.StatusColumnWidth);
-    }
-
-    [Theory]
-    [InlineData("Compact", 50, 56, 68)]
-    [InlineData("Standard", 58, 68, 92)]
-    [InlineData("Comfortable", 68, 78, 100)]
-    public void Density_UsesExpectedRowAndStatusBounds(string densitySetting, double minimum, double maximum, double status)
-    {
-        RosterDisplayDensity density = RosterDisplayDensityExtensions.Parse(densitySetting);
-        RosterLayoutMetrics small = RosterLayoutCalculator.Calculate(500, 12, 18, 16, density);
-        RosterLayoutMetrics large = RosterLayoutCalculator.Calculate(2_000, 12, 18, 16, density);
-
-        Assert.Equal(minimum, small.RowHeight);
-        Assert.Equal(maximum, large.RowHeight);
-        Assert.Equal(status, small.StatusColumnWidth);
+        Assert.Equal(1, result.Layout.Scale);
+        Assert.InRange(result.Layout.RowHeight, 54, 68);
+        Assert.False(result.Layout.RequiresHorizontalScroll);
+        Assert.False(result.Layout.RequiresVerticalScroll);
+        Assert.Equal(740, result.Columns.Total, 1);
+        Assert.True(result.Columns.Player > RosterLayoutCalculator.PlayerWidth);
     }
 
     [Fact]
-    public void ColumnWidths_AreDeterministicAndSharedBetweenTeams()
+    public void BothTeams_ReceiveDeterministicIdenticalMetrics()
     {
-        RosterColumnWidths allies = RosterLayoutCalculator.CalculateColumns(900, RosterDisplayDensity.Standard, true, true, true);
-        RosterColumnWidths enemies = RosterLayoutCalculator.CalculateColumns(900, RosterDisplayDensity.Standard, true, true, true);
+        RosterFitMetrics allies = Fit(610, 650, 12, showTier: true);
+        RosterFitMetrics enemies = Fit(610, 650, 12, showTier: true);
 
         Assert.Equal(allies, enemies);
-        Assert.True(allies.Player >= 190);
-        Assert.True(allies.Account >= 136);
-        Assert.True(allies.Ship >= 158);
-        Assert.True(allies.Tier >= 132);
-        Assert.False(allies.RequiresHorizontalScroll);
+        Assert.Equal(allies.Columns.Player, enemies.Columns.Player);
+        Assert.Equal(allies.Layout.RowHeight, enemies.Layout.RowHeight);
     }
 
     [Fact]
-    public void HiddenMetricColumns_GiveRemainingSpaceToVisibleColumns()
+    public void ExtraWidth_IsGivenOnlyToPlayerColumn()
     {
-        RosterColumnWidths all = RosterLayoutCalculator.CalculateColumns(900, RosterDisplayDensity.Standard, true, true, true);
-        RosterColumnWidths reduced = RosterLayoutCalculator.CalculateColumns(900, RosterDisplayDensity.Standard, false, true, false);
+        RosterFitMetrics natural = Fit(516, 760, 12, showTier: false);
+        RosterFitMetrics wide = Fit(716, 760, 12, showTier: false);
 
-        Assert.Equal(0, reduced.Account);
-        Assert.Equal(0, reduced.Tier);
-        Assert.True(reduced.Player > all.Player);
-        Assert.True(reduced.Ship > all.Ship);
+        Assert.Equal(natural.Columns.Account, wide.Columns.Account);
+        Assert.Equal(natural.Columns.Ship, wide.Columns.Ship);
+        Assert.Equal(natural.Columns.Performance, wide.Columns.Performance);
+        Assert.Equal(200, wide.Columns.Player - natural.Columns.Player, 1);
     }
 
     [Fact]
-    public void UnknownDensitySetting_FallsBackToStandard()
+    public void OptionalColumns_RecomputeNaturalWidthWithoutLeavingHoles()
+    {
+        RosterFitMetrics all = Fit(800, 760, 12, showTier: true);
+        RosterFitMetrics reduced = RosterLayoutCalculator.CalculateFit(
+            800, 760, 12, 18, 16, RosterDisplayDensity.Standard,
+            showAccount: false, showShip: true, showTier: false, showPerformance: false);
+
+        Assert.Equal(0, reduced.Columns.Account);
+        Assert.Equal(0, reduced.Columns.Tier);
+        Assert.Equal(0, reduced.Columns.Performance);
+        Assert.True(reduced.Columns.Player > all.Columns.Player);
+        Assert.Equal(800, reduced.Columns.Total, 1);
+    }
+
+    [Fact]
+    public void VerySmallViewport_ClampsScaleAndUsesScrollbars()
+    {
+        RosterFitMetrics result = Fit(360, 420, 12, showTier: true);
+
+        Assert.Equal(RosterLayoutCalculator.MinimumScale, result.Layout.Scale, 3);
+        Assert.True(result.Layout.RequiresHorizontalScroll);
+        Assert.True(result.Layout.RequiresVerticalScroll);
+        Assert.True(result.Layout.RowHeight >= 37.4);
+    }
+
+    [Fact]
+    public void MoreThanTwelvePlayers_AlwaysKeepsReadableRowsAndScrolls()
+    {
+        RosterFitMetrics result = Fit(700, 900, 15, showTier: false);
+
+        Assert.True(result.Layout.RequiresVerticalScroll);
+        Assert.True(result.Layout.RowHeight >= 42);
+    }
+
+    [Theory]
+    [InlineData("Compact", 48)]
+    [InlineData("Standard", 54)]
+    [InlineData("Comfortable", 60)]
+    public void Density_ControlsNaturalRowHeight(string setting, double expected)
+    {
+        RosterDisplayDensity density = RosterDisplayDensityExtensions.Parse(setting);
+        RosterFitMetrics result = RosterLayoutCalculator.CalculateFit(
+            900, RosterLayoutCalculator.HeaderHeight + expected * 12, 12, 18, 16, density, true, true, false, true);
+
+        Assert.Equal(expected, result.Layout.RowHeight);
+    }
+
+    [Fact]
+    public void UnknownSettings_FallBackToStableDefaults()
     {
         Assert.Equal(RosterDisplayDensity.Standard, RosterDisplayDensityExtensions.Parse("future-value"));
-        Assert.Equal("Standard", RosterDisplayDensity.Standard.ToSettingValue());
+        Assert.Equal(RosterPerformanceMetric.PR, RosterPerformanceMetricExtensions.Parse("future-value"));
     }
 
-    [Fact]
-    public void LargeConfiguredFonts_AreTreatedAsUpperBounds()
-    {
-        RosterLayoutMetrics result = RosterLayoutCalculator.Calculate(600, 12, 22, 22);
-
-        Assert.Equal(RosterLayoutCalculator.MinimumRowHeight, result.RowHeight);
-        Assert.True(result.PlayerFontSize < 22);
-        Assert.True(result.StatisticsFontSize < 22);
-    }
+    private static RosterFitMetrics Fit(double width, double height, int players, bool showTier) =>
+        RosterLayoutCalculator.CalculateFit(width, height, players, 18, 16,
+            RosterDisplayDensity.Standard, true, true, showTier, true);
 }

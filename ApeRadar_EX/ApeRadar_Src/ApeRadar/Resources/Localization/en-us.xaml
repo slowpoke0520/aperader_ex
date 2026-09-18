@@ -37,6 +37,11 @@
     <system:String x:Key="RosterMetricAvgExp">XP</system:String>
     <system:String x:Key="RosterMetricAvgDamage">Dmg</system:String>
     <system:String x:Key="RosterMetricWeighted">Adjusted</system:String>
+    <system:String x:Key="RosterMetricBattlesShort">Games</system:String>
+    <system:String x:Key="RosterMetricWinrateShort">WR</system:String>
+    <system:String x:Key="RosterMetricAvgExpShort">XP</system:String>
+    <system:String x:Key="RosterMetricAvgDamageShort">Dmg</system:String>
+    <system:String x:Key="RosterMetricWeightedShort">Adj</system:String>
     <system:String x:Key="RosterMetricTier">Tier</system:String>
     
     <system:String x:Key="BtnSave">Save</system:String>
@@ -546,7 +551,7 @@
     <system:String x:Key="ToolTipCheckForUpdatesOnStartup">Checks the selected channel at startup and only notifies you; it never installs automatically. You can still use Check &amp; Update when disabled.</system:String>
     <system:String x:Key="ChkBoxShowExperimentalReplayMetrics">Show experimental Replay metrics</system:String>
     <system:String x:Key="ToolTipShowExperimentalReplayMetrics">Shows damage-taken and breakdown values that are not yet verified across every game version. Experimental values are labelled and missing values never count as zero.</system:String>
-    <system:String x:Key="ChkBoxShowTierPerformanceStats">Show same-tier performance in player list</system:String>
+    <system:String x:Key="ChkBoxShowTierPerformanceStats">Same-tier data column (off by default)</system:String>
     <system:String x:Key="ToolTipShowTierPerformanceStats">Shows total battles, win rate, and PR at the tier of each player's current ship. Fewer than 50 same-tier battles are flagged and nearby tiers appear only as tooltip context. This adds no API requests.</system:String>
     <system:String x:Key="ChkBoxShowShipTypeIcon">Show ship type icon after ship names</system:String>
     <system:String x:Key="ToolTipShowShipTypeIcon">Uses the official World of Warships Wiki icons for aircraft carriers, battleships, cruisers, destroyers, and submarines. Off by default.</system:String>
@@ -564,7 +569,7 @@
     <system:String x:Key="TierStatsBattlesSuffix"> battles</system:String>
     <system:String x:Key="TierStatsSharePrefix">, share of recognized battles </system:String>
     <system:String x:Key="TierStatsSmallSample">⚠ Fewer than 50 same-tier battles; win rate and PR may fluctuate sharply.</system:String>
-    <system:String x:Key="TierStatsLowTierBias">⚠ At least 60% of recognized battles are at tiers 1–5; overall win rate may overstate high-tier performance.</system:String>
+    <system:String x:Key="TierStatsLowTierBias">Low-tier and high-tier results differ significantly; see the seal-clubbing badge for details.</system:String>
     <system:String x:Key="TierStatsReferenceNotice">The reference is supplemental context and never replaces same-tier data.</system:String>
     <system:String x:Key="BtnViewChangelog">View changelog</system:String>
     <system:String x:Key="TextViewChangelogHint">Open release notes for stable and development builds</system:String>
@@ -665,6 +670,13 @@
     <system:String x:Key="ExpanderLegacyDisplay">Compatibility display (legacy performance icons)</system:String>
     <system:String x:Key="ChkBoxShowLegacyPerformanceTag">Show legacy performance badge</system:String>
     <system:String x:Key="ToolTipShowLegacyPerformanceTag">Show the original monkey or medal as a small badge at the end of the status area. Off by default.</system:String>
+    <system:String x:Key="ChkBoxShowAccountRosterColumn">Account data column</system:String>
+    <system:String x:Key="ChkBoxShowShipRosterColumn">Ship data column</system:String>
+    <system:String x:Key="ChkBoxShowPerformanceRosterColumn">Account PR skill block</system:String>
+    <system:String x:Key="ChkBoxShowRecentEncounterBadges">Recent encounter badges</system:String>
+    <system:String x:Key="ChkBoxShowFixedTeammateBadges">Regular teammate badges</system:String>
+    <system:String x:Key="ChkBoxShowCachedDataBadges">Cached-data badges</system:String>
+    <system:String x:Key="DataGridHeaderPerformance">Skill</system:String>
 
     <system:String x:Key="RosterBadgeWatchPositive">Positive</system:String>
     <system:String x:Key="RosterBadgeWatchPositiveTip">Watch list: positive assessment</system:String>
@@ -682,6 +694,9 @@
     <system:String x:Key="RosterBadgeCached">Cached</system:String>
     <system:String x:Key="RosterBadgeCachedTip">Showing cached data while refreshing in the background</system:String>
     <system:String x:Key="RosterBadgeLowTier">Low-tier bias</system:String>
+    <system:String x:Key="RosterBadgeSealClubCompact">SC</system:String>
+    <system:String x:Key="RosterBadgeSealClub">Seal clubbing</system:String>
+    <system:String x:Key="RosterBadgeSealClubTip">Low tiers (I–V): {0:N0} battles, {1:P1} win rate, PR {2:N0}; high tiers (VIII–XI): {3:N0} battles, {4:P1} win rate, PR {5:N0}. This badge appears only when every strict condition is met.</system:String>
     <system:String x:Key="RosterBadgeLoading">Loading</system:String>
     <system:String x:Key="RosterBadgeLegacyLowTip">Legacy low win-rate performance marker</system:String>
     <system:String x:Key="RosterBadgeLegacyHighTip">Legacy high win-rate performance marker</system:String>
@@ -690,10 +705,26 @@
     <system:String x:Key="DetailOverall">Overall</system:String>
     <system:String x:Key="DetailContextTitle">Notes and recent encounters</system:String>
     <system:String x:Key="DetailNoContext">No notes or recent encounter records</system:String>
-    <system:String x:Key="DetailHoverMode">Hover details · click the player to pin</system:String>
+    <system:String x:Key="DetailHoverMode">Hover details · move away to close</system:String>
     <system:String x:Key="DetailPinnedMode">Pinned · press Esc or click again to close</system:String>
     <system:String x:Key="DetailClose">Close details</system:String>
     <system:String x:Key="DetailCopySummary">Copy summary</system:String>
     <system:String x:Key="NotificationMessagePlayerDetailCopied">Player statistics summary copied.</system:String>
+    <system:String x:Key="RosterSkillBad">Bad</system:String>
+    <system:String x:Key="RosterSkillBelowAverage">Below average</system:String>
+    <system:String x:Key="RosterSkillAverage">Average</system:String>
+    <system:String x:Key="RosterSkillGood">Good</system:String>
+    <system:String x:Key="RosterSkillVeryGood">Very good</system:String>
+    <system:String x:Key="RosterSkillGreat">Great</system:String>
+    <system:String x:Key="RosterSkillUnicum">Unicum</system:String>
+    <system:String x:Key="RosterSkillSuperUnicum">Super unicum</system:String>
+    <system:String x:Key="RosterSkillTip">Account PR {0:N0}: {1}</system:String>
+    <system:String x:Key="RosterSkillUnavailableTip">Account PR unavailable</system:String>
+    <system:String x:Key="LabelRosterPerformanceMetric">Skill color basis:</system:String>
+    <system:String x:Key="RosterPerformancePR">Account PR</system:String>
+    <system:String x:Key="RosterPerformanceWinrate">Win rate</system:String>
+    <system:String x:Key="RosterPerformanceAccountWinrate">Account win rate</system:String>
+    <system:String x:Key="RosterPerformanceWeightedWinrate">Weighted win rate</system:String>
+    <system:String x:Key="RosterPerformanceTip">{0} {1}: {2}</system:String>
 
 </ResourceDictionary>

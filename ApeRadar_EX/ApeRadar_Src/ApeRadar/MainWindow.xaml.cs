@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -41,25 +42,34 @@ namespace ApeRadar
         private CancellationTokenSource? rosterLoadCancellation;
         private long rosterLoadGeneration;
         private bool analysisDrawerOpen;
+        private bool analysisDocked;
         private bool notificationsExpanded;
         private readonly DispatcherTimer playerDetailOpenTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
-        private readonly DispatcherTimer playerDetailCloseTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+        private readonly DispatcherTimer playerDetailCloseTimer = new() { Interval = TimeSpan.FromMilliseconds(200) };
         private PlayerRosterRowViewModel? pendingDetailRow;
         private FrameworkElement? pendingDetailTarget;
         private PlayerRosterRowViewModel? currentDetailRow;
-        private bool playerDetailPinned;
+        private bool pointerOverDetailRow;
         private readonly IBattleRosterCoordinator battleRosterCoordinator = new BattleRosterCoordinator();
         private readonly IRosterPresentationService rosterPresentationService = new RosterPresentationService();
 
         private readonly ObservableCollection<PlayerRosterRowViewModel> alliesRosterRows = new();
         private readonly ObservableCollection<PlayerRosterRowViewModel> enemiesRosterRows = new();
+        private readonly ObservableCollection<string> accountMetricHeaders = new();
+        private readonly ObservableCollection<string> shipMetricHeaders = new();
+        private readonly ObservableCollection<string> tierMetricHeaders = new();
         public IEnumerable AlliesRosterRows => alliesRosterRows;
         public IEnumerable EnemiesRosterRows => enemiesRosterRows;
+        public IEnumerable<string> AccountMetricHeaders => accountMetricHeaders;
+        public IEnumerable<string> ShipMetricHeaders => shipMetricHeaders;
+        public IEnumerable<string> TierMetricHeaders => tierMetricHeaders;
 
         public static readonly DependencyProperty EffectivePlayerFontSizeProperty = DependencyProperty.Register(
             nameof(EffectivePlayerFontSize), typeof(double), typeof(MainWindow), new PropertyMetadata(18d));
         public static readonly DependencyProperty EffectiveStatisticsFontSizeProperty = DependencyProperty.Register(
             nameof(EffectiveStatisticsFontSize), typeof(double), typeof(MainWindow), new PropertyMetadata(16d));
+        public static readonly DependencyProperty EffectiveColumnHeaderHeightProperty = DependencyProperty.Register(
+            nameof(EffectiveColumnHeaderHeight), typeof(double), typeof(MainWindow), new PropertyMetadata(28d));
         public static readonly DependencyProperty IsCompactRosterProperty = DependencyProperty.Register(
             nameof(IsCompactRoster), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
         public static readonly DependencyProperty UseCompactStatusBadgesProperty = DependencyProperty.Register(
@@ -75,6 +85,12 @@ namespace ApeRadar
         {
             get => (double)GetValue(EffectiveStatisticsFontSizeProperty);
             private set => SetValue(EffectiveStatisticsFontSizeProperty, value);
+        }
+
+        public double EffectiveColumnHeaderHeight
+        {
+            get => (double)GetValue(EffectiveColumnHeaderHeightProperty);
+            private set => SetValue(EffectiveColumnHeaderHeightProperty, value);
         }
 
         public bool IsCompactRoster
@@ -185,17 +201,20 @@ namespace ApeRadar
             WinrateChart.Sections = ChartUtils.GetWinrateChartSections(battlefield, chartType);
         }
 
-        private void RefreshDataGridColumns(bool mirrored)
+        internal void RefreshDataGridColumns(bool mirrored)
         {
+            UpdateMetricHeaders();
             DataGridAlliesList.Columns.Clear();
             AddRosterColumn(DataGridAlliesList, "RosterPlayerColumn");
             AddVisibleMetricColumns(DataGridAlliesList, mirrored: false);
-            AddRosterColumn(DataGridAlliesList, "RosterStatusColumn");
+            if (Properties.Settings.Default.ShowPerformanceRosterColumn)
+                AddRosterColumn(DataGridAlliesList, "RosterPerformanceColumn");
 
             DataGridEnemiesList.Columns.Clear();
             if (mirrored)
             {
-                AddRosterColumn(DataGridEnemiesList, "RosterStatusColumn");
+                if (Properties.Settings.Default.ShowPerformanceRosterColumn)
+                    AddRosterColumn(DataGridEnemiesList, "RosterPerformanceColumn");
                 AddVisibleMetricColumns(DataGridEnemiesList, mirrored: true);
                 AddRosterColumn(DataGridEnemiesList, "RosterPlayerColumnMirrored");
             }
@@ -203,7 +222,8 @@ namespace ApeRadar
             {
                 AddRosterColumn(DataGridEnemiesList, "RosterPlayerColumn");
                 AddVisibleMetricColumns(DataGridEnemiesList, mirrored: false);
-                AddRosterColumn(DataGridEnemiesList, "RosterStatusColumn");
+                if (Properties.Settings.Default.ShowPerformanceRosterColumn)
+                    AddRosterColumn(DataGridEnemiesList, "RosterPerformanceColumn");
             }
             Dispatcher.BeginInvoke(() =>
             {
@@ -217,14 +237,8 @@ namespace ApeRadar
 
         private void AddVisibleMetricColumns(DataGrid dataGrid, bool mirrored)
         {
-            bool accountVisible = Properties.Settings.Default.AccountWinrateVisibility != 2 ||
-                Properties.Settings.Default.WeightedWinrateVisibility != 2 ||
-                Properties.Settings.Default.AccountAvgExpVisibility != 2 ||
-                Properties.Settings.Default.PRVisibility != 2;
-            bool shipVisible = Properties.Settings.Default.ShipWinrateVisibility != 2 ||
-                Properties.Settings.Default.ShipAvgDmgVisibility != 2 ||
-                Properties.Settings.Default.ShipAvgExpVisibility != 2 ||
-                Properties.Settings.Default.PRVisibility != 2;
+            bool accountVisible = Properties.Settings.Default.ShowAccountRosterColumn && accountMetricHeaders.Count > 0;
+            bool shipVisible = Properties.Settings.Default.ShowShipRosterColumn && shipMetricHeaders.Count > 0;
 
             string[] keys = mirrored
                 ? new[] { "RosterTierColumn", "RosterShipColumn", "RosterAccountColumn" }
@@ -238,10 +252,47 @@ namespace ApeRadar
             }
         }
 
+        private void UpdateMetricHeaders()
+        {
+            accountMetricHeaders.Clear();
+            shipMetricHeaders.Clear();
+            tierMetricHeaders.Clear();
+            string Text(string key, string fallback) => TryFindResource(key) as string ?? fallback;
+            void Add(ObservableCollection<string> target, int visibility, string key, string fallback)
+            {
+                if (visibility != 2) target.Add(Text(key, fallback));
+            }
+
+            Add(accountMetricHeaders, Properties.Settings.Default.AccountWinrateVisibility, "RosterMetricBattles", "Games");
+            Add(accountMetricHeaders, Properties.Settings.Default.AccountWinrateVisibility, "RosterMetricWinrate", "WR");
+            Add(accountMetricHeaders, Properties.Settings.Default.PRVisibility, "DataGridToolTipPR", "PR");
+            Add(accountMetricHeaders, Properties.Settings.Default.AccountAvgExpVisibility, "RosterMetricAvgExp", "XP");
+            Add(accountMetricHeaders, Properties.Settings.Default.WeightedWinrateVisibility, "RosterMetricWeighted", "Adjusted");
+
+            Add(shipMetricHeaders, Properties.Settings.Default.ShipWinrateVisibility, "RosterMetricBattles", "Games");
+            Add(shipMetricHeaders, Properties.Settings.Default.ShipWinrateVisibility, "RosterMetricWinrate", "WR");
+            Add(shipMetricHeaders, Properties.Settings.Default.PRVisibility, "DataGridToolTipPR", "PR");
+            Add(shipMetricHeaders, Properties.Settings.Default.ShipAvgDmgVisibility, "RosterMetricAvgDamage", "Dmg");
+            Add(shipMetricHeaders, Properties.Settings.Default.ShipAvgExpVisibility, "RosterMetricAvgExp", "XP");
+
+            tierMetricHeaders.Add(Text("RosterMetricBattles", "Games"));
+            tierMetricHeaders.Add(Text("RosterMetricWinrate", "WR"));
+            tierMetricHeaders.Add("PR");
+        }
+
         private void AddRosterColumn(DataGrid dataGrid, string resourceKey)
         {
             if (TryFindResource(resourceKey) is DataGridColumn column)
+            {
+                column.Header = resourceKey switch
+                {
+                    "RosterAccountColumn" => accountMetricHeaders,
+                    "RosterShipColumn" => shipMetricHeaders,
+                    "RosterTierColumn" => tierMetricHeaders,
+                    _ => null
+                };
                 dataGrid.Columns.Add(column);
+            }
         }
 
         private static void ResetHorizontalScroll(DataGrid dataGrid)
@@ -263,6 +314,16 @@ namespace ApeRadar
             return null;
         }
 
+        private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T match) return match;
+                child = VisualTreeHelper.GetParent(child);
+            }
+            return null;
+        }
+
         public MainWindow() : this(initializeRuntime: true)
         {
         }
@@ -273,6 +334,8 @@ namespace ApeRadar
             WinrateChart.Tooltip = new ShipAwareChartTooltip();
             playerDetailOpenTimer.Tick += PlayerDetailOpenTimer_Tick;
             playerDetailCloseTimer.Tick += PlayerDetailCloseTimer_Tick;
+            PlayerDetailPopup.CustomPopupPlacementCallback = PlacePlayerDetailPopup;
+            Deactivated += (_, _) => ClosePlayerDetail();
 
             Loaded += (_, _) => UpdateResponsiveLayout();
 
@@ -307,6 +370,8 @@ namespace ApeRadar
                 Properties.Settings.Default.Upgrade();
                 Properties.Settings.Default.SettingsUpgradeDone = true;
             }
+
+            ApplyRosterClaritySettingsMigration();
 
             //solve old version settings migration problem
             try
@@ -385,11 +450,56 @@ namespace ApeRadar
             LogUtils.WriteInfo("Timer Start");
         }
 
-        private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateResponsiveLayout();
+        private static void ApplyRosterClaritySettingsMigration()
+        {
+            if (Properties.Settings.Default.RosterClarityMigrationDone) return;
+
+            bool oldFieldsStillAtDefault = Properties.Settings.Default.AccountWinrateVisibility == 0 &&
+                Properties.Settings.Default.WeightedWinrateVisibility == 0 &&
+                Properties.Settings.Default.ShipWinrateVisibility == 0 &&
+                Properties.Settings.Default.AccountAvgExpVisibility == 0 &&
+                Properties.Settings.Default.ShipAvgExpVisibility == 0 &&
+                Properties.Settings.Default.ShipAvgDmgVisibility == 0 &&
+                Properties.Settings.Default.PRVisibility == 0;
+
+            Properties.Settings.Default.ShowAccountRosterColumn = true;
+            Properties.Settings.Default.ShowShipRosterColumn = true;
+            Properties.Settings.Default.ShowTierPerformanceStats = false;
+            Properties.Settings.Default.ShowPerformanceRosterColumn = true;
+            if (oldFieldsStillAtDefault)
+            {
+                Properties.Settings.Default.WeightedWinrateVisibility = 2;
+                Properties.Settings.Default.AccountAvgExpVisibility = 2;
+                Properties.Settings.Default.ShipAvgExpVisibility = 2;
+            }
+            Properties.Settings.Default.RosterClarityMigrationDone = true;
+            Properties.Settings.Default.Save();
+        }
+
+        private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            ClosePlayerDetail();
+            UpdateResponsiveLayout();
+        }
 
         private void BtnToggleAnalysis_Click(object sender, RoutedEventArgs e)
         {
-            analysisDrawerOpen = !analysisDrawerOpen;
+            if (analysisDocked)
+            {
+                Properties.Settings.Default.AnalysisPanelExpanded = !Properties.Settings.Default.AnalysisPanelExpanded;
+                try
+                {
+                    Properties.Settings.Default.Save();
+                }
+                catch (Exception ex)
+                {
+                    LogUtils.WriteInfo($"Could not persist analysis panel state: {ex.Message}");
+                }
+            }
+            else
+            {
+                analysisDrawerOpen = !analysisDrawerOpen;
+            }
             UpdateResponsiveLayout();
         }
 
@@ -413,10 +523,6 @@ namespace ApeRadar
         private void UpdateResponsiveLayout()
         {
             if (!IsLoaded && ActualWidth <= 0) return;
-            AnalysisPanel.Visibility = analysisDrawerOpen ? Visibility.Visible : Visibility.Collapsed;
-            AnalysisPanel.Width = Math.Min(420, Math.Max(300, MainWindowGrid.ActualWidth - 16));
-            BtnToggleAnalysis.FontWeight = analysisDrawerOpen ? FontWeights.SemiBold : FontWeights.Normal;
-
             bool useOverflowMenu = ActualWidth < 1420;
             BtnSoftwareUpdate.Visibility = useOverflowMenu ? Visibility.Collapsed : Visibility.Visible;
             BtnConfig.Visibility = useOverflowMenu ? Visibility.Collapsed : Visibility.Visible;
@@ -424,41 +530,68 @@ namespace ApeRadar
             BtnMore.Visibility = useOverflowMenu ? Visibility.Visible : Visibility.Collapsed;
             CurrentSessionSummaryCard.Visibility = ActualWidth < 1030 ? Visibility.Collapsed : Visibility.Visible;
 
-            double teamGridWidth = Math.Max(0, (RosterTablesGrid.ActualWidth - 8) / 2);
             RosterDisplayDensity density = RosterDisplayDensityExtensions.Parse(Properties.Settings.Default.RosterDisplayDensity);
-            bool showAccount = Properties.Settings.Default.AccountWinrateVisibility != 2 ||
-                Properties.Settings.Default.WeightedWinrateVisibility != 2 ||
-                Properties.Settings.Default.AccountAvgExpVisibility != 2 ||
-                Properties.Settings.Default.PRVisibility != 2;
-            bool showShip = Properties.Settings.Default.ShipWinrateVisibility != 2 ||
-                Properties.Settings.Default.ShipAvgDmgVisibility != 2 ||
-                Properties.Settings.Default.ShipAvgExpVisibility != 2 ||
-                Properties.Settings.Default.PRVisibility != 2;
+            bool showAccount = Properties.Settings.Default.ShowAccountRosterColumn && accountMetricHeaders.Count > 0;
+            bool showShip = Properties.Settings.Default.ShowShipRosterColumn && shipMetricHeaders.Count > 0;
             bool showTier = Properties.Settings.Default.ShowTierPerformanceStats;
-            RosterColumnWidths columnWidths = RosterLayoutCalculator.CalculateColumns(teamGridWidth, density, showAccount, showShip, showTier);
-            ScrollBarVisibility horizontalScroll = columnWidths.RequiresHorizontalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
-            DataGridAlliesList.HorizontalScrollBarVisibility = horizontalScroll;
-            DataGridEnemiesList.HorizontalScrollBarVisibility = horizontalScroll;
-            ApplyRosterColumnWidths(DataGridAlliesList, columnWidths);
-            ApplyRosterColumnWidths(DataGridEnemiesList, columnWidths);
-
+            bool showPerformance = Properties.Settings.Default.ShowPerformanceRosterColumn;
             int playerCount = DataContext is Battlefield battlefield
-                ? Math.Max(12, Math.Max(battlefield.Allies.Count, battlefield.Enemies.Count))
+                ? Math.Max(1, Math.Max(battlefield.Allies.Count, battlefield.Enemies.Count))
                 : 12;
             double gridHeight = Math.Min(DataGridAlliesList.ActualHeight, DataGridEnemiesList.ActualHeight);
             if (gridHeight <= 0) gridHeight = Math.Max(0, ActualHeight - 155);
-            RosterLayoutMetrics metrics = RosterLayoutCalculator.Calculate(
-                gridHeight,
-                playerCount,
+
+            double contentWidth = MainContentGrid.ActualWidth > 0 ? MainContentGrid.ActualWidth : Math.Max(0, ActualWidth - 20);
+            const double dockedAnalysisWidth = 380;
+            double dockedTeamWidth = Math.Max(0, (contentWidth - dockedAnalysisWidth - 16) / 2);
+            RosterFitMetrics dockedCandidate = RosterLayoutCalculator.CalculateFit(
+                dockedTeamWidth, gridHeight, playerCount,
                 Properties.Settings.Default.PlayerColumnFontSize,
                 Properties.Settings.Default.StatisticsColumnFontSize,
-                density,
-                teamGridWidth);
-            DataGridAlliesList.RowHeight = DataGridEnemiesList.RowHeight = metrics.RowHeight;
-            EffectivePlayerFontSize = metrics.PlayerFontSize;
-            EffectiveStatisticsFontSize = metrics.StatisticsFontSize;
+                density, showAccount, showShip, showTier, showPerformance);
+            bool wasDocked = analysisDocked;
+            analysisDocked = contentWidth >= 1600 && dockedCandidate.Layout.Scale >= 0.85;
+            if (wasDocked && !analysisDocked) analysisDrawerOpen = false;
+
+            bool analysisVisible = analysisDocked
+                ? Properties.Settings.Default.AnalysisPanelExpanded
+                : analysisDrawerOpen;
+            AnalysisPanel.Visibility = analysisVisible ? Visibility.Visible : Visibility.Collapsed;
+            if (analysisDocked)
+            {
+                Grid.SetColumn(AnalysisPanel, 1);
+                Grid.SetColumnSpan(AnalysisPanel, 1);
+                AnalysisHostColumn.Width = analysisVisible ? new GridLength(dockedAnalysisWidth + 8) : new GridLength(0);
+                AnalysisPanel.Width = dockedAnalysisWidth;
+            }
+            else
+            {
+                AnalysisHostColumn.Width = new GridLength(0);
+                Grid.SetColumn(AnalysisPanel, 0);
+                Grid.SetColumnSpan(AnalysisPanel, 2);
+                AnalysisPanel.Width = Math.Min(420, Math.Max(300, contentWidth - 16));
+            }
+            BtnToggleAnalysis.FontWeight = analysisVisible ? FontWeights.SemiBold : FontWeights.Normal;
+
+            double rosterWidth = Math.Max(0, contentWidth - (analysisDocked && analysisVisible ? dockedAnalysisWidth + 8 : 0));
+            double teamGridWidth = Math.Max(0, (rosterWidth - 8) / 2);
+            RosterFitMetrics fit = RosterLayoutCalculator.CalculateFit(
+                teamGridWidth, gridHeight, playerCount,
+                Properties.Settings.Default.PlayerColumnFontSize,
+                Properties.Settings.Default.StatisticsColumnFontSize,
+                density, showAccount, showShip, showTier, showPerformance);
+            ScrollBarVisibility horizontalScroll = fit.Layout.RequiresHorizontalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+            ScrollBarVisibility verticalScroll = fit.Layout.RequiresVerticalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+            DataGridAlliesList.HorizontalScrollBarVisibility = DataGridEnemiesList.HorizontalScrollBarVisibility = horizontalScroll;
+            DataGridAlliesList.VerticalScrollBarVisibility = DataGridEnemiesList.VerticalScrollBarVisibility = verticalScroll;
+            ApplyRosterColumnWidths(DataGridAlliesList, fit.Columns);
+            ApplyRosterColumnWidths(DataGridEnemiesList, fit.Columns);
+            DataGridAlliesList.RowHeight = DataGridEnemiesList.RowHeight = fit.Layout.RowHeight;
+            EffectiveColumnHeaderHeight = fit.Layout.ColumnHeaderHeight;
+            EffectivePlayerFontSize = fit.Layout.PlayerFontSize;
+            EffectiveStatisticsFontSize = fit.Layout.StatisticsFontSize;
             IsCompactRoster = density == RosterDisplayDensity.Compact;
-            UseCompactStatusBadges = metrics.UseCompactStatusBadges;
+            UseCompactStatusBadges = fit.Layout.UseCompactStatusBadges;
             UpdatePlayerDetailBounds();
         }
 
@@ -472,7 +605,7 @@ namespace ApeRadar
                     "Account" => widths.Account,
                     "Ship" => widths.Ship,
                     "Tier" => widths.Tier,
-                    "Status" => widths.Status,
+                    "Performance" => widths.Performance,
                     _ => column.ActualWidth
                 };
                 if (width > 0) column.Width = new DataGridLength(width, DataGridLengthUnitType.Pixel);
@@ -481,17 +614,44 @@ namespace ApeRadar
 
         private void UpdatePlayerDetailBounds()
         {
-            System.Windows.Forms.Screen screen = System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Cursor.Position);
+            System.Windows.Forms.Screen screen;
+            if (pendingDetailTarget is FrameworkElement target && target.IsLoaded)
+            {
+                Point point = target.PointToScreen(new Point(target.ActualWidth / 2, target.ActualHeight / 2));
+                screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)point.X, (int)point.Y));
+            }
+            else
+            {
+                screen = System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Cursor.Position);
+            }
             DpiScale dpi = VisualTreeHelper.GetDpi(this);
-            PlayerDetailCardBorder.Width = Math.Min(680, Math.Max(420, screen.WorkingArea.Width / dpi.DpiScaleX - 32));
-            PlayerDetailCardBorder.MaxHeight = Math.Min(720, Math.Max(300, screen.WorkingArea.Height / dpi.DpiScaleY - 48));
+            PlayerDetailCardBorder.Width = Math.Min(560, Math.Max(360, screen.WorkingArea.Width / dpi.DpiScaleX - 32));
+            PlayerDetailCardBorder.MaxHeight = Math.Min(720, Math.Max(300, screen.WorkingArea.Height / dpi.DpiScaleY * 0.70));
+        }
+
+        private CustomPopupPlacement[] PlacePlayerDetailPopup(Size popupSize, Size targetSize, Point offset)
+        {
+            double y = targetSize.Height / 2 - popupSize.Height / 2;
+            bool ally = FindVisualParent<DataGrid>(pendingDetailTarget) == DataGridAlliesList;
+            double preferredX = ally ? targetSize.Width + 8 : -popupSize.Width - 8;
+            double fallbackX = ally ? -popupSize.Width - 8 : targetSize.Width + 8;
+            return new[]
+            {
+                new CustomPopupPlacement(new Point(preferredX, y), PopupPrimaryAxis.Horizontal),
+                new CustomPopupPlacement(new Point(fallbackX, y), PopupPrimaryAxis.Horizontal),
+                new CustomPopupPlacement(new Point(preferredX, targetSize.Height + 6), PopupPrimaryAxis.Vertical),
+                new CustomPopupPlacement(new Point(preferredX, -popupSize.Height - 6), PopupPrimaryAxis.Vertical)
+            };
         }
 
         private void RosterRow_MouseEnter(object sender, MouseEventArgs e)
         {
-            if (playerDetailPinned || sender is not DataGridRow row || row.DataContext is not PlayerRosterRowViewModel rosterRow) return;
+            if (sender is not DataGridRow row || row.DataContext is not PlayerRosterRowViewModel rosterRow) return;
             playerDetailCloseTimer.Stop();
             playerDetailOpenTimer.Stop();
+            if (currentDetailRow?.Detail.IdentityKey != rosterRow.Detail.IdentityKey && PlayerDetailPopup.IsOpen)
+                ClosePlayerDetail();
+            pointerOverDetailRow = true;
             pendingDetailRow = rosterRow;
             pendingDetailTarget = row;
             playerDetailOpenTimer.Start();
@@ -499,59 +659,46 @@ namespace ApeRadar
 
         private void RosterRow_MouseLeave(object sender, MouseEventArgs e)
         {
+            pointerOverDetailRow = false;
             playerDetailOpenTimer.Stop();
-            if (!playerDetailPinned)
-            {
-                playerDetailCloseTimer.Stop();
-                playerDetailCloseTimer.Start();
-            }
-        }
-
-        private void RosterRow_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is not DataGridRow row || row.DataContext is not PlayerRosterRowViewModel rosterRow) return;
-            playerDetailOpenTimer.Stop();
-            if (playerDetailPinned && currentDetailRow?.Detail.IdentityKey == rosterRow.Detail.IdentityKey)
-                ClosePlayerDetail();
-            else
-                ShowPlayerDetail(rosterRow, row, pinned: true);
-            e.Handled = true;
-        }
-
-        private void RosterRow_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key != Key.Enter || sender is not DataGridRow row || row.DataContext is not PlayerRosterRowViewModel rosterRow) return;
-            ShowPlayerDetail(rosterRow, row, pinned: true);
-            e.Handled = true;
+            playerDetailCloseTimer.Stop();
+            playerDetailCloseTimer.Start();
         }
 
         private void PlayerDetailOpenTimer_Tick(object? sender, EventArgs e)
         {
             playerDetailOpenTimer.Stop();
-            if (pendingDetailRow != null && pendingDetailTarget != null)
-                ShowPlayerDetail(pendingDetailRow, pendingDetailTarget, pinned: false);
+            if (pointerOverDetailRow && pendingDetailRow != null && pendingDetailTarget != null)
+                ShowPlayerDetail(pendingDetailRow, pendingDetailTarget);
         }
 
         private void PlayerDetailCloseTimer_Tick(object? sender, EventArgs e)
         {
             playerDetailCloseTimer.Stop();
-            if (!playerDetailPinned && !PlayerDetailPopup.IsMouseOver)
+            bool overRow = pendingDetailTarget?.IsMouseOver == true;
+            bool overPopup = PlayerDetailCardBorder.IsMouseOver;
+            if (!overRow && !overPopup)
                 ClosePlayerDetail();
+            else
+                playerDetailCloseTimer.Start();
         }
 
-        private void ShowPlayerDetail(PlayerRosterRowViewModel row, FrameworkElement target, bool pinned)
+        private void ShowPlayerDetail(PlayerRosterRowViewModel row, FrameworkElement target)
         {
             playerDetailOpenTimer.Stop();
             playerDetailCloseTimer.Stop();
+            if (PlayerDetailPopup.IsOpen) PlayerDetailPopup.IsOpen = false;
             currentDetailRow = row;
-            playerDetailPinned = pinned;
+            pendingDetailTarget = target;
             PlayerDetailCardContent.DataContext = row.Detail;
             PlayerDetailPopup.PlacementTarget = target;
-            PlayerDetailPopup.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
-            PlayerDetailPopup.StaysOpen = pinned;
-            TxtPlayerDetailMode.Text = FindResource(pinned ? "DetailPinnedMode" : "DetailHoverMode") as string ?? "";
+            PlayerDetailPopup.Placement = PlacementMode.Custom;
+            PlayerDetailPopup.StaysOpen = true;
             UpdatePlayerDetailBounds();
             PlayerDetailPopup.IsOpen = true;
+            // Poll while open as a fallback for Popup mouse-leave events that can
+            // be lost when WPF moves the popup into its own native window.
+            playerDetailCloseTimer.Start();
         }
 
         private void ClosePlayerDetail()
@@ -560,29 +707,32 @@ namespace ApeRadar
             playerDetailCloseTimer.Stop();
             pendingDetailRow = null;
             pendingDetailTarget = null;
-            playerDetailPinned = false;
-            PlayerDetailPopup.StaysOpen = false;
+            pointerOverDetailRow = false;
             PlayerDetailPopup.IsOpen = false;
             currentDetailRow = null;
             PlayerDetailCardContent.DataContext = null;
         }
 
-        private void PlayerDetailPopup_MouseEnter(object sender, MouseEventArgs e) => playerDetailCloseTimer.Stop();
+        private void PlayerDetailPopup_MouseEnter(object sender, MouseEventArgs e)
+        {
+            playerDetailCloseTimer.Stop();
+        }
 
         private void PlayerDetailPopup_MouseLeave(object sender, MouseEventArgs e)
         {
-            if (playerDetailPinned) return;
             playerDetailCloseTimer.Stop();
             playerDetailCloseTimer.Start();
         }
 
         private void PlayerDetailPopup_Closed(object? sender, EventArgs e)
         {
-            if (!playerDetailPinned)
-            {
-                currentDetailRow = null;
-                PlayerDetailCardContent.DataContext = null;
-            }
+            currentDetailRow = null;
+            PlayerDetailCardContent.DataContext = null;
+        }
+
+        private void RosterDataGrid_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (e.HorizontalChange != 0 || e.VerticalChange != 0) ClosePlayerDetail();
         }
 
         private void BtnClosePlayerDetail_Click(object sender, RoutedEventArgs e) => ClosePlayerDetail();
@@ -915,9 +1065,8 @@ namespace ApeRadar
             }
         }
 
-        private async void BtnConfig_Click(object sender, RoutedEventArgs e)
+        private void BtnConfig_Click(object sender, RoutedEventArgs e)
         {
-            bool tierPerformanceWasEnabled = Properties.Settings.Default.ShowTierPerformanceStats;
             ConfigWindow configWindow = new()
             {
                 Owner = this
@@ -929,15 +1078,6 @@ namespace ApeRadar
             {
                 RefreshRosterRows(battlefield);
                 SwitchSorting(Properties.Settings.Default.PlayerListSortBy);
-            }
-
-            if (!tierPerformanceWasEnabled && Properties.Settings.Default.ShowTierPerformanceStats)
-            {
-                string latestFileName = FileUtils.GetLatestTempArenaInfoFile(false);
-                if (latestFileName != "")
-                {
-                    await ReadPlayersListAndGetDataFromServer(latestFileName, true);
-                }
             }
         }
 
@@ -1252,29 +1392,12 @@ namespace ApeRadar
 
         private void RefreshRosterRows(Battlefield battlefield)
         {
-            string? pinnedIdentity = playerDetailPinned ? currentDetailRow?.Detail.IdentityKey : null;
+            ClosePlayerDetail();
             RosterPresentationOptions options = RosterPresentationOptions.FromCurrentSettings();
             IReadOnlyList<PlayerRosterRowViewModel> allies = rosterPresentationService.CreateRows(battlefield.Allies, options);
             IReadOnlyList<PlayerRosterRowViewModel> enemies = rosterPresentationService.CreateRows(battlefield.Enemies, options);
             ReplaceRows(alliesRosterRows, allies);
             ReplaceRows(enemiesRosterRows, enemies);
-            if (pinnedIdentity != null)
-            {
-                PlayerRosterRowViewModel? updated = allies.Concat(enemies).FirstOrDefault(row => row.Detail.IdentityKey == pinnedIdentity);
-                if (updated == null)
-                {
-                    ClosePlayerDetail();
-                }
-                else
-                {
-                    currentDetailRow = updated;
-                    PlayerDetailCardContent.DataContext = updated.Detail;
-                }
-            }
-            else if (PlayerDetailPopup.IsOpen)
-            {
-                ClosePlayerDetail();
-            }
         }
 
         private static void ReplaceRows(ObservableCollection<PlayerRosterRowViewModel> target, IReadOnlyList<PlayerRosterRowViewModel> source)

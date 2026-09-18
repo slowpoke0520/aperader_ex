@@ -90,6 +90,12 @@ namespace ApeRadar.Models
         public double MostPlayedTierShare { get; set; }
         public bool HasRecognizedTierData => MostPlayedTier > 0;
         public bool IsLowTierBiased { get; set; }
+        public double LowTierBattles { get; set; }
+        public double HighTierBattles { get; set; }
+        public double LowTierWinrate { get; set; }
+        public double HighTierWinrate { get; set; }
+        public double LowTierPR { get; set; }
+        public double HighTierPR { get; set; }
         public string Note { get; set; }
         public bool IsDataStale { get; set; }
 
@@ -349,6 +355,12 @@ namespace ApeRadar.Models
             MostPlayedTierBattles = other.MostPlayedTierBattles;
             MostPlayedTierShare = other.MostPlayedTierShare;
             IsLowTierBiased = other.IsLowTierBiased;
+            LowTierBattles = other.LowTierBattles;
+            HighTierBattles = other.HighTierBattles;
+            LowTierWinrate = other.LowTierWinrate;
+            HighTierWinrate = other.HighTierWinrate;
+            LowTierPR = other.LowTierPR;
+            HighTierPR = other.HighTierPR;
             ShipWins = other.ShipWins;
             ShipWins_Solo = other.ShipWins_Solo;
             ShipWins_Div2 = other.ShipWins_Div2;
@@ -398,6 +410,12 @@ namespace ApeRadar.Models
             MostPlayedTierBattles = -1;
             MostPlayedTierShare = -1;
             IsLowTierBiased = false;
+            LowTierBattles = -1;
+            HighTierBattles = -1;
+            LowTierWinrate = -1;
+            HighTierWinrate = -1;
+            LowTierPR = -1;
+            HighTierPR = -1;
         }
 
         override public string ToString()
