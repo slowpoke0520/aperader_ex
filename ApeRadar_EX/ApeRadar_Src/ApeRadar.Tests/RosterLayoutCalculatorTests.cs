@@ -7,89 +7,102 @@ namespace ApeRadar.Tests;
 public sealed class RosterLayoutCalculatorTests
 {
     [Fact]
-    public void StandardRoster_FitsTwelveRowsWithoutScrollingAtDesktopSize()
+    public void StandardRoster_FitsTwelveRowsAtTargetFonts()
     {
-        RosterFitMetrics result = RosterLayoutCalculator.CalculateFit(
-            740, 760, 12, 18, 16, RosterDisplayDensity.Standard,
-            showAccount: true, showShip: true, showTier: false, showPerformance: true);
+        RosterFitMetrics result = Fit(940, 800, 12);
 
-        Assert.Equal(1, result.Layout.Scale);
-        Assert.InRange(result.Layout.RowHeight, 54, 68);
+        Assert.Equal(17, result.Layout.PlayerFontSize);
+        Assert.Equal(14, result.Layout.StatisticsFontSize);
         Assert.False(result.Layout.RequiresHorizontalScroll);
         Assert.False(result.Layout.RequiresVerticalScroll);
-        Assert.Equal(740, result.Columns.Total, 1);
-        Assert.True(result.Columns.Player > RosterLayoutCalculator.PlayerWidth);
+        Assert.Equal(940, result.Columns.Total, 1);
+        Assert.InRange(result.Layout.RowHeight, 61, 66);
+    }
+
+    [Fact]
+    public void VisibleMetricCount_DeterminesRequiredRowHeight()
+    {
+        RosterFitMetrics twoLines = Fit(940, 900, 12, shipLines: 2);
+        RosterFitMetrics fourLines = Fit(940, 900, 12, shipLines: 4);
+
+        Assert.True(fourLines.Layout.RowHeight > twoLines.Layout.RowHeight);
+        Assert.True(fourLines.NaturalHeight > twoLines.NaturalHeight);
     }
 
     [Fact]
     public void BothTeams_ReceiveDeterministicIdenticalMetrics()
     {
-        RosterFitMetrics allies = Fit(610, 650, 12, showTier: true);
-        RosterFitMetrics enemies = Fit(610, 650, 12, showTier: true);
+        RosterFitMetrics allies = Fit(760, 760, 12, showTier: true);
+        RosterFitMetrics enemies = Fit(760, 760, 12, showTier: true);
 
         Assert.Equal(allies, enemies);
-        Assert.Equal(allies.Columns.Player, enemies.Columns.Player);
+        Assert.Equal(allies.Columns, enemies.Columns);
         Assert.Equal(allies.Layout.RowHeight, enemies.Layout.RowHeight);
     }
 
     [Fact]
-    public void ExtraWidth_IsGivenOnlyToPlayerColumn()
+    public void ExtraWidth_IsDistributedAcrossSemanticColumns()
     {
-        RosterFitMetrics natural = Fit(516, 760, 12, showTier: false);
-        RosterFitMetrics wide = Fit(716, 760, 12, showTier: false);
+        RosterFitMetrics natural = Fit(660, 800, 12);
+        RosterFitMetrics wide = Fit(860, 800, 12);
 
-        Assert.Equal(natural.Columns.Account, wide.Columns.Account);
-        Assert.Equal(natural.Columns.Ship, wide.Columns.Ship);
+        Assert.True(wide.Columns.Player > natural.Columns.Player);
+        Assert.True(wide.Columns.Account > natural.Columns.Account);
+        Assert.True(wide.Columns.Ship > natural.Columns.Ship);
+        Assert.True(wide.Columns.PersonalRating > natural.Columns.PersonalRating);
         Assert.Equal(natural.Columns.Performance, wide.Columns.Performance);
-        Assert.Equal(200, wide.Columns.Player - natural.Columns.Player, 1);
     }
 
     [Fact]
     public void OptionalColumns_RecomputeNaturalWidthWithoutLeavingHoles()
     {
-        RosterFitMetrics all = Fit(800, 760, 12, showTier: true);
-        RosterFitMetrics reduced = RosterLayoutCalculator.CalculateFit(
-            800, 760, 12, 18, 16, RosterDisplayDensity.Standard,
-            showAccount: false, showShip: true, showTier: false, showPerformance: false);
+        RosterFitMetrics reduced = RosterLayoutCalculator.CalculateFit(new RosterFitInput(
+            800, 800, 12, 18, 16, RosterDisplayDensity.Standard,
+            ShowAccount: false, ShowWeighted: false, ShowShip: true, ShowPersonalRating: false,
+            ShowTier: false, ShowPerformance: false,
+            AccountMetricLines: 0, WeightedMetricLines: 0, ShipMetricLines: 3,
+            PersonalRatingMetricLines: 0, TierMetricLines: 0));
 
         Assert.Equal(0, reduced.Columns.Account);
+        Assert.Equal(0, reduced.Columns.Weighted);
+        Assert.Equal(0, reduced.Columns.PersonalRating);
         Assert.Equal(0, reduced.Columns.Tier);
         Assert.Equal(0, reduced.Columns.Performance);
-        Assert.True(reduced.Columns.Player > all.Columns.Player);
         Assert.Equal(800, reduced.Columns.Total, 1);
     }
 
     [Fact]
-    public void VerySmallViewport_ClampsScaleAndUsesScrollbars()
+    public void VerySmallViewport_UsesFontFloorsAndScrollbars()
     {
         RosterFitMetrics result = Fit(360, 420, 12, showTier: true);
 
-        Assert.Equal(RosterLayoutCalculator.MinimumScale, result.Layout.Scale, 3);
+        Assert.Equal(14, result.Layout.PlayerFontSize);
+        Assert.Equal(12, result.Layout.StatisticsFontSize);
         Assert.True(result.Layout.RequiresHorizontalScroll);
         Assert.True(result.Layout.RequiresVerticalScroll);
-        Assert.True(result.Layout.RowHeight >= 37.4);
     }
 
     [Fact]
-    public void MoreThanTwelvePlayers_AlwaysKeepsReadableRowsAndScrolls()
+    public void MoreThanTwelvePlayers_AlwaysScrollsWithoutShrinkingBelowFloor()
     {
-        RosterFitMetrics result = Fit(700, 900, 15, showTier: false);
+        RosterFitMetrics result = Fit(800, 900, 15);
 
         Assert.True(result.Layout.RequiresVerticalScroll);
-        Assert.True(result.Layout.RowHeight >= 42);
+        Assert.True(result.Layout.PlayerFontSize >= 14);
+        Assert.True(result.Layout.StatisticsFontSize >= 12);
     }
 
     [Theory]
-    [InlineData("Compact", 48)]
-    [InlineData("Standard", 54)]
-    [InlineData("Comfortable", 60)]
-    public void Density_ControlsNaturalRowHeight(string setting, double expected)
+    [InlineData("Compact", 15, 12)]
+    [InlineData("Standard", 17, 14)]
+    [InlineData("Comfortable", 18, 16)]
+    public void Density_ControlsTargetFonts(string setting, double playerFont, double statisticsFont)
     {
         RosterDisplayDensity density = RosterDisplayDensityExtensions.Parse(setting);
-        RosterFitMetrics result = RosterLayoutCalculator.CalculateFit(
-            900, RosterLayoutCalculator.HeaderHeight + expected * 12, 12, 18, 16, density, true, true, false, true);
+        RosterFitMetrics result = Fit(940, 1_000, 12, density: density);
 
-        Assert.Equal(expected, result.Layout.RowHeight);
+        Assert.Equal(playerFont, result.Layout.PlayerFontSize);
+        Assert.Equal(statisticsFont, result.Layout.StatisticsFontSize);
     }
 
     [Fact]
@@ -99,7 +112,58 @@ public sealed class RosterLayoutCalculatorTests
         Assert.Equal(RosterPerformanceMetric.PR, RosterPerformanceMetricExtensions.Parse("future-value"));
     }
 
-    private static RosterFitMetrics Fit(double width, double height, int players, bool showTier) =>
-        RosterLayoutCalculator.CalculateFit(width, height, players, 18, 16,
-            RosterDisplayDensity.Standard, true, true, showTier, true);
+    [Fact]
+    public void LegibilityMigration_DisablesExperienceOnceAndRestoresWeightedColumn()
+    {
+        bool oldMigration = ApeRadar.Properties.Settings.Default.RosterLegibilityMigrationDone;
+        int oldAccountExperience = ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility;
+        int oldShipExperience = ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility;
+        int oldWeighted = ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility;
+        bool oldAnalysis = ApeRadar.Properties.Settings.Default.AnalysisPanelExpanded;
+        try
+        {
+            ApeRadar.Properties.Settings.Default.RosterLegibilityMigrationDone = false;
+            ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility = 0;
+            ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility = 0;
+            ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility = 2;
+
+            MainWindow.ApplyRosterLegibilitySettingsMigration(persist: false);
+
+            Assert.True(ApeRadar.Properties.Settings.Default.RosterLegibilityMigrationDone);
+            Assert.Equal(2, ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility);
+            Assert.Equal(2, ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility);
+            Assert.Equal(0, ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility);
+
+            ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility = 0;
+            ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility = 0;
+            ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility = 2;
+            MainWindow.ApplyRosterLegibilitySettingsMigration(persist: false);
+
+            Assert.Equal(0, ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility);
+            Assert.Equal(0, ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility);
+            Assert.Equal(2, ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility);
+        }
+        finally
+        {
+            ApeRadar.Properties.Settings.Default.RosterLegibilityMigrationDone = oldMigration;
+            ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility = oldAccountExperience;
+            ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility = oldShipExperience;
+            ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility = oldWeighted;
+            ApeRadar.Properties.Settings.Default.AnalysisPanelExpanded = oldAnalysis;
+        }
+    }
+
+    private static RosterFitMetrics Fit(
+        double width,
+        double height,
+        int players,
+        bool showTier = false,
+        int shipLines = 3,
+        RosterDisplayDensity density = RosterDisplayDensity.Standard) =>
+        RosterLayoutCalculator.CalculateFit(new RosterFitInput(
+            width, height, players, 18, 16, density,
+            ShowAccount: true, ShowWeighted: true, ShowShip: true, ShowPersonalRating: true,
+            ShowTier: showTier, ShowPerformance: true,
+            AccountMetricLines: 2, WeightedMetricLines: 1, ShipMetricLines: shipLines,
+            PersonalRatingMetricLines: 2, TierMetricLines: 3));
 }

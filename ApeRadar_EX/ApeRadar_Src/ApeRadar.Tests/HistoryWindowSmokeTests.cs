@@ -116,7 +116,6 @@ public sealed class HistoryWindowSmokeTests
         bool previousShipColumn = ApeRadar.Properties.Settings.Default.ShowShipRosterColumn;
         bool previousPerformanceColumn = ApeRadar.Properties.Settings.Default.ShowPerformanceRosterColumn;
         string previousPerformanceMetric = ApeRadar.Properties.Settings.Default.RosterPerformanceMetric;
-        bool previousAnalysisExpanded = ApeRadar.Properties.Settings.Default.AnalysisPanelExpanded;
         int previousAccountWinrate = ApeRadar.Properties.Settings.Default.AccountWinrateVisibility;
         int previousAccountAvgExp = ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility;
         int previousWeightedWinrate = ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility;
@@ -132,10 +131,9 @@ public sealed class HistoryWindowSmokeTests
         ApeRadar.Properties.Settings.Default.ShowShipRosterColumn = true;
         ApeRadar.Properties.Settings.Default.ShowPerformanceRosterColumn = true;
         ApeRadar.Properties.Settings.Default.RosterPerformanceMetric = "PR";
-        ApeRadar.Properties.Settings.Default.AnalysisPanelExpanded = true;
         ApeRadar.Properties.Settings.Default.AccountWinrateVisibility = 0;
         ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility = 2;
-        ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility = 2;
+        ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility = 0;
         ApeRadar.Properties.Settings.Default.ShipWinrateVisibility = 0;
         ApeRadar.Properties.Settings.Default.ShipAvgDmgVisibility = 0;
         ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility = 2;
@@ -168,9 +166,9 @@ public sealed class HistoryWindowSmokeTests
             AssertElementsDoNotOverlap(window, messages, buttons, width, height);
             AssertElementsDoNotOverlap(window, messages, summary, width, height);
             FrameworkElement analysis = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("AnalysisPanel"));
-            Assert.Equal(renderedWidth >= 1900 ? Visibility.Visible : Visibility.Collapsed, analysis.Visibility);
-            Assert.Equal(4, window.DataGridAlliesList.Columns.Count);
-            Assert.Equal(4, window.DataGridEnemiesList.Columns.Count);
+            Assert.Equal(Visibility.Collapsed, analysis.Visibility);
+            Assert.Equal(6, window.DataGridAlliesList.Columns.Count);
+            Assert.Equal(6, window.DataGridEnemiesList.Columns.Count);
             Assert.False(window.DataGridAlliesList.CanUserResizeColumns);
             Assert.False(window.DataGridEnemiesList.CanUserResizeColumns);
             Assert.All(window.DataGridAlliesList.Columns, column => Assert.False(column.CanUserResize));
@@ -188,16 +186,25 @@ public sealed class HistoryWindowSmokeTests
                 Assert.Equal(Visibility.Collapsed, enemiesScroll.ComputedVerticalScrollBarVisibility);
                 Assert.Equal(Visibility.Collapsed, alliesScroll.ComputedHorizontalScrollBarVisibility);
                 Assert.Equal(Visibility.Collapsed, enemiesScroll.ComputedHorizontalScrollBarVisibility);
-                Assert.InRange(window.DataGridAlliesList.RowHeight, 54 * RosterLayoutCalculator.MinimumScale, 68);
+                Assert.True(window.DataGridAlliesList.RowHeight >= 61);
+                Assert.Equal(17, window.EffectivePlayerFontSize);
+                Assert.Equal(14, window.EffectiveStatisticsFontSize);
+                DataGridCell accountCell = Assert.Single(FindVisualChildren<DataGridCell>(window.DataGridAlliesList)
+                    .Where(cell => cell.IsVisible && cell.Column?.SortMemberPath == "Account").Take(1));
+                Assert.Equal(new Thickness(0, 0, 1, 1), accountCell.BorderThickness);
+                Assert.IsType<SolidColorBrush>(accountCell.BorderBrush);
+                DataGridCell performanceCell = Assert.Single(FindVisualChildren<DataGridCell>(window.DataGridAlliesList)
+                    .Where(cell => cell.IsVisible && cell.Column?.SortMemberPath == "Performance").Take(1));
+                Assert.Equal(new Thickness(1, 0, 0, 1), performanceCell.BorderThickness);
 
-                double alliesWidthBeforeCollapse = window.DataGridAlliesList.ActualWidth;
-                window.BtnToggleAnalysis.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                window.UpdateLayout();
-                Assert.Equal(Visibility.Collapsed, analysis.Visibility);
-                Assert.True(window.DataGridAlliesList.ActualWidth > alliesWidthBeforeCollapse);
+                double alliesWidthBeforeDrawer = window.DataGridAlliesList.ActualWidth;
                 window.BtnToggleAnalysis.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 window.UpdateLayout();
                 Assert.Equal(Visibility.Visible, analysis.Visibility);
+                Assert.Equal(alliesWidthBeforeDrawer, window.DataGridAlliesList.ActualWidth, 1);
+                window.BtnToggleAnalysis.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                window.UpdateLayout();
+                Assert.Equal(Visibility.Collapsed, analysis.Visibility);
             }
 
             if (Math.Abs(width - 1280) < 0.1)
@@ -268,7 +275,6 @@ public sealed class HistoryWindowSmokeTests
         ApeRadar.Properties.Settings.Default.ShowShipRosterColumn = previousShipColumn;
         ApeRadar.Properties.Settings.Default.ShowPerformanceRosterColumn = previousPerformanceColumn;
         ApeRadar.Properties.Settings.Default.RosterPerformanceMetric = previousPerformanceMetric;
-        ApeRadar.Properties.Settings.Default.AnalysisPanelExpanded = previousAnalysisExpanded;
         ApeRadar.Properties.Settings.Default.AccountWinrateVisibility = previousAccountWinrate;
         ApeRadar.Properties.Settings.Default.AccountAvgExpVisibility = previousAccountAvgExp;
         ApeRadar.Properties.Settings.Default.WeightedWinrateVisibility = previousWeightedWinrate;
@@ -390,6 +396,14 @@ public sealed class HistoryWindowSmokeTests
                 Assert.True(bounds.Left >= -1 && bounds.Right <= cell.ActualWidth + 1,
                     $"{content.GetType().Name} '{(content as TextBlock)?.Text}' escapes roster column {cell.Column?.DisplayIndex} " +
                     $"at {width}x{height}: {bounds} outside width {cell.ActualWidth:0.##}.");
+                Assert.True(bounds.Top >= -1 && bounds.Bottom <= cell.ActualHeight + 1,
+                    $"{content.GetType().Name} '{(content as TextBlock)?.Text}' is vertically clipped in roster column {cell.Column?.DisplayIndex} " +
+                    $"at {width}x{height}: {bounds} outside height {cell.ActualHeight:0.##}.");
+                if (content is TextBlock text && text.TextTrimming == TextTrimming.None)
+                {
+                    Assert.True(text.DesiredSize.Height <= cell.ActualHeight + 1,
+                        $"Text '{text.Text}' needs {text.DesiredSize.Height:0.##} DIP but the cell provides {cell.ActualHeight:0.##} DIP.");
+                }
             }
         }
     }

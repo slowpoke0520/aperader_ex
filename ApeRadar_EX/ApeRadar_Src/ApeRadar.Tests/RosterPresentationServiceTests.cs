@@ -16,11 +16,15 @@ public sealed class RosterPresentationServiceTests
 
         PlayerRosterRowViewModel row = CreateRow(player, options);
 
-        Assert.Single(row.AccountMetrics.Lines);
-        Assert.Single(row.ShipMetrics.Lines);
-        Assert.Single(row.TierMetrics.Lines);
-        Assert.Equal(new[] { RosterMetricKind.Neutral, RosterMetricKind.Winrate, RosterMetricKind.PersonalRating, RosterMetricKind.Neutral, RosterMetricKind.Winrate }, row.AccountMetrics.Items.Select(item => item.Kind));
-        Assert.Equal(RosterMetricKind.DamageRating, row.ShipMetrics.Items[3].Kind);
+        Assert.Equal(RosterColumnKind.Account, row.AccountMetrics.Kind);
+        Assert.Equal(RosterColumnKind.Weighted, row.WeightedMetrics.Kind);
+        Assert.Equal(RosterColumnKind.Ship, row.ShipMetrics.Kind);
+        Assert.Equal(RosterColumnKind.PersonalRating, row.PersonalRatingMetrics.Kind);
+        Assert.Equal(RosterColumnKind.Tier, row.TierMetrics.Kind);
+        Assert.Equal(new[] { RosterMetricKind.Neutral, RosterMetricKind.Winrate, RosterMetricKind.Neutral }, row.AccountMetrics.Items.Select(item => item.Kind));
+        Assert.Single(row.WeightedMetrics.Items);
+        Assert.Equal(RosterMetricKind.DamageRating, row.ShipMetrics.Items[2].Kind);
+        Assert.Equal(new[] { RosterMetricKind.PersonalRating, RosterMetricKind.PersonalRating }, row.PersonalRatingMetrics.Items.Select(item => item.Kind));
         Assert.Empty(row.StatusBadges);
         Assert.Equal(string.Empty, row.ContextPreview);
         Assert.Equal(PlayerSkillBand.VeryGood, row.SkillBand);
@@ -32,10 +36,9 @@ public sealed class RosterPresentationServiceTests
         PlayerRosterRowViewModel row = CreateRow(CreatePlayer("Compact", 8_000),
             new RosterPresentationOptions(0, 0, 0, 0, 0, 0, 0, true, RosterDisplayDensity.Compact));
 
-        Assert.Single(row.AccountMetrics.Lines);
-        Assert.Single(row.ShipMetrics.Lines);
         Assert.Equal("Games", row.AccountMetrics.Items[0].Label);
         Assert.Equal("Games", row.ShipMetrics.Items[0].Label);
+        Assert.Equal("WR", row.WeightedMetrics.Items[0].Label);
     }
 
     [Fact]
@@ -165,7 +168,9 @@ public sealed class RosterPresentationServiceTests
         PlayerRosterRowViewModel row = CreateRow(CreatePlayer("Hidden columns", 8_000), new(2, 2, 2, 2, 2, 2, 2, false));
 
         Assert.False(row.AccountMetrics.IsVisible);
+        Assert.False(row.WeightedMetrics.IsVisible);
         Assert.False(row.ShipMetrics.IsVisible);
+        Assert.False(row.PersonalRatingMetrics.IsVisible);
         Assert.False(row.TierMetrics.IsVisible);
     }
 
