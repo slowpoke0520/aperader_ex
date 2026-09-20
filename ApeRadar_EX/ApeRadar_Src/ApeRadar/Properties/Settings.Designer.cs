@@ -25,7 +25,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.13")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2.1.1-ex.12-dev.14")]
         public string SoftwareVersion {
             get {
                 return ((string)(this["SoftwareVersion"]));
@@ -34,7 +34,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("20260918")]
+        [global::System.Configuration.DefaultSettingValueAttribute("20260920")]
         public string SoftwareDate {
             get {
                 return ((string)(this["SoftwareDate"]));
@@ -259,7 +259,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2")]
         public int AccountAvgExpVisibility {
             get {
                 return ((int)(this["AccountAvgExpVisibility"]));
@@ -271,7 +271,7 @@ namespace ApeRadar.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        [global::System.Configuration.DefaultSettingValueAttribute("2")]
         public int ShipAvgExpVisibility {
             get {
                 return ((int)(this["ShipAvgExpVisibility"]));
@@ -749,6 +749,14 @@ namespace ApeRadar.Properties {
         public bool RosterClarityMigrationDone {
             get { return ((bool)(this["RosterClarityMigrationDone"])); }
             set { this["RosterClarityMigrationDone"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool RosterLegibilityMigrationDone {
+            get { return ((bool)(this["RosterLegibilityMigrationDone"])); }
+            set { this["RosterLegibilityMigrationDone"] = value; }
         }
 
         [global::System.Configuration.UserScopedSettingAttribute()]

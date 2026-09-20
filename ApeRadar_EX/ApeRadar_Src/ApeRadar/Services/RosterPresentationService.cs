@@ -21,38 +21,49 @@ namespace ApeRadar.Services
 
         private static PlayerRosterRowViewModel CreateRow(Player player, RosterPresentationOptions options)
         {
-            MetricGroupViewModel account = Group(
-                Line(
-                    Number(Text("RosterMetricBattlesShort", "Games"), player.Battles, "N0", RosterMetricKind.Neutral, options.AccountVisibility),
-                    Percent(Text("RosterMetricWinrateShort", "WR"), player.AccountWinrate, RosterMetricKind.Winrate, options.AccountVisibility, RosterMetricEmphasis.Primary),
-                    Number("PR", player.PR, "N0", RosterMetricKind.PersonalRating, options.PersonalRatingVisibility, emphasis: RosterMetricEmphasis.Primary),
-                    Number(Text("RosterMetricAvgExpShort", "XP"), player.AvgExpPerBattle, "N0", RosterMetricKind.Neutral, options.AccountAverageExperienceVisibility),
-                    Percent(Text("RosterMetricWeightedShort", "Adj"), player.WeightedWinrate, RosterMetricKind.Winrate, options.WeightedVisibility, RosterMetricEmphasis.Tertiary)));
+            RosterMetricColumnViewModel account = Column(
+                RosterColumnKind.Account,
+                Number(Text("RosterMetricBattlesShort", "Games"), player.Battles, "N0", RosterMetricKind.Neutral, options.AccountVisibility),
+                Percent(Text("RosterMetricWinrateShort", "WR"), player.AccountWinrate, RosterMetricKind.Winrate, options.AccountVisibility, RosterMetricEmphasis.Primary),
+                Number(Text("RosterMetricAvgExpShort", "XP"), player.AvgExpPerBattle, "N0", RosterMetricKind.Neutral, options.AccountAverageExperienceVisibility));
+
+            RosterMetricColumnViewModel weighted = Column(
+                RosterColumnKind.Weighted,
+                Percent(Text("RosterMetricWinrateShort", "WR"), player.WeightedWinrate, RosterMetricKind.Winrate,
+                    options.WeightedVisibility, RosterMetricEmphasis.Primary));
 
             double damageRating = player.ShipBattles > 0 && player.ShipAvgDmgPerBattle >= 0
                 ? PRUtils.CalculateDamageRating(player.ShipID, player.ShipBattles, player.ShipAvgDmgPerBattle * player.ShipBattles)
                 : -1;
-            MetricGroupViewModel ship = Group(
-                Line(
-                    Number(Text("RosterMetricBattlesShort", "Games"), player.ShipBattles, "N0", RosterMetricKind.Neutral, options.ShipVisibility),
-                    Percent(Text("RosterMetricWinrateShort", "WR"), player.ShipWinrate, RosterMetricKind.Winrate, options.ShipVisibility, RosterMetricEmphasis.Primary),
-                    Number("PR", player.ShipPR, "N0", RosterMetricKind.PersonalRating, options.PersonalRatingVisibility, emphasis: RosterMetricEmphasis.Primary),
-                    Number(Text("RosterMetricAvgDamageShort", "Dmg"), player.ShipAvgDmgPerBattle, "N0", RosterMetricKind.DamageRating, options.ShipAverageDamageVisibility, damageRating),
-                    Number(Text("RosterMetricAvgExpShort", "XP"), player.ShipAvgExpPerBattle, "N0", RosterMetricKind.Neutral, options.ShipAverageExperienceVisibility, emphasis: RosterMetricEmphasis.Tertiary)));
+            RosterMetricColumnViewModel ship = Column(
+                RosterColumnKind.Ship,
+                Number(Text("RosterMetricBattlesShort", "Games"), player.ShipBattles, "N0", RosterMetricKind.Neutral, options.ShipVisibility),
+                Percent(Text("RosterMetricWinrateShort", "WR"), player.ShipWinrate, RosterMetricKind.Winrate, options.ShipVisibility, RosterMetricEmphasis.Primary),
+                Number(Text("RosterMetricAvgDamageShort", "Dmg"), player.ShipAvgDmgPerBattle, "N0", RosterMetricKind.DamageRating,
+                    options.ShipAverageDamageVisibility, damageRating),
+                Number(Text("RosterMetricAvgExpShort", "XP"), player.ShipAvgExpPerBattle, "N0", RosterMetricKind.Neutral,
+                    options.ShipAverageExperienceVisibility, emphasis: RosterMetricEmphasis.Tertiary));
 
-            MetricGroupViewModel tier = options.ShowTierPerformance
-                ? Group(
-                    Line(
-                        TierBattleMetric(player),
-                        Percent(Text("RosterMetricWinrate", "WR"), player.TierWinrate, RosterMetricKind.Winrate, 0, RosterMetricEmphasis.Primary),
-                        Number("PR", player.TierPR, "N0", RosterMetricKind.PersonalRating, 0, emphasis: RosterMetricEmphasis.Primary)))
-                : Group();
+            RosterMetricColumnViewModel personalRating = Column(
+                RosterColumnKind.PersonalRating,
+                Number(Text("DataGridToolTipAccount", "Account"), player.PR, "N0", RosterMetricKind.PersonalRating,
+                    options.PersonalRatingVisibility, emphasis: RosterMetricEmphasis.Primary),
+                Number(Text("DataGridToolTipShip", "Ship"), player.ShipPR, "N0", RosterMetricKind.PersonalRating,
+                    options.PersonalRatingVisibility, emphasis: RosterMetricEmphasis.Primary));
+
+            RosterMetricColumnViewModel tier = options.ShowTierPerformance
+                ? Column(
+                    RosterColumnKind.Tier,
+                    TierBattleMetric(player),
+                    Percent(Text("RosterMetricWinrateShort", "WR"), player.TierWinrate, RosterMetricKind.Winrate, 0, RosterMetricEmphasis.Primary),
+                    Number("PR", player.TierPR, "N0", RosterMetricKind.PersonalRating, 0, emphasis: RosterMetricEmphasis.Primary))
+                : Column(RosterColumnKind.Tier);
 
             IReadOnlyList<RosterStatusBadgeViewModel> badges = BuildStatusBadges(player, options);
             PerformanceCellViewModel performance = BuildPerformanceCell(player, options);
             PlayerSkillBand band = performance.Band;
             string bandText = SkillBandText(band);
-            return new PlayerRosterRowViewModel(player, account, ship, tier, BuildContextPreview(player), badges,
+            return new PlayerRosterRowViewModel(player, account, weighted, ship, personalRating, tier, BuildContextPreview(player), badges,
                 band, bandText, performance.ToolTip, performance);
         }
 
@@ -253,14 +264,8 @@ namespace ApeRadar.Services
             _ => "—"
         };
 
-        private static MetricGroupViewModel Group(params MetricLineViewModel?[] lines) =>
-            new(lines.Where(line => line != null).Cast<MetricLineViewModel>());
-
-        private static MetricLineViewModel? Line(params MetricItemViewModel?[] items)
-        {
-            MetricItemViewModel[] visible = items.Where(item => item != null).Cast<MetricItemViewModel>().ToArray();
-            return visible.Length == 0 ? null : new MetricLineViewModel(visible);
-        }
+        private static RosterMetricColumnViewModel Column(RosterColumnKind kind, params MetricItemViewModel?[] items) =>
+            new(kind, items);
 
         private static MetricItemViewModel? Percent(string label, double value, RosterMetricKind kind, int visibility, RosterMetricEmphasis emphasis = RosterMetricEmphasis.Secondary) =>
             visibility == 2 ? null : new(label, Format(value, "P1"), value, kind, value >= 0, Opacity(visibility), emphasis);

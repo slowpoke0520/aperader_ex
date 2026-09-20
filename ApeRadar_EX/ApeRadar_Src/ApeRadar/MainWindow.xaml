@@ -372,16 +372,22 @@
             <TextBlock Text="{DynamicResource DataGridHeaderPlayer}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right"/>
         </DataTemplate>
         <DataTemplate x:Key="RosterAccountHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsAccount}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsAccount}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterWeightedHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsWeighted}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         </DataTemplate>
         <DataTemplate x:Key="RosterShipHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsShip}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsShip}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterPersonalRatingHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsPR}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         </DataTemplate>
         <DataTemplate x:Key="RosterTierHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsTier}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsTier}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         </DataTemplate>
         <DataTemplate x:Key="RosterPerformanceHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderPerformance}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderPerformance}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         </DataTemplate>
 
         <DataTemplate x:Key="RosterPlayerTemplate">
@@ -393,8 +399,14 @@
         <DataTemplate x:Key="RosterAccountTemplate">
             <controls:PlayerMetricGroup DataContext="{Binding AccountMetrics}"/>
         </DataTemplate>
+        <DataTemplate x:Key="RosterWeightedTemplate">
+            <controls:PlayerMetricGroup DataContext="{Binding WeightedMetrics}"/>
+        </DataTemplate>
         <DataTemplate x:Key="RosterShipTemplate">
             <controls:PlayerMetricGroup DataContext="{Binding ShipMetrics}"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterPersonalRatingTemplate">
+            <controls:PlayerMetricGroup DataContext="{Binding PersonalRatingMetrics}"/>
         </DataTemplate>
         <DataTemplate x:Key="RosterTierTemplate">
             <controls:PlayerMetricGroup DataContext="{Binding TierMetrics}"/>
@@ -407,12 +419,33 @@
             </Border>
         </DataTemplate>
 
-        <DataGridTemplateColumn x:Key="RosterPlayerColumn" x:Shared="False" SortMemberPath="Player" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplate}" CellTemplate="{StaticResource RosterPlayerTemplate}" Width="240" CanUserResize="False"/>
-        <DataGridTemplateColumn x:Key="RosterPlayerColumnMirrored" x:Shared="False" SortMemberPath="Player" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplateMirrored}" CellTemplate="{StaticResource RosterPlayerTemplateMirrored}" Width="240" CanUserResize="False"/>
-        <DataGridTemplateColumn x:Key="RosterAccountColumn" x:Shared="False" SortMemberPath="Account" HeaderTemplate="{StaticResource RosterAccountHeaderTemplate}" CellTemplate="{StaticResource RosterAccountTemplate}" Width="96" CanUserResize="False"/>
-        <DataGridTemplateColumn x:Key="RosterShipColumn" x:Shared="False" SortMemberPath="Ship" HeaderTemplate="{StaticResource RosterShipHeaderTemplate}" CellTemplate="{StaticResource RosterShipTemplate}" Width="124" CanUserResize="False"/>
-        <DataGridTemplateColumn x:Key="RosterTierColumn" x:Shared="False" SortMemberPath="Tier" HeaderTemplate="{StaticResource RosterTierHeaderTemplate}" CellTemplate="{StaticResource RosterTierTemplate}" Width="96" CanUserResize="False"/>
-        <DataGridTemplateColumn x:Key="RosterPerformanceColumn" x:Shared="False" SortMemberPath="Performance" HeaderTemplate="{StaticResource RosterPerformanceHeaderTemplate}" CellTemplate="{StaticResource RosterPerformanceTemplate}" Width="56" CanUserResize="False"/>
+        <Style x:Key="RosterCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="BorderBrush" Value="#B9C3CF"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style x:Key="RosterPerformanceCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource RosterCellStyle}">
+            <Setter Property="BorderBrush" Value="#8795A6"/>
+            <Setter Property="BorderThickness" Value="1,0,0,1"/>
+        </Style>
+        <Style x:Key="RosterColumnHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+            <Setter Property="BorderBrush" Value="#8E9AAA"/>
+            <Setter Property="BorderThickness" Value="0,0,1,2"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style x:Key="RosterPerformanceHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource RosterColumnHeaderStyle}">
+            <Setter Property="BorderBrush" Value="#738196"/>
+            <Setter Property="BorderThickness" Value="1,0,0,2"/>
+        </Style>
+
+        <DataGridTemplateColumn x:Key="RosterPlayerColumn" x:Shared="False" SortMemberPath="Player" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterPlayerTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="250" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterPlayerColumnMirrored" x:Shared="False" SortMemberPath="Player" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplateMirrored}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterPlayerTemplateMirrored}" CellStyle="{StaticResource RosterCellStyle}" Width="250" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterAccountColumn" x:Shared="False" SortMemberPath="Account" HeaderTemplate="{StaticResource RosterAccountHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterAccountTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="92" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterWeightedColumn" x:Shared="False" SortMemberPath="Weighted" HeaderTemplate="{StaticResource RosterWeightedHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterWeightedTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="72" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterShipColumn" x:Shared="False" SortMemberPath="Ship" HeaderTemplate="{StaticResource RosterShipHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterShipTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="112" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterPersonalRatingColumn" x:Shared="False" SortMemberPath="PersonalRating" HeaderTemplate="{StaticResource RosterPersonalRatingHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterPersonalRatingTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="86" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterTierColumn" x:Shared="False" SortMemberPath="Tier" HeaderTemplate="{StaticResource RosterTierHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterTierTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="96" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterPerformanceColumn" x:Shared="False" SortMemberPath="Performance" HeaderTemplate="{StaticResource RosterPerformanceHeaderTemplate}" HeaderStyle="{StaticResource RosterPerformanceHeaderStyle}" CellTemplate="{StaticResource RosterPerformanceTemplate}" CellStyle="{StaticResource RosterPerformanceCellStyle}" Width="48" CanUserResize="False"/>
 
         <ContextMenu x:Key="RowMenu" DataContext="{Binding PlacementTarget.DataContext.Player, RelativeSource={RelativeSource Self}}">
             <MenuItem x:Name="ContextMenuCopyPlayerStatistics" Header="{DynamicResource ContextMenuCopyPlayerStatistics}" Click="ContextMenuCopyPlayerStatistics_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemCopyPlayerStatisticsIsEnabled}}"/>
@@ -637,16 +670,18 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <DataGrid x:Name="DataGridAlliesList" Grid.Column="0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single"
                           ItemsSource="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=AlliesRosterRows}" CanUserReorderColumns="False" CanUserSortColumns="False"
+                          GridLinesVisibility="None"
                           RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ColumnHeaderHeight="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveColumnHeaderHeight}" AlternationCount="2"
                           ScrollViewer.ScrollChanged="RosterDataGrid_ScrollChanged"/>
                 <DataGrid x:Name="DataGridEnemiesList" Grid.Column="2" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single"
                           ItemsSource="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EnemiesRosterRows}" CanUserReorderColumns="False" CanUserSortColumns="False"
+                          GridLinesVisibility="None"
                           RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ColumnHeaderHeight="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveColumnHeaderHeight}" AlternationCount="2"
                           ScrollViewer.ScrollChanged="RosterDataGrid_ScrollChanged"/>
             </Grid>
         </Grid>
 
-            <Border x:Name="AnalysisPanel" Grid.Column="1" Width="380" MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+            <Border x:Name="AnalysisPanel" Grid.Column="0" Grid.ColumnSpan="2" Width="420" MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}}"
                 HorizontalAlignment="Right" Style="{StaticResource SurfaceCardStyle}" Padding="10" Panel.ZIndex="30" Visibility="Collapsed">
             <Border.Effect>
                 <DropShadowEffect Color="#29415F" BlurRadius="18" ShadowDepth="-3" Opacity="0.22"/>

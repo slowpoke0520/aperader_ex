@@ -42,7 +42,6 @@ namespace ApeRadar
         private CancellationTokenSource? rosterLoadCancellation;
         private long rosterLoadGeneration;
         private bool analysisDrawerOpen;
-        private bool analysisDocked;
         private bool notificationsExpanded;
         private readonly DispatcherTimer playerDetailOpenTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
         private readonly DispatcherTimer playerDetailCloseTimer = new() { Interval = TimeSpan.FromMilliseconds(200) };
@@ -56,12 +55,16 @@ namespace ApeRadar
         private readonly ObservableCollection<PlayerRosterRowViewModel> alliesRosterRows = new();
         private readonly ObservableCollection<PlayerRosterRowViewModel> enemiesRosterRows = new();
         private readonly ObservableCollection<string> accountMetricHeaders = new();
+        private readonly ObservableCollection<string> weightedMetricHeaders = new();
         private readonly ObservableCollection<string> shipMetricHeaders = new();
+        private readonly ObservableCollection<string> personalRatingMetricHeaders = new();
         private readonly ObservableCollection<string> tierMetricHeaders = new();
         public IEnumerable AlliesRosterRows => alliesRosterRows;
         public IEnumerable EnemiesRosterRows => enemiesRosterRows;
         public IEnumerable<string> AccountMetricHeaders => accountMetricHeaders;
+        public IEnumerable<string> WeightedMetricHeaders => weightedMetricHeaders;
         public IEnumerable<string> ShipMetricHeaders => shipMetricHeaders;
+        public IEnumerable<string> PersonalRatingMetricHeaders => personalRatingMetricHeaders;
         public IEnumerable<string> TierMetricHeaders => tierMetricHeaders;
 
         public static readonly DependencyProperty EffectivePlayerFontSizeProperty = DependencyProperty.Register(
@@ -238,15 +241,19 @@ namespace ApeRadar
         private void AddVisibleMetricColumns(DataGrid dataGrid, bool mirrored)
         {
             bool accountVisible = Properties.Settings.Default.ShowAccountRosterColumn && accountMetricHeaders.Count > 0;
+            bool weightedVisible = weightedMetricHeaders.Count > 0;
             bool shipVisible = Properties.Settings.Default.ShowShipRosterColumn && shipMetricHeaders.Count > 0;
+            bool personalRatingVisible = personalRatingMetricHeaders.Count > 0;
 
             string[] keys = mirrored
-                ? new[] { "RosterTierColumn", "RosterShipColumn", "RosterAccountColumn" }
-                : new[] { "RosterAccountColumn", "RosterShipColumn", "RosterTierColumn" };
+                ? new[] { "RosterTierColumn", "RosterPersonalRatingColumn", "RosterShipColumn", "RosterWeightedColumn", "RosterAccountColumn" }
+                : new[] { "RosterAccountColumn", "RosterWeightedColumn", "RosterShipColumn", "RosterPersonalRatingColumn", "RosterTierColumn" };
             foreach (string key in keys)
             {
                 if (key == "RosterAccountColumn" && !accountVisible) continue;
+                if (key == "RosterWeightedColumn" && !weightedVisible) continue;
                 if (key == "RosterShipColumn" && !shipVisible) continue;
+                if (key == "RosterPersonalRatingColumn" && !personalRatingVisible) continue;
                 if (key == "RosterTierColumn" && !Properties.Settings.Default.ShowTierPerformanceStats) continue;
                 AddRosterColumn(dataGrid, key);
             }
@@ -255,7 +262,9 @@ namespace ApeRadar
         private void UpdateMetricHeaders()
         {
             accountMetricHeaders.Clear();
+            weightedMetricHeaders.Clear();
             shipMetricHeaders.Clear();
+            personalRatingMetricHeaders.Clear();
             tierMetricHeaders.Clear();
             string Text(string key, string fallback) => TryFindResource(key) as string ?? fallback;
             void Add(ObservableCollection<string> target, int visibility, string key, string fallback)
@@ -265,15 +274,16 @@ namespace ApeRadar
 
             Add(accountMetricHeaders, Properties.Settings.Default.AccountWinrateVisibility, "RosterMetricBattles", "Games");
             Add(accountMetricHeaders, Properties.Settings.Default.AccountWinrateVisibility, "RosterMetricWinrate", "WR");
-            Add(accountMetricHeaders, Properties.Settings.Default.PRVisibility, "DataGridToolTipPR", "PR");
             Add(accountMetricHeaders, Properties.Settings.Default.AccountAvgExpVisibility, "RosterMetricAvgExp", "XP");
-            Add(accountMetricHeaders, Properties.Settings.Default.WeightedWinrateVisibility, "RosterMetricWeighted", "Adjusted");
+            Add(weightedMetricHeaders, Properties.Settings.Default.WeightedWinrateVisibility, "RosterMetricWinrate", "WR");
 
             Add(shipMetricHeaders, Properties.Settings.Default.ShipWinrateVisibility, "RosterMetricBattles", "Games");
             Add(shipMetricHeaders, Properties.Settings.Default.ShipWinrateVisibility, "RosterMetricWinrate", "WR");
-            Add(shipMetricHeaders, Properties.Settings.Default.PRVisibility, "DataGridToolTipPR", "PR");
             Add(shipMetricHeaders, Properties.Settings.Default.ShipAvgDmgVisibility, "RosterMetricAvgDamage", "Dmg");
             Add(shipMetricHeaders, Properties.Settings.Default.ShipAvgExpVisibility, "RosterMetricAvgExp", "XP");
+
+            Add(personalRatingMetricHeaders, Properties.Settings.Default.PRVisibility, "DataGridToolTipAccount", "Account");
+            Add(personalRatingMetricHeaders, Properties.Settings.Default.PRVisibility, "DataGridToolTipShip", "Ship");
 
             tierMetricHeaders.Add(Text("RosterMetricBattles", "Games"));
             tierMetricHeaders.Add(Text("RosterMetricWinrate", "WR"));
@@ -287,7 +297,9 @@ namespace ApeRadar
                 column.Header = resourceKey switch
                 {
                     "RosterAccountColumn" => accountMetricHeaders,
+                    "RosterWeightedColumn" => weightedMetricHeaders,
                     "RosterShipColumn" => shipMetricHeaders,
+                    "RosterPersonalRatingColumn" => personalRatingMetricHeaders,
                     "RosterTierColumn" => tierMetricHeaders,
                     _ => null
                 };
@@ -372,6 +384,7 @@ namespace ApeRadar
             }
 
             ApplyRosterClaritySettingsMigration();
+            ApplyRosterLegibilitySettingsMigration();
 
             //solve old version settings migration problem
             try
@@ -476,6 +489,18 @@ namespace ApeRadar
             Properties.Settings.Default.Save();
         }
 
+        internal static void ApplyRosterLegibilitySettingsMigration(bool persist = true)
+        {
+            if (Properties.Settings.Default.RosterLegibilityMigrationDone) return;
+
+            Properties.Settings.Default.AccountAvgExpVisibility = 2;
+            Properties.Settings.Default.ShipAvgExpVisibility = 2;
+            Properties.Settings.Default.WeightedWinrateVisibility = 0;
+            Properties.Settings.Default.AnalysisPanelExpanded = false;
+            Properties.Settings.Default.RosterLegibilityMigrationDone = true;
+            if (persist) Properties.Settings.Default.Save();
+        }
+
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             ClosePlayerDetail();
@@ -484,22 +509,7 @@ namespace ApeRadar
 
         private void BtnToggleAnalysis_Click(object sender, RoutedEventArgs e)
         {
-            if (analysisDocked)
-            {
-                Properties.Settings.Default.AnalysisPanelExpanded = !Properties.Settings.Default.AnalysisPanelExpanded;
-                try
-                {
-                    Properties.Settings.Default.Save();
-                }
-                catch (Exception ex)
-                {
-                    LogUtils.WriteInfo($"Could not persist analysis panel state: {ex.Message}");
-                }
-            }
-            else
-            {
-                analysisDrawerOpen = !analysisDrawerOpen;
-            }
+            analysisDrawerOpen = !analysisDrawerOpen;
             UpdateResponsiveLayout();
         }
 
@@ -532,7 +542,9 @@ namespace ApeRadar
 
             RosterDisplayDensity density = RosterDisplayDensityExtensions.Parse(Properties.Settings.Default.RosterDisplayDensity);
             bool showAccount = Properties.Settings.Default.ShowAccountRosterColumn && accountMetricHeaders.Count > 0;
+            bool showWeighted = weightedMetricHeaders.Count > 0;
             bool showShip = Properties.Settings.Default.ShowShipRosterColumn && shipMetricHeaders.Count > 0;
+            bool showPersonalRating = personalRatingMetricHeaders.Count > 0;
             bool showTier = Properties.Settings.Default.ShowTierPerformanceStats;
             bool showPerformance = Properties.Settings.Default.ShowPerformanceRosterColumn;
             int playerCount = DataContext is Battlefield battlefield
@@ -542,44 +554,34 @@ namespace ApeRadar
             if (gridHeight <= 0) gridHeight = Math.Max(0, ActualHeight - 155);
 
             double contentWidth = MainContentGrid.ActualWidth > 0 ? MainContentGrid.ActualWidth : Math.Max(0, ActualWidth - 20);
-            const double dockedAnalysisWidth = 380;
-            double dockedTeamWidth = Math.Max(0, (contentWidth - dockedAnalysisWidth - 16) / 2);
-            RosterFitMetrics dockedCandidate = RosterLayoutCalculator.CalculateFit(
-                dockedTeamWidth, gridHeight, playerCount,
-                Properties.Settings.Default.PlayerColumnFontSize,
-                Properties.Settings.Default.StatisticsColumnFontSize,
-                density, showAccount, showShip, showTier, showPerformance);
-            bool wasDocked = analysisDocked;
-            analysisDocked = contentWidth >= 1600 && dockedCandidate.Layout.Scale >= 0.85;
-            if (wasDocked && !analysisDocked) analysisDrawerOpen = false;
-
-            bool analysisVisible = analysisDocked
-                ? Properties.Settings.Default.AnalysisPanelExpanded
-                : analysisDrawerOpen;
+            bool analysisVisible = analysisDrawerOpen;
             AnalysisPanel.Visibility = analysisVisible ? Visibility.Visible : Visibility.Collapsed;
-            if (analysisDocked)
-            {
-                Grid.SetColumn(AnalysisPanel, 1);
-                Grid.SetColumnSpan(AnalysisPanel, 1);
-                AnalysisHostColumn.Width = analysisVisible ? new GridLength(dockedAnalysisWidth + 8) : new GridLength(0);
-                AnalysisPanel.Width = dockedAnalysisWidth;
-            }
-            else
-            {
-                AnalysisHostColumn.Width = new GridLength(0);
-                Grid.SetColumn(AnalysisPanel, 0);
-                Grid.SetColumnSpan(AnalysisPanel, 2);
-                AnalysisPanel.Width = Math.Min(420, Math.Max(300, contentWidth - 16));
-            }
+            AnalysisHostColumn.Width = new GridLength(0);
+            Grid.SetColumn(AnalysisPanel, 0);
+            Grid.SetColumnSpan(AnalysisPanel, 2);
+            AnalysisPanel.Width = Math.Min(420, Math.Max(300, contentWidth - 16));
             BtnToggleAnalysis.FontWeight = analysisVisible ? FontWeights.SemiBold : FontWeights.Normal;
 
-            double rosterWidth = Math.Max(0, contentWidth - (analysisDocked && analysisVisible ? dockedAnalysisWidth + 8 : 0));
-            double teamGridWidth = Math.Max(0, (rosterWidth - 8) / 2);
-            RosterFitMetrics fit = RosterLayoutCalculator.CalculateFit(
-                teamGridWidth, gridHeight, playerCount,
+            double teamGridWidth = Math.Max(0, (contentWidth - 8) / 2);
+            RosterFitInput fitInput = new(
+                teamGridWidth,
+                gridHeight,
+                playerCount,
                 Properties.Settings.Default.PlayerColumnFontSize,
                 Properties.Settings.Default.StatisticsColumnFontSize,
-                density, showAccount, showShip, showTier, showPerformance);
+                density,
+                showAccount,
+                showWeighted,
+                showShip,
+                showPersonalRating,
+                showTier,
+                showPerformance,
+                accountMetricHeaders.Count,
+                weightedMetricHeaders.Count,
+                shipMetricHeaders.Count,
+                personalRatingMetricHeaders.Count,
+                tierMetricHeaders.Count);
+            RosterFitMetrics fit = RosterLayoutCalculator.CalculateFit(fitInput);
             ScrollBarVisibility horizontalScroll = fit.Layout.RequiresHorizontalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
             ScrollBarVisibility verticalScroll = fit.Layout.RequiresVerticalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
             DataGridAlliesList.HorizontalScrollBarVisibility = DataGridEnemiesList.HorizontalScrollBarVisibility = horizontalScroll;
@@ -603,7 +605,9 @@ namespace ApeRadar
                 {
                     "Player" => widths.Player,
                     "Account" => widths.Account,
+                    "Weighted" => widths.Weighted,
                     "Ship" => widths.Ship,
+                    "PersonalRating" => widths.PersonalRating,
                     "Tier" => widths.Tier,
                     "Performance" => widths.Performance,
                     _ => column.ActualWidth

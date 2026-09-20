@@ -10,7 +10,9 @@ namespace ApeRadar.ViewModels
     {
         Player,
         Account,
+        Weighted,
         Ship,
+        PersonalRating,
         Tier,
         Performance
     }
@@ -125,18 +127,17 @@ namespace ApeRadar.ViewModels
         string WarningGlyph = "",
         string ToolTip = "");
 
-    internal sealed record MetricLineViewModel(IReadOnlyList<MetricItemViewModel> Items);
-
-    internal sealed class MetricGroupViewModel
+    internal sealed class RosterMetricColumnViewModel
     {
-        public IReadOnlyList<MetricLineViewModel> Lines { get; }
+        public RosterColumnKind Kind { get; }
         public IReadOnlyList<MetricItemViewModel> Items { get; }
-        public bool IsVisible => Lines.Count > 0;
+        public int MaximumLineCount => Items.Count;
+        public bool IsVisible => Items.Count > 0;
 
-        public MetricGroupViewModel(IEnumerable<MetricLineViewModel> lines)
+        public RosterMetricColumnViewModel(RosterColumnKind kind, IEnumerable<MetricItemViewModel?> items)
         {
-            Lines = lines.Where(line => line.Items.Count > 0).ToArray();
-            Items = Lines.SelectMany(line => line.Items).ToArray();
+            Kind = kind;
+            Items = items.Where(item => item != null).Cast<MetricItemViewModel>().ToArray();
         }
     }
 
@@ -181,9 +182,11 @@ namespace ApeRadar.ViewModels
         private const int VisibleBadgeLimit = 3;
 
         public Player Player { get; }
-        public MetricGroupViewModel AccountMetrics { get; }
-        public MetricGroupViewModel ShipMetrics { get; }
-        public MetricGroupViewModel TierMetrics { get; }
+        public RosterMetricColumnViewModel AccountMetrics { get; }
+        public RosterMetricColumnViewModel WeightedMetrics { get; }
+        public RosterMetricColumnViewModel ShipMetrics { get; }
+        public RosterMetricColumnViewModel PersonalRatingMetrics { get; }
+        public RosterMetricColumnViewModel TierMetrics { get; }
         public string ContextPreview { get; }
         public IReadOnlyList<RosterStatusBadgeViewModel> StatusBadges { get; }
         public IReadOnlyList<RosterStatusBadgeViewModel> VisibleStatusBadges { get; }
@@ -199,9 +202,11 @@ namespace ApeRadar.ViewModels
 
         public PlayerRosterRowViewModel(
             Player player,
-            MetricGroupViewModel accountMetrics,
-            MetricGroupViewModel shipMetrics,
-            MetricGroupViewModel tierMetrics,
+            RosterMetricColumnViewModel accountMetrics,
+            RosterMetricColumnViewModel weightedMetrics,
+            RosterMetricColumnViewModel shipMetrics,
+            RosterMetricColumnViewModel personalRatingMetrics,
+            RosterMetricColumnViewModel tierMetrics,
             string contextPreview,
             IReadOnlyList<RosterStatusBadgeViewModel> statusBadges,
             PlayerSkillBand skillBand,
@@ -211,7 +216,9 @@ namespace ApeRadar.ViewModels
         {
             Player = player;
             AccountMetrics = accountMetrics;
+            WeightedMetrics = weightedMetrics;
             ShipMetrics = shipMetrics;
+            PersonalRatingMetrics = personalRatingMetrics;
             TierMetrics = tierMetrics;
             ContextPreview = contextPreview;
             StatusBadges = statusBadges;

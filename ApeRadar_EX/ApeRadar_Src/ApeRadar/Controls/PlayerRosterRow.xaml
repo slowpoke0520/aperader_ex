@@ -26,11 +26,10 @@
             </Style.Triggers>
         </Style>
     </UserControl.Resources>
-    <Grid Margin="7,2" ClipToBounds="True" VerticalAlignment="Center">
+    <Grid Margin="7,2" ClipToBounds="True" VerticalAlignment="Center" ToolTip="{Binding ContextPreview}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Grid x:Name="IdentityLineContainer" Grid.Row="0" ClipToBounds="True">
             <Grid.ColumnDefinitions>
@@ -93,18 +92,5 @@
                                          Margin="5,0,0,0" Width="20" Height="20"/>
             </StackPanel>
         </Grid>
-        <TextBlock Grid.Row="2" Text="{Binding ContextPreview}" FontSize="10"
-                   Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding ContextPreview}">
-            <TextBlock.Style>
-                <Style TargetType="TextBlock" BasedOn="{StaticResource IdentityLine}">
-                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=IsCompactRoster}" Value="True">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </TextBlock.Style>
-        </TextBlock>
     </Grid>
 </UserControl>

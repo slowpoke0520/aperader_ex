@@ -22,7 +22,7 @@
             </Style.Triggers>
         </Style>
         <DataTemplate x:Key="MetricItemTemplate">
-            <Grid Opacity="{Binding Opacity}" ClipToBounds="True" ToolTip="{Binding ToolTip}" Margin="5,0">
+            <Grid Opacity="{Binding Opacity}" ToolTip="{Binding ToolTip}" Margin="5,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -33,13 +33,13 @@
                            VerticalAlignment="Center" Margin="0,0,5,0"/>
                 <TextBlock Grid.Column="1" Text="{Binding DisplayValue}" Foreground="{Binding Converter={StaticResource MetricBrush}}"
                            FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}"
-                           TextTrimming="CharacterEllipsis" Style="{StaticResource MetricValueStyle}"/>
+                           Style="{StaticResource MetricValueStyle}"/>
                 <TextBlock Grid.Column="2" Text="{Binding WarningGlyph}" Foreground="{StaticResource WarningBrush}"
                            FontSize="10" FontWeight="SemiBold" Margin="3,0,0,0" VerticalAlignment="Center"/>
             </Grid>
         </DataTemplate>
     </UserControl.Resources>
-    <ItemsControl ItemsSource="{Binding Items}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ClipToBounds="True">
+    <ItemsControl ItemsSource="{Binding Items}" VerticalAlignment="Center" HorizontalAlignment="Stretch">
         <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate><StackPanel Orientation="Vertical" VerticalAlignment="Center"/></ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
