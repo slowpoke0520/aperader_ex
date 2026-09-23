@@ -600,7 +600,8 @@
 
     </Window.Resources>
 
-    <Grid x:Name="MainWindowGrid" Margin="10" PreviewKeyDown="MainWindowGrid_PreviewKeyDown">
+    <Grid x:Name="MainWindowGrid" PreviewKeyDown="MainWindowGrid_PreviewKeyDown">
+    <Grid x:Name="LegacyRoot" Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -779,6 +780,9 @@
                 </Grid>
             </Border>
         </Popup>
+    </Grid>
+
+    <controls:DashboardMainView x:Name="DashboardView" Visibility="Collapsed"/>
     </Grid>
 
 

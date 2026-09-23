@@ -18,6 +18,7 @@ namespace ApeRadar
     partial class ConfigWindow : Window
     {
         private readonly bool initializeRuntime;
+        private readonly string initialMainInterfaceStyle;
 
         private void LoadSettings()
         {
@@ -68,6 +69,7 @@ namespace ApeRadar
             ComboBoxServer.SelectedValue = Properties.Settings.Default.Server;
             ComboBoxShipNameLanguage.SelectedValue = Properties.Settings.Default.ShipNameLanguage;
             ComboBoxSoftwareUpdateChannel.SelectedValue = SoftwareReleaseSelector.NormalizeChannelSetting(Properties.Settings.Default.SoftwareUpdateChannel);
+            ComboBoxMainInterfaceStyle.SelectedValue = NormalizeMainInterfaceStyle(Properties.Settings.Default.MainInterfaceStyle);
             ChkBoxCheckForUpdatesOnStartup.IsChecked = Properties.Settings.Default.CheckForUpdatesOnStartup;
             ChkBoxShowExperimentalReplayMetrics.IsChecked = Properties.Settings.Default.ShowExperimentalReplayMetrics;
             ChkBoxShowTierPerformanceStats.IsChecked = Properties.Settings.Default.ShowTierPerformanceStats;
@@ -187,6 +189,7 @@ namespace ApeRadar
                     Properties.Settings.Default.ShipNameLanguage = ComboBoxShipNameLanguage.SelectedValue.ToString();
                     Properties.Settings.Default.SoftwareUpdateChannel = ComboBoxSoftwareUpdateChannel.SelectedValue?.ToString()
                         ?? SoftwareReleaseSelector.StableSettingValue;
+                    Properties.Settings.Default.MainInterfaceStyle = NormalizeMainInterfaceStyle(ComboBoxMainInterfaceStyle.SelectedValue?.ToString());
                     Properties.Settings.Default.CheckForUpdatesOnStartup = ChkBoxCheckForUpdatesOnStartup.IsChecked ?? false;
                     Properties.Settings.Default.ShowExperimentalReplayMetrics = ChkBoxShowExperimentalReplayMetrics.IsChecked ?? false;
                     Properties.Settings.Default.ShowTierPerformanceStats = ChkBoxShowTierPerformanceStats.IsChecked ?? false;
@@ -317,6 +320,7 @@ namespace ApeRadar
         internal ConfigWindow(bool initializeRuntime)
         {
             this.initializeRuntime = initializeRuntime;
+            initialMainInterfaceStyle = NormalizeMainInterfaceStyle(Properties.Settings.Default.MainInterfaceStyle);
             InitializeComponent();
             if (!initializeRuntime) return;
             LoadSettings();
@@ -340,9 +344,18 @@ namespace ApeRadar
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
+            string selectedInterfaceStyle = NormalizeMainInterfaceStyle(ComboBoxMainInterfaceStyle.SelectedValue?.ToString());
             int result = SaveSettings();
             if (result == 0)
             {
+                if (!string.Equals(selectedInterfaceStyle, initialMainInterfaceStyle, StringComparison.Ordinal))
+                {
+                    System.Windows.MessageBox.Show(
+                        TryFindResource("MsgBoxMainInterfaceRestart") as string ?? "The main interface style will be applied after ApeRadar restarts.",
+                        TryFindResource("MsgBoxConfirmation") as string,
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
                 this.Close();
             }
             else if (result == -1)
@@ -426,6 +439,7 @@ namespace ApeRadar
                     break;
                 case 6:
                     ComboBoxSoftwareUpdateChannel.SelectedValue = SoftwareReleaseSelector.NormalizeChannelSetting(Default<string>(nameof(Properties.Settings.SoftwareUpdateChannel)));
+                    ComboBoxMainInterfaceStyle.SelectedValue = NormalizeMainInterfaceStyle(Default<string>(nameof(Properties.Settings.MainInterfaceStyle)));
                     ComboBoxAPIType.SelectedValue = Default<string>(nameof(Properties.Settings.APITypeSelection));
                     TxtWgApplicationId.Text = Default<string>(nameof(Properties.Settings.WgApplicationId));
                     ChkBoxEnableYuyukoAPIPush.IsChecked = Default<bool>(nameof(Properties.Settings.YuyukoAPIPushEnabled));
@@ -450,6 +464,9 @@ namespace ApeRadar
         {
             if (BtnDefault != null) BtnDefault.IsEnabled = ConfigTabs.SelectedIndex != 5;
         }
+
+        internal static string NormalizeMainInterfaceStyle(string? value) =>
+            string.Equals(value, "Legacy", StringComparison.OrdinalIgnoreCase) ? "Legacy" : "Dashboard";
 
         private void ConfigWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {

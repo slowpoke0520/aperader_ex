@@ -29,6 +29,7 @@ using SkiaSharp;
 using System.Globalization;
 using System.Threading;
 using ApeRadar.ViewModels;
+using ApeRadar.Controls;
 
 namespace ApeRadar
 {
@@ -51,6 +52,10 @@ namespace ApeRadar
         private bool pointerOverDetailRow;
         private readonly IBattleRosterCoordinator battleRosterCoordinator = new BattleRosterCoordinator();
         private readonly IRosterPresentationService rosterPresentationService = new RosterPresentationService();
+        private readonly IDashboardPresentationService dashboardPresentationService = new DashboardPresentationService();
+        private readonly BattleDashboardViewModel dashboard;
+        private readonly bool useDashboardInterface;
+        private DashboardBattleMetadata currentDashboardMetadata = DashboardBattleMetadata.Empty;
 
         private readonly ObservableCollection<PlayerRosterRowViewModel> alliesRosterRows = new();
         private readonly ObservableCollection<PlayerRosterRowViewModel> enemiesRosterRows = new();
@@ -109,6 +114,7 @@ namespace ApeRadar
         }
 
         public RosterStatusViewModel RosterStatus { get; } = new();
+        internal BattleDashboardViewModel Dashboard => dashboard;
 
         private void SwitchLanguage(Language language)
         {
@@ -166,7 +172,10 @@ namespace ApeRadar
                 RefreshRosterRows(battlefield);
                 RefreshDataGridColumns(Properties.Settings.Default.EnemiesDisplayMirrored);
                 SwitchSorting(Properties.Settings.Default.PlayerListSortBy);
+                dashboard.RefreshPresentation();
             }
+            DashboardView.RefreshLocalizedSelectors();
+            DashboardView.RefreshSettings();
         }
 
         private void SwitchSorting(int sorting)
@@ -342,12 +351,31 @@ namespace ApeRadar
 
         internal MainWindow(bool initializeRuntime)
         {
+            dashboard = new BattleDashboardViewModel(dashboardPresentationService);
+            useDashboardInterface = ConfigWindow.NormalizeMainInterfaceStyle(Properties.Settings.Default.MainInterfaceStyle) == "Dashboard";
             InitializeComponent();
+            LegacyRoot.Visibility = useDashboardInterface ? Visibility.Collapsed : Visibility.Visible;
+            DashboardView.Visibility = useDashboardInterface ? Visibility.Visible : Visibility.Collapsed;
+            DashboardView.Status = RosterStatus;
+            DashboardView.SetDashboard(dashboard);
+            DashboardView.RefreshRequested += (_, _) => BtnRefresh_Click(DashboardView, new RoutedEventArgs());
+            DashboardView.OpenReplayRequested += (_, _) => BtnOpen_Click(DashboardView, new RoutedEventArgs());
+            DashboardView.HistoryRequested += (_, _) => BtnHistory_Click(DashboardView, new RoutedEventArgs());
+            DashboardView.SettingsRequested += (_, _) => BtnConfig_Click(DashboardView, new RoutedEventArgs());
+            DashboardView.UpdateRequested += (_, _) => BtnSoftwareUpdate_Click(DashboardView, new RoutedEventArgs());
+            DashboardView.ScreenshotRequested += (_, _) => BtnScreenshot_Click(DashboardView, new RoutedEventArgs());
+            DashboardView.SortModeChanged += DashboardSortModeChanged;
+            DashboardView.LanguageChanged += DashboardLanguageChanged;
+            DashboardView.PlayerActionRequested += DashboardPlayerActionRequested;
             WinrateChart.Tooltip = new ShipAwareChartTooltip();
             playerDetailOpenTimer.Tick += PlayerDetailOpenTimer_Tick;
             playerDetailCloseTimer.Tick += PlayerDetailCloseTimer_Tick;
             PlayerDetailPopup.CustomPopupPlacementCallback = PlacePlayerDetailPopup;
-            Deactivated += (_, _) => ClosePlayerDetail();
+            Deactivated += (_, _) =>
+            {
+                ClosePlayerDetail();
+                DashboardView.CloseTransientUi();
+            };
 
             Loaded += (_, _) => UpdateResponsiveLayout();
 
@@ -533,6 +561,11 @@ namespace ApeRadar
         private void UpdateResponsiveLayout()
         {
             if (!IsLoaded && ActualWidth <= 0) return;
+            if (useDashboardInterface)
+            {
+                DashboardView.CloseTransientUi();
+                return;
+            }
             bool useOverflowMenu = ActualWidth < 1420;
             BtnSoftwareUpdate.Visibility = useOverflowMenu ? Visibility.Collapsed : Visibility.Visible;
             BtnConfig.Visibility = useOverflowMenu ? Visibility.Collapsed : Visibility.Visible;
@@ -809,6 +842,7 @@ namespace ApeRadar
                 {
                     BtnRefresh.IsEnabled = false;
                     BtnOpen.IsEnabled = false;
+                    DashboardView.SetRosterInputEnabled(false);
 
                     Server server = ServerExt.GetServerByName(Properties.Settings.Default.Server);
 
@@ -827,6 +861,9 @@ namespace ApeRadar
 
                     string battleType = JObjectTempArenaInfo["matchGroup"]!.Value<string>()!;
                     DateTimeOffset battleStartTime = DateTimeOffset.ParseExact(JObjectTempArenaInfo["dateTime"]!.Value<string>()!, "dd.MM.yyyy HH:mm:ss", CultureInfo.CurrentCulture);
+                    string rawMapName = JObjectTempArenaInfo["mapDisplayName"]?.Value<string>()
+                        ?? JObjectTempArenaInfo["mapName"]?.Value<string>()
+                        ?? "";
 
                     int playerCount = JObjectTempArenaInfo["vehicles"]!.Count();
                     LogUtils.WriteInfo($"playerCount={playerCount}");
@@ -843,11 +880,19 @@ namespace ApeRadar
                         forceRefreshPlayerID,
                         forceRefreshPlayerServer);
 
+                    currentDashboardMetadata = new(
+                        HistoryMapNameLocalizer.GetDisplayName(rawMapName),
+                        FormatBattleMode(battleType),
+                        ServerExt.GetNameByServer(server),
+                        battleStartTime,
+                        APITypeExt.GetNameByAPIType(apiType),
+                        null);
+
                     if (forceRefreshPlayerID == null)
                     {
                         List<Player> metadataPlayers = battleRosterCoordinator.CreateMetadataRoster(rosterRequest).ToList();
                         Battlefield metadataBattlefield = new(battleType, battleStartTime, metadataPlayers);
-                        ApplyBattlefieldToUI(metadataBattlefield);
+                        ApplyBattlefieldToUI(metadataBattlefield, loadCompleted: false);
                         RosterStatus.Set(RosterLoadState.Metadata, FindResource("RosterStatusMetadata") as string ?? "Loading player statistics…");
                     }
 
@@ -857,6 +902,11 @@ namespace ApeRadar
                     if (generation != Interlocked.Read(ref rosterLoadGeneration)) return;
                     List<Player> playerList = rosterResult.Players.ToList();
                     apiType = rosterResult.Provider;
+                    currentDashboardMetadata = currentDashboardMetadata with
+                    {
+                        Provider = APITypeExt.GetNameByAPIType(apiType),
+                        UpdatedAt = DateTimeOffset.Now
+                    };
 
                     //check if player is on the watchlist
                     foreach (Player p in playerList)
@@ -899,7 +949,7 @@ namespace ApeRadar
                         ApiUtils.YuyukoApiPushBattlefieldInfo(battlefield);
                     }
 
-                    ApplyBattlefieldToUI(battlefield);
+                    ApplyBattlefieldToUI(battlefield, loadCompleted: true);
                     PlayerDataCache.Save();
                     EncounterHistoryUtils.RecordBattle(playerList, battleID, battleStartTime);
                     if (IsRandomBattle(battleType))
@@ -988,15 +1038,19 @@ namespace ApeRadar
                     {
                         BtnRefresh.IsEnabled = true;
                         BtnOpen.IsEnabled = true;
+                        DashboardView.SetRosterInputEnabled(true);
                     }
                 }
             }
         }
 
-        private void ApplyBattlefieldToUI(Battlefield battlefield)
+        private void ApplyBattlefieldToUI(Battlefield battlefield, bool loadCompleted = true)
         {
+            DashboardView.CloseTransientUi();
             this.DataContext = battlefield;
             RefreshRosterRows(battlefield);
+            dashboard.Update(battlefield, loadCompleted, currentDashboardMetadata);
+            DashboardView.UpdateBattlefield(battlefield);
             UpdateResponsiveLayout();
 
             TxtOutputText.Text = TextUtils.GenerateGeneralStatisticsOutputText(battlefield);
@@ -1009,6 +1063,14 @@ namespace ApeRadar
             SwitchWinrateChartType(Properties.Settings.Default.WinrateChartType);
             KDEChart.Series = ChartUtils.GetKDEChartSeries(battlefield);
         }
+
+        private static string FormatBattleMode(string mode) => mode.ToLowerInvariant() switch
+        {
+            "pvp" or "random" or "randombattle" => Application.Current?.TryFindResource("DashboardModeRandom") as string ?? "Random battle",
+            "ranked" or "rank" => Application.Current?.TryFindResource("DashboardModeRanked") as string ?? "Ranked battle",
+            "clan" or "clanbattle" => Application.Current?.TryFindResource("DashboardModeClan") as string ?? "Clan battle",
+            _ => mode
+        };
 
         //re-fetch expired cached players in the background, then update the UI in place
         private async Task RefreshStalePlayersInBackground(BattleRosterRequest request, Battlefield currentBattlefield, long generation, CancellationToken cancellationToken)
@@ -1082,7 +1144,9 @@ namespace ApeRadar
             {
                 RefreshRosterRows(battlefield);
                 SwitchSorting(Properties.Settings.Default.PlayerListSortBy);
+                dashboard.RefreshPresentation();
             }
+            DashboardView.RefreshLocalizedSelectors();
         }
 
         private async void BtnSoftwareUpdate_Click(object sender, RoutedEventArgs e)
@@ -1164,6 +1228,7 @@ namespace ApeRadar
                 {
                     TxtMainSessionBattles.Text = TxtMainSessionWinrate.Text = TxtMainSessionDamage.Text = TxtMainSessionPr.Text = "-";
                     TxtMainSessionResultLabel.Text = FindResource("HistorySessionObservedResults") as string ?? "Observed results";
+                    DashboardView.UpdateSessionSummary("—", FindResource("MainSessionOpenHint") as string ?? "Open battle history");
                     return;
                 }
                 IReadOnlyList<BattleRecord> battles = await HistoryServices.Repository.GetSessionBattlesAsync(session.Id);
@@ -1183,6 +1248,9 @@ namespace ApeRadar
                     : summary.Metrics.Winrate?.ToString("P1") ?? "-";
                 TxtMainSessionDamage.Text = summary.Metrics.AverageDamage?.ToString("N0") ?? "-";
                 TxtMainSessionPr.Text = summary.Metrics.AveragePr?.ToString("N0") ?? "-";
+                string dashboardSessionText = $"{total} {FindResource("MainSessionBattles") ?? "battles"} · {TxtMainSessionWinrate.Text}";
+                string dashboardSessionTip = $"{dashboardSessionText}{Environment.NewLine}{FindResource("HistoryAverageDamage") ?? "Average damage"} {TxtMainSessionDamage.Text} · PR {TxtMainSessionPr.Text}";
+                DashboardView.UpdateSessionSummary(dashboardSessionText, dashboardSessionTip);
             }
             catch (Exception ex) { LogUtils.WriteError("Unable to refresh the current session summary.", ex); }
             finally { sessionSummaryRefreshing = false; }
@@ -1203,6 +1271,22 @@ namespace ApeRadar
             Properties.Settings.Default.Language = ComboBoxLanguage.SelectedValue.ToString()!;
             Properties.Settings.Default.Save();
             SwitchLanguage(LanguageExt.GetLanguageByName(Properties.Settings.Default.Language));
+        }
+
+        private void DashboardLanguageChanged(string value)
+        {
+            Properties.Settings.Default.Language = value;
+            Properties.Settings.Default.Save();
+            SwitchLanguage(LanguageExt.GetLanguageByName(value));
+        }
+
+        private void DashboardSortModeChanged(int value)
+        {
+            Properties.Settings.Default.PlayerListSortBy = value;
+            Properties.Settings.Default.Save();
+            dashboard.SetSortMode(value);
+            ComboBoxSortBy.SelectedValue = value.ToString();
+            SwitchSorting(value);
         }
 
         private async void BtnRefresh_Click(object sender, RoutedEventArgs e)
@@ -1392,6 +1476,27 @@ namespace ApeRadar
             if (DataContext is not Battlefield battlefield) return;
             RefreshRosterRows(battlefield);
             SwitchSorting(Properties.Settings.Default.PlayerListSortBy);
+            dashboard.RefreshPresentation();
+        }
+
+        private void DashboardPlayerActionRequested(object? sender, DashboardPlayerActionEventArgs e)
+        {
+            MenuItem proxy = new() { DataContext = e.Player };
+            switch (e.Action)
+            {
+                case DashboardPlayerAction.Refresh: ContextMenuRefreshPlayer_Click(proxy, new RoutedEventArgs()); break;
+                case DashboardPlayerAction.Copy: ContextMenuCopyPlayerStatistics_Click(proxy, new RoutedEventArgs()); break;
+                case DashboardPlayerAction.Official: ContextMenuCheckOnWoWSOfficialSite_Click(proxy, new RoutedEventArgs()); break;
+                case DashboardPlayerAction.Numbers: ContextMenuCheckOnWoWSNumbers_Click(proxy, new RoutedEventArgs()); break;
+                case DashboardPlayerAction.CustomMarker: ContextMenuCustomMarker_Click(proxy, new RoutedEventArgs()); break;
+                case DashboardPlayerAction.FixedTeammate: ContextMenuFixedTeammate_Click(proxy, new RoutedEventArgs()); break;
+                case DashboardPlayerAction.EditNote: ContextMenuEditNote_Click(proxy, new RoutedEventArgs()); break;
+                case DashboardPlayerAction.ClearNote: ContextMenuClearNote_Click(proxy, new RoutedEventArgs()); break;
+                case DashboardPlayerAction.WatchPositive: ContextMenuAddToWatchListPositive_Click(proxy, new RoutedEventArgs()); break;
+                case DashboardPlayerAction.WatchNegative: ContextMenuAddToWatchListNegtive_Click(proxy, new RoutedEventArgs()); break;
+                case DashboardPlayerAction.WatchCheater: ContextMenuAddToWatchListCheater_Click(proxy, new RoutedEventArgs()); break;
+                case DashboardPlayerAction.WatchRemove: ContextMenuRemoveFromWatchList_Click(proxy, new RoutedEventArgs()); break;
+            }
         }
 
         private void RefreshRosterRows(Battlefield battlefield)
