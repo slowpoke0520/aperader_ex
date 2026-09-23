@@ -344,8 +344,8 @@ public sealed class HistoryWindowSmokeTests
 
             ScrollViewer alliesScroll = Assert.IsType<ScrollViewer>(FindVisualChild<ScrollViewer>(window.DashboardView.AlliesGrid));
             ScrollViewer enemiesScroll = Assert.IsType<ScrollViewer>(FindVisualChild<ScrollViewer>(window.DashboardView.EnemiesGrid));
-            Assert.Equal(Visibility.Collapsed, alliesScroll.ComputedVerticalScrollBarVisibility);
-            Assert.Equal(Visibility.Collapsed, enemiesScroll.ComputedVerticalScrollBarVisibility);
+            AssertRosterScrollBehavior(window.DashboardView.AlliesGrid, alliesScroll);
+            AssertRosterScrollBehavior(window.DashboardView.EnemiesGrid, enemiesScroll);
             AssertDataGridCellContentsStayInside(window.DashboardView.AlliesGrid, 1600, 940);
             AssertDataGridCellContentsStayInside(window.DashboardView.EnemiesGrid, 1600, 940);
             SaveWindowSnapshot(window, $"dashboard-{language}-1600x940.png");
@@ -495,6 +495,22 @@ public sealed class HistoryWindowSmokeTests
             MostPlayedTierShare = 0.80,
             IsLowTierBiased = true,
         };
+    }
+
+    private static void AssertRosterScrollBehavior(DataGrid dataGrid, ScrollViewer scrollViewer)
+    {
+        var headers = FindVisualChild<System.Windows.Controls.Primitives.DataGridColumnHeadersPresenter>(dataGrid);
+        double requiredHeight = dataGrid.Items.Count * dataGrid.RowHeight
+            + (headers?.ActualHeight ?? 0)
+            + dataGrid.BorderThickness.Top
+            + dataGrid.BorderThickness.Bottom
+            + 1;
+        Visibility expected = dataGrid.ActualHeight + 0.5 >= requiredHeight
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        Assert.True(scrollViewer.ComputedVerticalScrollBarVisibility == expected,
+            $"Roster scrollbar should be {expected} when the grid has {dataGrid.ActualHeight:F1} DIP for {requiredHeight:F1} DIP of rows.");
     }
 
     private static void AssertDataGridCellContentsStayInside(DataGrid dataGrid, double width, double height)
