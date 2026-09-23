@@ -65,6 +65,8 @@ public sealed class HistoryWindowSmokeTests
                     ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = previousShipTypeIconSetting;
                     progress = $"{language}: main window";
                     ValidateMainWindowLayout(language);
+                    progress = $"{language}: dashboard window";
+                    ValidateDashboardWindowLayout(language);
                     progress = $"{language}: config window";
                     ValidateConfigWindowLayout(language);
                 }
@@ -108,6 +110,7 @@ public sealed class HistoryWindowSmokeTests
 
     private static void ValidateMainWindowLayout(string language)
     {
+        string previousInterface = ApeRadar.Properties.Settings.Default.MainInterfaceStyle;
         bool previousTierPerformanceSetting = ApeRadar.Properties.Settings.Default.ShowTierPerformanceStats;
         bool previousShipTypeIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
         string previousDensity = ApeRadar.Properties.Settings.Default.RosterDisplayDensity;
@@ -138,6 +141,7 @@ public sealed class HistoryWindowSmokeTests
         ApeRadar.Properties.Settings.Default.ShipAvgDmgVisibility = 0;
         ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility = 2;
         ApeRadar.Properties.Settings.Default.PRVisibility = 0;
+        ApeRadar.Properties.Settings.Default.MainInterfaceStyle = "Legacy";
         MainWindow window = new(initializeRuntime: false)
         {
             WindowState = WindowState.Normal,
@@ -282,6 +286,111 @@ public sealed class HistoryWindowSmokeTests
         ApeRadar.Properties.Settings.Default.ShipAvgDmgVisibility = previousShipAvgDamage;
         ApeRadar.Properties.Settings.Default.ShipAvgExpVisibility = previousShipAvgExp;
         ApeRadar.Properties.Settings.Default.PRVisibility = previousPr;
+        ApeRadar.Properties.Settings.Default.MainInterfaceStyle = previousInterface;
+    }
+
+    private static void ValidateDashboardWindowLayout(string language)
+    {
+        string previousInterface = ApeRadar.Properties.Settings.Default.MainInterfaceStyle;
+        bool previousAccountColumn = ApeRadar.Properties.Settings.Default.ShowAccountRosterColumn;
+        bool previousShipColumn = ApeRadar.Properties.Settings.Default.ShowShipRosterColumn;
+        bool previousPerformanceColumn = ApeRadar.Properties.Settings.Default.ShowPerformanceRosterColumn;
+        int previousPr = ApeRadar.Properties.Settings.Default.PRVisibility;
+        try
+        {
+            ApeRadar.Properties.Settings.Default.MainInterfaceStyle = "Dashboard";
+            ApeRadar.Properties.Settings.Default.ShowAccountRosterColumn = true;
+            ApeRadar.Properties.Settings.Default.ShowShipRosterColumn = true;
+            ApeRadar.Properties.Settings.Default.ShowPerformanceRosterColumn = true;
+            ApeRadar.Properties.Settings.Default.PRVisibility = 0;
+
+            MainWindow window = new(initializeRuntime: false)
+            {
+                WindowState = WindowState.Normal,
+                ShowInTaskbar = false
+            };
+            List<Player> players = Enumerable.Range(1, 12)
+                .Select(i => CreateTierPerformancePlayer($"Allied dashboard sample {i}", i == 1 ? "0" : "1"))
+                .Concat(Enumerable.Range(1, 12).Select(i => CreateTierPerformancePlayer($"Enemy dashboard sample {i}", "2")))
+                .ToList();
+            Battlefield battlefield = (Battlefield)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Battlefield));
+            battlefield.BattleType = "RandomBattle";
+            battlefield.BattleStartTime = DateTimeOffset.Now;
+            battlefield.Allies = players.Where(player => player.Relation is "0" or "1").ToList();
+            battlefield.Enemies = players.Where(player => player.Relation is not ("0" or "1")).ToList();
+            window.Dashboard.Update(battlefield, true, new DashboardBattleMetadata(
+                "Northern Lights", "Random battle", "ASIA", DateTimeOffset.Now, "Vortex", DateTimeOffset.Now));
+
+            window.Width = 1600;
+            window.Height = 940;
+            window.Show();
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+            Assert.Equal(Visibility.Visible, window.DashboardView.Visibility);
+            Assert.Equal(Visibility.Collapsed, window.LegacyRoot.Visibility);
+            Assert.Equal(12, window.DashboardView.AlliesGrid.Items.Count);
+            Assert.Equal(12, window.DashboardView.EnemiesGrid.Items.Count);
+            Assert.Equal(window.DashboardView.AlliesGrid.RowHeight, window.DashboardView.EnemiesGrid.RowHeight);
+            Assert.Equal(window.DashboardView.AlliesGrid.Columns.Count, window.DashboardView.EnemiesGrid.Columns.Count);
+            for (int i = 0; i < window.DashboardView.AlliesGrid.Columns.Count; i++)
+                Assert.Equal(window.DashboardView.AlliesGrid.Columns[i].ActualWidth, window.DashboardView.EnemiesGrid.Columns[i].ActualWidth, 1);
+            Assert.False(window.DashboardView.AlliesGrid.CanUserResizeColumns);
+            Assert.False(window.DashboardView.EnemiesGrid.CanUserResizeColumns);
+            Assert.Equal(Visibility.Collapsed, window.DashboardView.AnalysisDrawer.Visibility);
+
+            ScrollViewer alliesScroll = Assert.IsType<ScrollViewer>(FindVisualChild<ScrollViewer>(window.DashboardView.AlliesGrid));
+            ScrollViewer enemiesScroll = Assert.IsType<ScrollViewer>(FindVisualChild<ScrollViewer>(window.DashboardView.EnemiesGrid));
+            Assert.Equal(Visibility.Collapsed, alliesScroll.ComputedVerticalScrollBarVisibility);
+            Assert.Equal(Visibility.Collapsed, enemiesScroll.ComputedVerticalScrollBarVisibility);
+            AssertDataGridCellContentsStayInside(window.DashboardView.AlliesGrid, 1600, 940);
+            AssertDataGridCellContentsStayInside(window.DashboardView.EnemiesGrid, 1600, 940);
+            SaveWindowSnapshot(window, $"dashboard-{language}-1600x940.png");
+
+            DataGridRow dashboardFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(0));
+            dashboardFirstRow.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
+            {
+                RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent,
+                Source = dashboardFirstRow
+            });
+            PumpDispatcher(TimeSpan.FromMilliseconds(400));
+            Assert.True(window.DashboardView.PlayerDetailPopup.IsOpen);
+            Assert.Same(dashboardFirstRow, window.DashboardView.PlayerDetailPopup.PlacementTarget);
+            Assert.Equal(System.Windows.Controls.Primitives.PlacementMode.Custom, window.DashboardView.PlayerDetailPopup.Placement);
+            dashboardFirstRow.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
+            {
+                RoutedEvent = System.Windows.Input.Mouse.MouseLeaveEvent,
+                Source = dashboardFirstRow
+            });
+            System.Drawing.Rectangle dashboardScreen = System.Windows.Forms.SystemInformation.VirtualScreen;
+            System.Windows.Forms.Cursor.Position = new System.Drawing.Point(dashboardScreen.Right - 2, dashboardScreen.Bottom - 2);
+            PumpDispatcher(TimeSpan.FromMilliseconds(300));
+            Assert.False(window.DashboardView.PlayerDetailPopup.IsOpen);
+
+            double widthBeforeDrawer = window.DashboardView.AlliesGrid.ActualWidth;
+            window.DashboardView.AnalysisDrawer.Visibility = Visibility.Visible;
+            window.UpdateLayout();
+            Assert.Equal(widthBeforeDrawer, window.DashboardView.AlliesGrid.ActualWidth, 1);
+            window.DashboardView.AnalysisDrawer.Visibility = Visibility.Collapsed;
+
+            window.Width = 1040;
+            window.Height = 680;
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            Assert.Equal(new GridLength(64), window.DashboardView.SidebarColumn.Width);
+            Assert.True(window.DashboardView.AlliesGrid.ActualWidth > 0);
+            Assert.True(window.DashboardView.EnemiesGrid.ActualWidth > 0);
+            SaveWindowSnapshot(window, $"dashboard-{language}-1040x680.png");
+            window.Close();
+        }
+        finally
+        {
+            ApeRadar.Properties.Settings.Default.MainInterfaceStyle = previousInterface;
+            ApeRadar.Properties.Settings.Default.ShowAccountRosterColumn = previousAccountColumn;
+            ApeRadar.Properties.Settings.Default.ShowShipRosterColumn = previousShipColumn;
+            ApeRadar.Properties.Settings.Default.ShowPerformanceRosterColumn = previousPerformanceColumn;
+            ApeRadar.Properties.Settings.Default.PRVisibility = previousPr;
+        }
     }
 
     private static void PumpDispatcher(TimeSpan duration)
