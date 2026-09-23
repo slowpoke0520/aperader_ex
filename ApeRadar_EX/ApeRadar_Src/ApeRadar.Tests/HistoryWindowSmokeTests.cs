@@ -321,6 +321,9 @@ public sealed class HistoryWindowSmokeTests
             window.Dashboard.Update(battlefield, true, new DashboardBattleMetadata(
                 "Northern Lights", "Random battle", "ASIA", DateTimeOffset.Now, "Vortex", DateTimeOffset.Now));
 
+            // MainWindow starts maximized in production. Force a normal window here so the
+            // requested render size is deterministic on CI runners with smaller desktops.
+            window.WindowState = WindowState.Normal;
             window.Width = 1600;
             window.Height = 940;
             window.Show();
