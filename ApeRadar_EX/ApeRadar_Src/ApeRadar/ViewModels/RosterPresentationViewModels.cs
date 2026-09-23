@@ -104,7 +104,9 @@ namespace ApeRadar.ViewModels
         Hidden,
         Cached,
         LowTierBias,
-        Loading
+        Loading,
+        LowSample,
+        FetchFailed
     }
 
     internal enum RosterBadgeSeverity
