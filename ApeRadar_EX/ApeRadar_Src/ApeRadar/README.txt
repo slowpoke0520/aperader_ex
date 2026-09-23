@@ -57,12 +57,14 @@ QQ群：1012624096（1群） 272868560（2群）
    “重新补查”可重试失败录像和待处理数据。历史仅保存在本机
    %LocalAppData%\ApeRadar EX\History\history.db，不会因软件更新丢失。
 
-8. 阵容适配与舰种图标：账号、单船和同阶数据固定为两行，程序会按窗口高度自动调整
-   行高；1920×1080、100% 缩放、最大化时可完整显示标准 12v12 阵容。“设置 -> 外观”
-   可开启默认关闭的舰种图标，保存后立即刷新，无需重新查询战绩。底部通知默认单行，点击
-   左侧“+”展开。列布局会按每支队伍表格的实际宽度切换；长玩家名使用省略号，场次、伤害、
-   同阶数据和 PR 不会越过单元格互相遮挡。“默认”按钮只恢复当前设置页，“特别关注名单”
-   不会被重置。舰种图标使用带描边的深海军蓝高对比底，在浅色界面上也能清晰辨认。
+8. Dashboard主界面：默认界面使用左侧导航和中心对称数据对比。双方列表固定显示序号、玩家/
+   战舰、账号或同阶、当前舰船、账号/单船PR和水平色块；账号/同阶切换、全部/标记/低样本/
+   异常筛选以及排序只调整本地显示，不会重复查询API。1600×940、100%缩放下可完整显示
+   标准12v12；小窗口和高DPI下使用列表内部滚动。图表与分析作为右侧覆盖抽屉打开，不挤压阵容。
+
+9. 界面与显示设置：“设置 -> 外观”可控制账号、单船、PR、水平色块和舰种图标；舰种
+   图标紧跟舰名，友方为绿色、敌方为红色。高级设置可选择Dashboard或旧版主界面，保存后
+   重启生效；两种界面共享同一套数据、历史和玩家标记。顶部只显示事实对比，不预测胜负。
 
 
 
@@ -129,11 +131,13 @@ New Features
    back to ship-stat snapshots; Retry replays and Retry API retry failed files and pending results. Data
    remains local at %LocalAppData%\ApeRadar EX\History\history.db and survives app updates.
 
-8. Roster fitting and ship-type icons: account, ship and same-tier statistics use a fixed two-line
-   layout with row height adapted to the available window height. A maximized 1920x1080 window at
-   100% scaling shows a standard 12v12 roster without scrolling. Config -> Appearance can enable the
-   ship-type icons, which are off by default and refresh without another stats query. Notifications are
-   collapsed to one line by default. Column mode follows each team's actual grid width; long names use
-   ellipsis and statistics cannot paint across cell boundaries. Default resets only the current settings
-   page and never the watch list. Official light icons use a bordered navy badge for clear contrast on
-   the light interface.
+8. Dashboard interface: the default interface uses a left navigation rail and a center-symmetric factual
+   comparison. Both rosters show number, player/ship, account or same-tier data, current ship data,
+   account/ship PR, and a performance color strip. Context, filters and sorting only re-project local
+   data and never repeat API requests. Standard 12v12 fits at 1600x940 and 100% scaling; smaller or
+   high-DPI windows scroll inside the roster. Charts open as an overlay drawer without squeezing rows.
+
+9. Interface and display settings: Config -> Appearance controls the account, ship, PR, performance
+   and ship-type columns. Ship-type icons follow the ship name, green for allies and red for enemies.
+   Config -> Advanced can select Dashboard or the legacy main interface; restart after saving to apply.
+   Both interfaces share the same data, history and player markers. Top comparisons never predict wins.
