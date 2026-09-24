@@ -316,6 +316,44 @@ namespace ApeRadar.Controls
         private void Screenshot_Click(object sender, RoutedEventArgs e) => ScreenshotRequested?.Invoke(this, EventArgs.Empty);
         private void Help_Click(object sender, RoutedEventArgs e) => Process.Start("explorer.exe", "https://lxdev.org/aperadar/");
 
+        private void RosterGrid_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            // A ContextMenu stored in a shared Style setter can resolve to
+            // DependencyProperty.UnsetValue when virtualized rows are reused. Give every
+            // realized row its own menu so right-click and Shift+F10 are always safe.
+            if (e.Row.ContextMenu == null)
+                e.Row.ContextMenu = CreatePlayerContextMenu();
+        }
+
+        private ContextMenu CreatePlayerContextMenu()
+        {
+            ContextMenu menu = new();
+            AddPlayerMenuItem(menu, "ContextMenuRefreshPlayer", DashboardPlayerAction.Refresh);
+            AddPlayerMenuItem(menu, "ContextMenuCopyPlayerStatistics", DashboardPlayerAction.Copy);
+            menu.Items.Add(new Separator());
+            AddPlayerMenuItem(menu, "ContextMenuCheckOnWoWSOfficialSite", DashboardPlayerAction.Official);
+            AddPlayerMenuItem(menu, "ContextMenuCheckOnWoWSNumbers", DashboardPlayerAction.Numbers);
+            menu.Items.Add(new Separator());
+            AddPlayerMenuItem(menu, "ContextMenuCustomMarker", DashboardPlayerAction.CustomMarker);
+            AddPlayerMenuItem(menu, "ContextMenuFixedTeammate", DashboardPlayerAction.FixedTeammate);
+            AddPlayerMenuItem(menu, "ContextMenuEditNote", DashboardPlayerAction.EditNote);
+            AddPlayerMenuItem(menu, "ContextMenuClearNote", DashboardPlayerAction.ClearNote);
+            menu.Items.Add(new Separator());
+            AddPlayerMenuItem(menu, "ContextMenuAddToWatchListPositive", DashboardPlayerAction.WatchPositive);
+            AddPlayerMenuItem(menu, "ContextMenuAddToWatchListNegtive", DashboardPlayerAction.WatchNegative);
+            AddPlayerMenuItem(menu, "ContextMenuAddToWatchListCheater", DashboardPlayerAction.WatchCheater);
+            AddPlayerMenuItem(menu, "ContextMenuRemoveFromWatchList", DashboardPlayerAction.WatchRemove);
+            return menu;
+        }
+
+        private void AddPlayerMenuItem(ContextMenu menu, string resourceKey, DashboardPlayerAction action)
+        {
+            MenuItem item = new() { Tag = action.ToString() };
+            item.SetResourceReference(HeaderedItemsControl.HeaderProperty, resourceKey);
+            item.Click += PlayerMenu_Click;
+            menu.Items.Add(item);
+        }
+
         private void PlayerMenu_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not MenuItem { Tag: string tag } item || !Enum.TryParse(tag, out DashboardPlayerAction action)) return;

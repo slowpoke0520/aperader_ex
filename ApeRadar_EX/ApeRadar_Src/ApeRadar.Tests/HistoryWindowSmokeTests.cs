@@ -351,6 +351,15 @@ public sealed class HistoryWindowSmokeTests
             SaveWindowSnapshot(window, $"dashboard-{language}-1600x940.png");
 
             DataGridRow dashboardFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(0));
+            DataGridRow dashboardEnemyFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.EnemiesGrid.ItemContainerGenerator.ContainerFromIndex(0));
+            ContextMenu dashboardRowMenu = Assert.IsType<ContextMenu>(dashboardFirstRow.ContextMenu);
+            ContextMenu dashboardEnemyRowMenu = Assert.IsType<ContextMenu>(dashboardEnemyFirstRow.ContextMenu);
+            Assert.NotSame(dashboardRowMenu, dashboardEnemyRowMenu);
+            dashboardRowMenu.PlacementTarget = dashboardFirstRow;
+            dashboardRowMenu.IsOpen = true;
+            PumpDispatcher(TimeSpan.FromMilliseconds(100));
+            Assert.True(dashboardRowMenu.IsOpen);
+            dashboardRowMenu.IsOpen = false;
             dashboardFirstRow.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
             {
                 RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent,
