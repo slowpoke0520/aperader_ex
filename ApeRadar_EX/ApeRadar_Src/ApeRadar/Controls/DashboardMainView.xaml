@@ -109,7 +109,6 @@
             <EventSetter Event="ScrollViewer.ScrollChanged" Handler="RosterGrid_ScrollChanged"/>
         </Style>
         <Style x:Key="RosterRowStyle" TargetType="DataGridRow">
-            <Setter Property="ContextMenu" Value="{StaticResource PlayerContextMenu}"/>
             <EventSetter Event="MouseEnter" Handler="RosterRow_MouseEnter"/>
             <EventSetter Event="MouseLeave" Handler="RosterRow_MouseLeave"/>
         </Style>
@@ -119,24 +118,6 @@
             <Setter Property="FontSize" Value="11.5"/>
             <Setter Property="Foreground" Value="{StaticResource DashboardText}"/>
         </Style>
-
-        <ContextMenu x:Key="PlayerContextMenu">
-            <MenuItem Header="{DynamicResource ContextMenuRefreshPlayer}" Tag="Refresh" Click="PlayerMenu_Click"/>
-            <MenuItem Header="{DynamicResource ContextMenuCopyPlayerStatistics}" Tag="Copy" Click="PlayerMenu_Click"/>
-            <Separator/>
-            <MenuItem Header="{DynamicResource ContextMenuCheckOnWoWSOfficialSite}" Tag="Official" Click="PlayerMenu_Click"/>
-            <MenuItem Header="{DynamicResource ContextMenuCheckOnWoWSNumbers}" Tag="Numbers" Click="PlayerMenu_Click"/>
-            <Separator/>
-            <MenuItem Header="{DynamicResource ContextMenuCustomMarker}" Tag="CustomMarker" Click="PlayerMenu_Click"/>
-            <MenuItem Header="{DynamicResource ContextMenuFixedTeammate}" Tag="FixedTeammate" Click="PlayerMenu_Click"/>
-            <MenuItem Header="{DynamicResource ContextMenuEditNote}" Tag="EditNote" Click="PlayerMenu_Click"/>
-            <MenuItem Header="{DynamicResource ContextMenuClearNote}" Tag="ClearNote" Click="PlayerMenu_Click"/>
-            <Separator/>
-            <MenuItem Header="{DynamicResource ContextMenuAddToWatchListPositive}" Tag="WatchPositive" Click="PlayerMenu_Click"/>
-            <MenuItem Header="{DynamicResource ContextMenuAddToWatchListNegtive}" Tag="WatchNegative" Click="PlayerMenu_Click"/>
-            <MenuItem Header="{DynamicResource ContextMenuAddToWatchListCheater}" Tag="WatchCheater" Click="PlayerMenu_Click"/>
-            <MenuItem Header="{DynamicResource ContextMenuRemoveFromWatchList}" Tag="WatchRemove" Click="PlayerMenu_Click"/>
-        </ContextMenu>
 
         <DataTemplate x:Key="BadgeTemplate">
             <Border CornerRadius="4" Padding="4,1" Margin="1,0"
@@ -302,13 +283,13 @@
                 <Grid Grid.Row="2" Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <Border Grid.Column="0" Style="{StaticResource Card}" ClipToBounds="True"><Grid><Grid.RowDefinitions><RowDefinition Height="40"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                         <Border Background="{StaticResource DashboardAllySurface}" BorderBrush="#C9DDFC" BorderThickness="0,0,0,1"><Grid Margin="10,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Foreground="{StaticResource DashboardBlue}" FontSize="14.5" FontWeight="Bold" VerticalAlignment="Center"><Run Text="{DynamicResource LabelAllies}"/><Run Text=" ("/><Run Text="{Binding AllyTotalCount, Mode=OneWay}"/><Run Text=")"/></TextBlock><StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><Button x:Name="AllyAll" Tag="Ally:All" Style="{StaticResource FilterButtonActive}" Click="Filter_Click"/><Button x:Name="AllyMarked" Tag="Ally:Marked" Style="{StaticResource FilterButton}" Click="Filter_Click"/><Button x:Name="AllyLow" Tag="Ally:LowSample" Style="{StaticResource FilterButton}" Click="Filter_Click"/><Button x:Name="AllyAnomaly" Tag="Ally:Anomaly" Style="{StaticResource FilterButton}" Click="Filter_Click"/></StackPanel></Grid></Border>
-                        <DataGrid x:Name="AlliesGrid" Grid.Row="1" Style="{StaticResource RosterGrid}" RowStyle="{StaticResource RosterRowStyle}" ItemsSource="{Binding Allies}">
+                        <DataGrid x:Name="AlliesGrid" Grid.Row="1" Style="{StaticResource RosterGrid}" RowStyle="{StaticResource RosterRowStyle}" ItemsSource="{Binding Allies}" LoadingRow="RosterGrid_LoadingRow">
                             <DataGrid.Columns><DataGridTextColumn Header="#" Binding="{Binding OriginalOrder}" Width="28"/><DataGridTemplateColumn Header="{DynamicResource DashboardColumnPlayer}" CellTemplate="{StaticResource PlayerTemplate}" Width="*" MinWidth="150"/><DataGridTemplateColumn x:Name="AllyContextColumn" Header="{DynamicResource DashboardContextAccount}" CellTemplate="{StaticResource ContextTemplate}" Width="82"/><DataGridTemplateColumn x:Name="AllyShipColumn" Header="{DynamicResource DashboardColumnCurrentShip}" CellTemplate="{StaticResource ShipTemplate}" Width="122"/><DataGridTemplateColumn x:Name="AllyPrColumn" Header="PR" CellTemplate="{StaticResource PrTemplate}" Width="72"/><DataGridTemplateColumn x:Name="AllyPerformanceColumn" Header="{DynamicResource DashboardColumnPerformance}" CellTemplate="{StaticResource PerformanceTemplate}" Width="45"/></DataGrid.Columns>
                         </DataGrid>
                     </Grid></Border>
                     <Border Grid.Column="2" Style="{StaticResource Card}" ClipToBounds="True"><Grid><Grid.RowDefinitions><RowDefinition Height="40"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                         <Border Background="{StaticResource DashboardEnemySurface}" BorderBrush="#F8CCD3" BorderThickness="0,0,0,1"><Grid Margin="10,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Foreground="{StaticResource DashboardRed}" FontSize="14.5" FontWeight="Bold" VerticalAlignment="Center"><Run Text="{DynamicResource LabelEnemies}"/><Run Text=" ("/><Run Text="{Binding EnemyTotalCount, Mode=OneWay}"/><Run Text=")"/></TextBlock><StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><Button x:Name="EnemyAll" Tag="Enemy:All" Style="{StaticResource FilterButtonActive}" Click="Filter_Click"/><Button x:Name="EnemyMarked" Tag="Enemy:Marked" Style="{StaticResource FilterButton}" Click="Filter_Click"/><Button x:Name="EnemyLow" Tag="Enemy:LowSample" Style="{StaticResource FilterButton}" Click="Filter_Click"/><Button x:Name="EnemyAnomaly" Tag="Enemy:Anomaly" Style="{StaticResource FilterButton}" Click="Filter_Click"/></StackPanel></Grid></Border>
-                        <DataGrid x:Name="EnemiesGrid" Grid.Row="1" Style="{StaticResource RosterGrid}" RowStyle="{StaticResource RosterRowStyle}" ItemsSource="{Binding Enemies}">
+                        <DataGrid x:Name="EnemiesGrid" Grid.Row="1" Style="{StaticResource RosterGrid}" RowStyle="{StaticResource RosterRowStyle}" ItemsSource="{Binding Enemies}" LoadingRow="RosterGrid_LoadingRow">
                             <DataGrid.Columns><DataGridTextColumn Header="#" Binding="{Binding OriginalOrder}" Width="28"/><DataGridTemplateColumn Header="{DynamicResource DashboardColumnPlayer}" CellTemplate="{StaticResource PlayerTemplate}" Width="*" MinWidth="150"/><DataGridTemplateColumn x:Name="EnemyContextColumn" Header="{DynamicResource DashboardContextAccount}" CellTemplate="{StaticResource ContextTemplate}" Width="82"/><DataGridTemplateColumn x:Name="EnemyShipColumn" Header="{DynamicResource DashboardColumnCurrentShip}" CellTemplate="{StaticResource ShipTemplate}" Width="122"/><DataGridTemplateColumn x:Name="EnemyPrColumn" Header="PR" CellTemplate="{StaticResource PrTemplate}" Width="72"/><DataGridTemplateColumn x:Name="EnemyPerformanceColumn" Header="{DynamicResource DashboardColumnPerformance}" CellTemplate="{StaticResource PerformanceTemplate}" Width="45"/></DataGrid.Columns>
                         </DataGrid>
                     </Grid></Border>
