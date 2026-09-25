@@ -335,12 +335,21 @@ public sealed class HistoryWindowSmokeTests
             Assert.Equal(12, window.DashboardView.AlliesGrid.Items.Count);
             Assert.Equal(12, window.DashboardView.EnemiesGrid.Items.Count);
             Assert.Equal(window.DashboardView.AlliesGrid.RowHeight, window.DashboardView.EnemiesGrid.RowHeight);
+            Assert.Equal(48, window.DashboardView.AlliesGrid.RowHeight);
             Assert.Equal(window.DashboardView.AlliesGrid.Columns.Count, window.DashboardView.EnemiesGrid.Columns.Count);
             for (int i = 0; i < window.DashboardView.AlliesGrid.Columns.Count; i++)
                 Assert.Equal(window.DashboardView.AlliesGrid.Columns[i].ActualWidth, window.DashboardView.EnemiesGrid.Columns[i].ActualWidth, 1);
             Assert.False(window.DashboardView.AlliesGrid.CanUserResizeColumns);
             Assert.False(window.DashboardView.EnemiesGrid.CanUserResizeColumns);
             Assert.Equal(Visibility.Collapsed, window.DashboardView.AnalysisDrawer.Visibility);
+            Assert.Equal(new GridLength(208), window.DashboardView.SidebarColumn.Width);
+            Assert.Equal(44, window.DashboardView.AlliesGrid.ColumnHeaderHeight);
+            Assert.InRange(window.DashboardView.AllyContextColumn.ActualWidth, 110, 120);
+            Assert.InRange(window.DashboardView.AllyShipColumn.ActualWidth, 170, 182);
+            Assert.InRange(window.DashboardView.AllyPrColumn.ActualWidth, 94, 102);
+            Assert.NotNull(window.DashboardView.AllyContextColumn.HeaderTemplate);
+            Assert.NotNull(window.DashboardView.AllyShipColumn.HeaderTemplate);
+            Assert.NotNull(window.DashboardView.AllyPrColumn.HeaderTemplate);
 
             ScrollViewer alliesScroll = Assert.IsType<ScrollViewer>(FindVisualChild<ScrollViewer>(window.DashboardView.AlliesGrid));
             ScrollViewer enemiesScroll = Assert.IsType<ScrollViewer>(FindVisualChild<ScrollViewer>(window.DashboardView.EnemiesGrid));
@@ -352,6 +361,37 @@ public sealed class HistoryWindowSmokeTests
 
             DataGridRow dashboardFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(0));
             DataGridRow dashboardEnemyFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.EnemiesGrid.ItemContainerGenerator.ContainerFromIndex(0));
+            string[] removedInlineLabels = { "场", "胜", "伤", "总", "船", "Btl", "WR", "Dmg", "Acc", "Ship" };
+            Assert.DoesNotContain(FindVisualChildren<TextBlock>(dashboardFirstRow), text => removedInlineLabels.Contains(text.Text));
+            Assert.DoesNotContain(FindVisualChildren<TextBlock>(dashboardEnemyFirstRow), text => removedInlineLabels.Contains(text.Text));
+            Rect brandBounds = window.DashboardView.BrandText.TransformToAncestor(window.DashboardView).TransformBounds(new Rect(window.DashboardView.BrandText.RenderSize));
+            Rect versionBounds = window.DashboardView.SidebarVersion.TransformToAncestor(window.DashboardView).TransformBounds(new Rect(window.DashboardView.SidebarVersion.RenderSize));
+            Assert.InRange(brandBounds.Right, 0, window.DashboardView.SidebarColumn.ActualWidth + 0.5);
+            Assert.InRange(versionBounds.Right, 0, window.DashboardView.SidebarColumn.ActualWidth + 0.5);
+
+            window.Width = 1920;
+            window.Height = 1040;
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            AssertDataGridCellContentsStayInside(window.DashboardView.AlliesGrid, 1920, 1040);
+            AssertDataGridCellContentsStayInside(window.DashboardView.EnemiesGrid, 1920, 1040);
+            Assert.Equal(663, window.DashboardView.RosterTeamsGrid.ActualHeight, 1);
+            Assert.True(alliesScroll.ScrollableWidth <= 1);
+            Assert.True(enemiesScroll.ScrollableWidth <= 1);
+            AssertRosterScrollBehavior(window.DashboardView.AlliesGrid, alliesScroll);
+            AssertRosterScrollBehavior(window.DashboardView.EnemiesGrid, enemiesScroll);
+            DataGridRow alliedLastRow = Assert.IsType<DataGridRow>(window.DashboardView.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(11));
+            DataGridRow enemyLastRow = Assert.IsType<DataGridRow>(window.DashboardView.EnemiesGrid.ItemContainerGenerator.ContainerFromIndex(11));
+            Rect alliedLastBounds = alliedLastRow.TransformToAncestor(window.DashboardView.AlliesGrid).TransformBounds(new Rect(alliedLastRow.RenderSize));
+            Rect enemyLastBounds = enemyLastRow.TransformToAncestor(window.DashboardView.EnemiesGrid).TransformBounds(new Rect(enemyLastRow.RenderSize));
+            Assert.InRange(window.DashboardView.AlliesGrid.ActualHeight - alliedLastBounds.Bottom, 0, 3);
+            Assert.InRange(window.DashboardView.EnemiesGrid.ActualHeight - enemyLastBounds.Bottom, 0, 3);
+            SaveWindowSnapshot(window, $"dashboard-{language}-1920x1040.png");
+
+            window.Width = 1600;
+            window.Height = 940;
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             ContextMenu dashboardRowMenu = Assert.IsType<ContextMenu>(dashboardFirstRow.ContextMenu);
             ContextMenu dashboardEnemyRowMenu = Assert.IsType<ContextMenu>(dashboardEnemyFirstRow.ContextMenu);
             Assert.NotSame(dashboardRowMenu, dashboardEnemyRowMenu);

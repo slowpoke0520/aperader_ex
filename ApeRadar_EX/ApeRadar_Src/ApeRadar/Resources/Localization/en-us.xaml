@@ -735,6 +735,7 @@
     <system:String x:Key="DashboardSubtitle">World of Warships battle analysis</system:String>
     <system:String x:Key="DashboardNavBattle">Battle analysis</system:String>
     <system:String x:Key="DashboardHelp">Help</system:String>
+    <system:String x:Key="DashboardBuild">Build</system:String>
     <system:String x:Key="DashboardDataSource">Data source: </system:String>
     <system:String x:Key="DashboardLastUpdated">Last updated: </system:String>
     <system:String x:Key="DashboardMap">Map: </system:String>
@@ -742,8 +743,8 @@
     <system:String x:Key="DashboardServer">Server: </system:String>
     <system:String x:Key="DashboardStartedAt">Started: </system:String>
     <system:String x:Key="DashboardSaveScreenshot">Save screenshot</system:String>
-    <system:String x:Key="DashboardAllyKeyShips">Allied key classes (count · WR · PR)</system:String>
-    <system:String x:Key="DashboardEnemyKeyShips">Enemy key classes (count · WR · PR)</system:String>
+    <system:String x:Key="DashboardAllyKeyShips">Allied key classes</system:String>
+    <system:String x:Key="DashboardEnemyKeyShips">Enemy key classes</system:String>
     <system:String x:Key="DashboardVersusMetrics">Team metrics</system:String>
     <system:String x:Key="DashboardColumnPlayer">Player / ship</system:String>
     <system:String x:Key="DashboardColumnCurrentShip">Current ship</system:String>
@@ -751,6 +752,15 @@
     <system:String x:Key="DashboardObservations">Battle facts ⓘ</system:String>
     <system:String x:Key="DashboardContextAccount">Account</system:String>
     <system:String x:Key="DashboardContextTier">Tier</system:String>
+    <system:String x:Key="DashboardDataContext">Data scope:</system:String>
+    <system:String x:Key="DashboardSortBy">Sort:</system:String>
+    <system:String x:Key="DashboardMetricBattles">Battles</system:String>
+    <system:String x:Key="DashboardMetricWinrate">Win rate</system:String>
+    <system:String x:Key="DashboardMetricAverageDamage">Avg damage</system:String>
+    <system:String x:Key="DashboardMetricAccount">Account</system:String>
+    <system:String x:Key="DashboardMetricShip">Ship</system:String>
+    <system:String x:Key="DashboardKarma">Karma {0}</system:String>
+    <system:String x:Key="DashboardKarmaTip">Player karma: {0}</system:String>
     <system:String x:Key="DashboardMetricBattlesShort">Btl</system:String>
     <system:String x:Key="DashboardMetricWinrateShort">WR</system:String>
     <system:String x:Key="DashboardMetricDamageShort">Dmg</system:String>
@@ -774,6 +784,7 @@
     <system:String x:Key="DashboardShipClassCarrier">Carrier</system:String>
     <system:String x:Key="DashboardShipClassDestroyer">Destroyer</system:String>
     <system:String x:Key="DashboardCoverageInsufficient">Coverage is incomplete; comparison is for reference only</system:String>
+    <system:String x:Key="DashboardCoverageValue">Valid {0}/{1}</system:String>
     <system:String x:Key="DashboardCoverageLowShort">Low coverage</system:String>
     <system:String x:Key="DashboardCoverageSufficient">Both teams have sufficient data coverage</system:String>
     <system:String x:Key="DashboardObservationCoverage">Coverage</system:String>
@@ -782,5 +793,11 @@
     <system:String x:Key="DashboardModeRandom">Random battle</system:String>
     <system:String x:Key="DashboardModeRanked">Ranked battle</system:String>
     <system:String x:Key="DashboardModeClan">Clan battle</system:String>
+    <system:String x:Key="DashboardModeCoop">Co-op battle</system:String>
+    <system:String x:Key="DashboardServerAsia">Asia</system:String>
+    <system:String x:Key="DashboardServerEurope">Europe</system:String>
+    <system:String x:Key="DashboardServerNorthAmerica">North America</system:String>
+    <system:String x:Key="DashboardServerChina">China</system:String>
+    <system:String x:Key="DashboardServerRussia">Russia</system:String>
 
 </ResourceDictionary>

@@ -883,7 +883,7 @@ namespace ApeRadar
                     currentDashboardMetadata = new(
                         HistoryMapNameLocalizer.GetDisplayName(rawMapName),
                         FormatBattleMode(battleType),
-                        ServerExt.GetNameByServer(server),
+                        FormatDashboardServer(server),
                         battleStartTime,
                         APITypeExt.GetNameByAPIType(apiType),
                         null);
@@ -1069,7 +1069,18 @@ namespace ApeRadar
             "pvp" or "random" or "randombattle" => Application.Current?.TryFindResource("DashboardModeRandom") as string ?? "Random battle",
             "ranked" or "rank" => Application.Current?.TryFindResource("DashboardModeRanked") as string ?? "Ranked battle",
             "clan" or "clanbattle" => Application.Current?.TryFindResource("DashboardModeClan") as string ?? "Clan battle",
+            "pve" or "coop" or "cooperative" => Application.Current?.TryFindResource("DashboardModeCoop") as string ?? "Co-op battle",
             _ => mode
+        };
+
+        private static string FormatDashboardServer(Server server) => server switch
+        {
+            Server.ASIA => Application.Current?.TryFindResource("DashboardServerAsia") as string ?? "Asia",
+            Server.EU => Application.Current?.TryFindResource("DashboardServerEurope") as string ?? "Europe",
+            Server.NA => Application.Current?.TryFindResource("DashboardServerNorthAmerica") as string ?? "North America",
+            Server.CN => Application.Current?.TryFindResource("DashboardServerChina") as string ?? "China",
+            Server.RU => Application.Current?.TryFindResource("DashboardServerRussia") as string ?? "Russia",
+            _ => ServerExt.GetNameByServer(server)
         };
 
         //re-fetch expired cached players in the background, then update the UI in place

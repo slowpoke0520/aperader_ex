@@ -79,7 +79,13 @@ namespace ApeRadar.ViewModels
         public string OverflowBadgeText => OverflowBadgeCount > 0 ? $"+{OverflowBadgeCount}" : "";
         public string AllStatusToolTip { get; }
         public string PlayerDisplayName => string.IsNullOrWhiteSpace(Player.ClanTag) ? Player.Name : $"[{Player.ClanTag}] {Player.Name}";
-        public string KarmaText => Player.Karma >= 0 ? $"K {Player.Karma:N0}" : "";
+        public bool HasKarma => Player.Karma > 0;
+        public string KarmaText => HasKarma
+            ? string.Format(CultureInfo.CurrentCulture, Text("DashboardKarma", "Karma {0}"), Player.Karma.ToString("N0", CultureInfo.CurrentCulture))
+            : "";
+        public string KarmaToolTip => HasKarma
+            ? string.Format(CultureInfo.CurrentCulture, Text("DashboardKarmaTip", "Player karma: {0}"), Player.Karma.ToString("N0", CultureInfo.CurrentCulture))
+            : "";
 
         public bool HasValidAccount => !Player.IsHidden && Player.Battles >= 0 && Player.AccountWinrate >= 0 && Player.PR >= 0;
         public bool HasValidTier => !Player.IsHidden && Player.TierBattles >= 0 && Player.TierWinrate >= 0 && Player.TierPR >= 0;
@@ -164,11 +170,13 @@ namespace ApeRadar.ViewModels
         public bool IsVisible => AllyCount + EnemyCount > 0;
         public DashboardComparisonMetric Winrate { get; init; } = DashboardComparisonMetric.Percentage(null, null, "");
         public DashboardComparisonMetric Pr { get; init; } = DashboardComparisonMetric.Integer(null, null, "");
-        public string AllySummaryText => FormatSide(AllyCount, Winrate.AllyText, Pr.AllyText);
-        public string EnemySummaryText => FormatSide(EnemyCount, Winrate.EnemyText, Pr.EnemyText);
+        public string AllySummaryText => FormatSide(Name, AllyCount, Winrate.AllyText, Pr.AllyText);
+        public string EnemySummaryText => FormatSide(Name, EnemyCount, Winrate.EnemyText, Pr.EnemyText);
 
-        private static string FormatSide(int count, string winrate, string pr) =>
-            count == 0 ? Text("DashboardNoShipClass", "None") : $"{count} · {winrate} · PR {pr}";
+        private static string FormatSide(string name, int count, string winrate, string pr) =>
+            count == 0
+                ? $"{name}  {Text("DashboardNoShipClass", "None")}"
+                : $"{name}  {count} · {winrate} · PR {pr}";
 
         private static string Text(string resourceKey, string fallback) =>
             System.Windows.Application.Current?.TryFindResource(resourceKey) as string ?? fallback;
@@ -185,18 +193,20 @@ namespace ApeRadar.ViewModels
         public DashboardShipClassMatchup Carrier { get; init; } = new();
         public DashboardShipClassMatchup Destroyer { get; init; } = new();
         public bool HasKeyShipMatchup => Carrier.IsVisible || Destroyer.IsVisible;
-        public string AllyCoverageText => $"{Ally.ContextValidCount}/{Ally.TeamSize}";
-        public string EnemyCoverageText => $"{Enemy.ContextValidCount}/{Enemy.TeamSize}";
+        public string AllyCoverageText => FormatCoverage(Ally.ContextValidCount, Ally.TeamSize);
+        public string EnemyCoverageText => FormatCoverage(Enemy.ContextValidCount, Enemy.TeamSize);
         public bool CoverageInsufficient => Insufficient(Ally.ContextValidCount, Ally.TeamSize) || Insufficient(Enemy.ContextValidCount, Enemy.TeamSize);
         public string CoverageNotice => CoverageInsufficient
             ? Text("DashboardCoverageInsufficient", "Coverage is incomplete; comparisons are for reference only")
             : Text("DashboardCoverageSufficient", "Data coverage is sufficient");
-        public string CoverageObservation => $"{Text("DashboardObservationCoverage", "Coverage")}  {AllyCoverageText} · {EnemyCoverageText}" +
+        public string CoverageObservation => $"{Text("DashboardObservationCoverage", "Coverage")}  {Ally.ContextValidCount}/{Ally.TeamSize} · {Enemy.ContextValidCount}/{Enemy.TeamSize}" +
             (CoverageInsufficient ? $" · {Text("DashboardCoverageLowShort", "Low coverage")}" : "");
         public string LowSampleObservation => $"{Text("DashboardObservationLowSample", "Low sample")}  {Ally.ShipLowSampleCount} · {Enemy.ShipLowSampleCount}";
         public string AnomalyObservation => $"{Text("DashboardObservationAnomaly", "Anomaly")}  {Ally.AnomalyCount} · {Enemy.AnomalyCount}";
 
         private static bool Insufficient(int valid, int total) => total > 0 && valid * 3 < total * 2;
+        private static string FormatCoverage(int valid, int total) =>
+            string.Format(CultureInfo.CurrentCulture, Text("DashboardCoverageValue", "Valid {0}/{1}"), valid, total);
         private static string Text(string resourceKey, string fallback) =>
             System.Windows.Application.Current?.TryFindResource(resourceKey) as string ?? fallback;
     }

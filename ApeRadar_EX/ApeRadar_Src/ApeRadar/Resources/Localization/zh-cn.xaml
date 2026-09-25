@@ -735,6 +735,7 @@
     <system:String x:Key="DashboardSubtitle">战舰世界对局分析工具</system:String>
     <system:String x:Key="DashboardNavBattle">对局分析</system:String>
     <system:String x:Key="DashboardHelp">帮助</system:String>
+    <system:String x:Key="DashboardBuild">构建</system:String>
     <system:String x:Key="DashboardDataSource">数据来源：</system:String>
     <system:String x:Key="DashboardLastUpdated">最后更新：</system:String>
     <system:String x:Key="DashboardMap">地图：</system:String>
@@ -742,8 +743,8 @@
     <system:String x:Key="DashboardServer">服务器：</system:String>
     <system:String x:Key="DashboardStartedAt">开始时间：</system:String>
     <system:String x:Key="DashboardSaveScreenshot">保存截图</system:String>
-    <system:String x:Key="DashboardAllyKeyShips">我方关键舰种（数量 · 胜率 · PR）</system:String>
-    <system:String x:Key="DashboardEnemyKeyShips">敌方关键舰种（数量 · 胜率 · PR）</system:String>
+    <system:String x:Key="DashboardAllyKeyShips">我方关键舰种</system:String>
+    <system:String x:Key="DashboardEnemyKeyShips">敌方关键舰种</system:String>
     <system:String x:Key="DashboardVersusMetrics">对阵指标</system:String>
     <system:String x:Key="DashboardColumnPlayer">玩家 / 战舰</system:String>
     <system:String x:Key="DashboardColumnCurrentShip">当前舰船</system:String>
@@ -751,6 +752,15 @@
     <system:String x:Key="DashboardObservations">本局观察 ⓘ</system:String>
     <system:String x:Key="DashboardContextAccount">账号</system:String>
     <system:String x:Key="DashboardContextTier">同阶</system:String>
+    <system:String x:Key="DashboardDataContext">数据口径：</system:String>
+    <system:String x:Key="DashboardSortBy">排序：</system:String>
+    <system:String x:Key="DashboardMetricBattles">场次</system:String>
+    <system:String x:Key="DashboardMetricWinrate">胜率</system:String>
+    <system:String x:Key="DashboardMetricAverageDamage">场均伤害</system:String>
+    <system:String x:Key="DashboardMetricAccount">账号</system:String>
+    <system:String x:Key="DashboardMetricShip">单船</system:String>
+    <system:String x:Key="DashboardKarma">赞誉 {0}</system:String>
+    <system:String x:Key="DashboardKarmaTip">玩家赞誉值：{0}</system:String>
     <system:String x:Key="DashboardMetricBattlesShort">场</system:String>
     <system:String x:Key="DashboardMetricWinrateShort">胜</system:String>
     <system:String x:Key="DashboardMetricDamageShort">伤</system:String>
@@ -774,6 +784,7 @@
     <system:String x:Key="DashboardShipClassCarrier">航母</system:String>
     <system:String x:Key="DashboardShipClassDestroyer">驱逐</system:String>
     <system:String x:Key="DashboardCoverageInsufficient">覆盖不足，对比仅供参考</system:String>
+    <system:String x:Key="DashboardCoverageValue">有效 {0}/{1}</system:String>
     <system:String x:Key="DashboardCoverageLowShort">覆盖不足</system:String>
     <system:String x:Key="DashboardCoverageSufficient">双方数据覆盖充足</system:String>
     <system:String x:Key="DashboardObservationCoverage">覆盖</system:String>
@@ -782,5 +793,11 @@
     <system:String x:Key="DashboardModeRandom">随机战</system:String>
     <system:String x:Key="DashboardModeRanked">排位战</system:String>
     <system:String x:Key="DashboardModeClan">军团战</system:String>
+    <system:String x:Key="DashboardModeCoop">人机战</system:String>
+    <system:String x:Key="DashboardServerAsia">亚服</system:String>
+    <system:String x:Key="DashboardServerEurope">欧服</system:String>
+    <system:String x:Key="DashboardServerNorthAmerica">美服</system:String>
+    <system:String x:Key="DashboardServerChina">国服</system:String>
+    <system:String x:Key="DashboardServerRussia">俄服</system:String>
 
 </ResourceDictionary>

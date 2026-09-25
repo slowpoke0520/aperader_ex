@@ -11,7 +11,7 @@
     <ApplicationIcon>Resources\Image\monkey-face-navy.ico</ApplicationIcon>
     <AssemblyVersion>2.1.1.0</AssemblyVersion>
     <FileVersion></FileVersion>
-    <Version>2.1.1-ex.12-dev.16</Version>
+    <Version>2.1.1-ex.12-dev.17</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

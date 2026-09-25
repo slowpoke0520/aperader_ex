@@ -46,6 +46,9 @@ namespace ApeRadar.Controls
 
     public partial class DashboardMainView : UserControl
     {
+        private const double StandardRosterRowHeight = 48;
+        private const double StandardRosterCapacityHeight = 663;
+        private const double FixedRosterHeightThreshold = 960;
         private readonly DispatcherTimer detailOpenTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
         private readonly DispatcherTimer detailCloseTimer = new() { Interval = TimeSpan.FromMilliseconds(200) };
         private DashboardPlayerRowViewModel? pendingDetail;
@@ -137,6 +140,7 @@ namespace ApeRadar.Controls
 
         internal void RefreshLocalizedSelectors()
         {
+            GamePathStatusText.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
             suppressSelectors = true;
             LanguageCombo.Items.Clear();
             LanguageCombo.Items.Add(new ListItem { Content = Find("ComboBoxItemLanguageAuto", "Auto"), Value = "AUTO" });
@@ -244,7 +248,7 @@ namespace ApeRadar.Controls
         private void UpdateResponsiveLayout()
         {
             bool compactSidebar = ActualWidth < 1400;
-            SidebarColumn.Width = new GridLength(compactSidebar ? 64 : 172);
+            SidebarColumn.Width = new GridLength(compactSidebar ? 64 : 208);
             BrandText.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
             NavBattleText.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
             NavHistoryText.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
@@ -254,6 +258,22 @@ namespace ApeRadar.Controls
             SessionCard.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
             SidebarVersion.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
             SidebarLinks.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
+            BattleMetadataText.Visibility = ActualWidth < 1240 ? Visibility.Collapsed : Visibility.Visible;
+
+            // Keep player rows stable. On tall screens the card ends immediately after
+            // the fixed 12-player capacity; on shorter screens the viewport shrinks and
+            // scrolls without changing typography or row height.
+            AlliesGrid.RowHeight = EnemiesGrid.RowHeight = StandardRosterRowHeight;
+            bool showFixedRosterCapacity = ActualHeight >= FixedRosterHeightThreshold;
+            RosterAreaRow.Height = showFixedRosterCapacity
+                ? GridLength.Auto
+                : new GridLength(1, GridUnitType.Star);
+            RosterTeamsGrid.Height = showFixedRosterCapacity
+                ? StandardRosterCapacityHeight
+                : double.NaN;
+            RosterTeamsGrid.VerticalAlignment = showFixedRosterCapacity
+                ? VerticalAlignment.Top
+                : VerticalAlignment.Stretch;
             UpdateMatchupLayout();
             AnalysisDrawer.Width = Math.Min(420, Math.Max(320, ActualWidth - 64));
             UpdatePlayerDetailBounds();

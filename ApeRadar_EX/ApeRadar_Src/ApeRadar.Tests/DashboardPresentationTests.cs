@@ -132,6 +132,28 @@ public sealed class DashboardPresentationTests
         Assert.True(dashboard.Summary.Destroyer.IsVisible);
         Assert.Equal(0, dashboard.Summary.Destroyer.AllyCount);
         Assert.Equal(1, dashboard.Summary.Destroyer.EnemyCount);
+        Assert.Contains(dashboard.Summary.Carrier.Name, dashboard.Summary.Carrier.AllySummaryText);
+        Assert.Contains(dashboard.Summary.Carrier.Name, dashboard.Summary.Carrier.EnemySummaryText);
+        Assert.Contains(dashboard.Summary.Destroyer.Name, dashboard.Summary.Destroyer.AllySummaryText);
+        Assert.Contains(dashboard.Summary.Destroyer.Name, dashboard.Summary.Destroyer.EnemySummaryText);
+    }
+
+    [Fact]
+    public void Karma_IsPresentedAsPlayerReputationAndZeroIsHidden()
+    {
+        Player zero = CreatePlayer("Zero", "1", 1_000, 0.50, 1_000, 50, 0.50, 1_000);
+        zero.Karma = 0;
+        Player positive = CreatePlayer("Positive", "1", 1_000, 0.50, 1_000, 50, 0.50, 1_000);
+        positive.Karma = 2;
+
+        DashboardPlayerRowViewModel zeroRow = CreateRow(zero, true);
+        DashboardPlayerRowViewModel positiveRow = CreateRow(positive, true);
+
+        Assert.False(zeroRow.HasKarma);
+        Assert.Equal("", zeroRow.KarmaText);
+        Assert.True(positiveRow.HasKarma);
+        Assert.Contains("2", positiveRow.KarmaText);
+        Assert.DoesNotMatch("^K\\s*2$", positiveRow.KarmaText);
     }
 
     [Theory]
