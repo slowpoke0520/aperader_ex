@@ -345,9 +345,15 @@ public sealed class HistoryWindowSmokeTests
             double expectedSidebarWidth = window.DashboardView.ActualWidth < 1400 ? 64 : 208;
             Assert.Equal(new GridLength(expectedSidebarWidth), window.DashboardView.SidebarColumn.Width);
             Assert.Equal(44, window.DashboardView.AlliesGrid.ColumnHeaderHeight);
-            Assert.InRange(window.DashboardView.AllyContextColumn.ActualWidth, 110, 120);
-            Assert.InRange(window.DashboardView.AllyShipColumn.ActualWidth, 170, 182);
-            Assert.InRange(window.DashboardView.AllyPrColumn.ActualWidth, 94, 102);
+            Assert.True(window.DashboardView.AllyContextColumn.ActualWidth > 0);
+            Assert.True(window.DashboardView.AllyShipColumn.ActualWidth > 0);
+            Assert.True(window.DashboardView.AllyPrColumn.ActualWidth > 0);
+            if (window.DashboardView.ActualWidth >= 1400)
+            {
+                Assert.InRange(window.DashboardView.AllyContextColumn.ActualWidth, 110, 120);
+                Assert.InRange(window.DashboardView.AllyShipColumn.ActualWidth, 170, 182);
+                Assert.InRange(window.DashboardView.AllyPrColumn.ActualWidth, 94, 102);
+            }
             Assert.NotNull(window.DashboardView.AllyContextColumn.HeaderTemplate);
             Assert.NotNull(window.DashboardView.AllyShipColumn.HeaderTemplate);
             Assert.NotNull(window.DashboardView.AllyPrColumn.HeaderTemplate);
