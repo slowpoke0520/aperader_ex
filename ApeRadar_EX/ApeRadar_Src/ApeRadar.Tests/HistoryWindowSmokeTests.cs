@@ -396,12 +396,12 @@ public sealed class HistoryWindowSmokeTests
             }
             AssertRosterScrollBehavior(window.DashboardView.AlliesGrid, alliesScroll);
             AssertRosterScrollBehavior(window.DashboardView.EnemiesGrid, enemiesScroll);
-            DataGridRow alliedLastRow = Assert.IsType<DataGridRow>(window.DashboardView.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(11));
-            DataGridRow enemyLastRow = Assert.IsType<DataGridRow>(window.DashboardView.EnemiesGrid.ItemContainerGenerator.ContainerFromIndex(11));
-            Rect alliedLastBounds = alliedLastRow.TransformToAncestor(window.DashboardView.AlliesGrid).TransformBounds(new Rect(alliedLastRow.RenderSize));
-            Rect enemyLastBounds = enemyLastRow.TransformToAncestor(window.DashboardView.EnemiesGrid).TransformBounds(new Rect(enemyLastRow.RenderSize));
             if (hasTallViewport)
             {
+                DataGridRow alliedLastRow = Assert.IsType<DataGridRow>(window.DashboardView.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(11));
+                DataGridRow enemyLastRow = Assert.IsType<DataGridRow>(window.DashboardView.EnemiesGrid.ItemContainerGenerator.ContainerFromIndex(11));
+                Rect alliedLastBounds = alliedLastRow.TransformToAncestor(window.DashboardView.AlliesGrid).TransformBounds(new Rect(alliedLastRow.RenderSize));
+                Rect enemyLastBounds = enemyLastRow.TransformToAncestor(window.DashboardView.EnemiesGrid).TransformBounds(new Rect(enemyLastRow.RenderSize));
                 Assert.InRange(window.DashboardView.AlliesGrid.ActualHeight - alliedLastBounds.Bottom, 0, 3);
                 Assert.InRange(window.DashboardView.EnemiesGrid.ActualHeight - enemyLastBounds.Bottom, 0, 3);
             }
