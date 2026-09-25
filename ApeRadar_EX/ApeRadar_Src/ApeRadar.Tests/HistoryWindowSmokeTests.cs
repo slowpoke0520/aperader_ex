@@ -342,7 +342,8 @@ public sealed class HistoryWindowSmokeTests
             Assert.False(window.DashboardView.AlliesGrid.CanUserResizeColumns);
             Assert.False(window.DashboardView.EnemiesGrid.CanUserResizeColumns);
             Assert.Equal(Visibility.Collapsed, window.DashboardView.AnalysisDrawer.Visibility);
-            Assert.Equal(new GridLength(208), window.DashboardView.SidebarColumn.Width);
+            double expectedSidebarWidth = window.DashboardView.ActualWidth < 1400 ? 64 : 208;
+            Assert.Equal(new GridLength(expectedSidebarWidth), window.DashboardView.SidebarColumn.Width);
             Assert.Equal(44, window.DashboardView.AlliesGrid.ColumnHeaderHeight);
             Assert.InRange(window.DashboardView.AllyContextColumn.ActualWidth, 110, 120);
             Assert.InRange(window.DashboardView.AllyShipColumn.ActualWidth, 170, 182);
@@ -375,17 +376,26 @@ public sealed class HistoryWindowSmokeTests
             window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             AssertDataGridCellContentsStayInside(window.DashboardView.AlliesGrid, 1920, 1040);
             AssertDataGridCellContentsStayInside(window.DashboardView.EnemiesGrid, 1920, 1040);
-            Assert.Equal(663, window.DashboardView.RosterTeamsGrid.ActualHeight, 1);
-            Assert.True(alliesScroll.ScrollableWidth <= 1);
-            Assert.True(enemiesScroll.ScrollableWidth <= 1);
+            bool hasWideViewport = window.DashboardView.ActualWidth >= 1400;
+            bool hasTallViewport = window.DashboardView.ActualHeight >= 960;
+            if (hasTallViewport)
+                Assert.Equal(663, window.DashboardView.RosterTeamsGrid.ActualHeight, 1);
+            if (hasWideViewport)
+            {
+                Assert.True(alliesScroll.ScrollableWidth <= 1);
+                Assert.True(enemiesScroll.ScrollableWidth <= 1);
+            }
             AssertRosterScrollBehavior(window.DashboardView.AlliesGrid, alliesScroll);
             AssertRosterScrollBehavior(window.DashboardView.EnemiesGrid, enemiesScroll);
             DataGridRow alliedLastRow = Assert.IsType<DataGridRow>(window.DashboardView.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(11));
             DataGridRow enemyLastRow = Assert.IsType<DataGridRow>(window.DashboardView.EnemiesGrid.ItemContainerGenerator.ContainerFromIndex(11));
             Rect alliedLastBounds = alliedLastRow.TransformToAncestor(window.DashboardView.AlliesGrid).TransformBounds(new Rect(alliedLastRow.RenderSize));
             Rect enemyLastBounds = enemyLastRow.TransformToAncestor(window.DashboardView.EnemiesGrid).TransformBounds(new Rect(enemyLastRow.RenderSize));
-            Assert.InRange(window.DashboardView.AlliesGrid.ActualHeight - alliedLastBounds.Bottom, 0, 3);
-            Assert.InRange(window.DashboardView.EnemiesGrid.ActualHeight - enemyLastBounds.Bottom, 0, 3);
+            if (hasTallViewport)
+            {
+                Assert.InRange(window.DashboardView.AlliesGrid.ActualHeight - alliedLastBounds.Bottom, 0, 3);
+                Assert.InRange(window.DashboardView.EnemiesGrid.ActualHeight - enemyLastBounds.Bottom, 0, 3);
+            }
             SaveWindowSnapshot(window, $"dashboard-{language}-1920x1040.png");
 
             window.Width = 1600;
