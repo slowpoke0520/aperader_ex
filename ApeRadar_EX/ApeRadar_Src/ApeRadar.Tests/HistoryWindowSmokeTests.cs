@@ -348,6 +348,9 @@ public sealed class HistoryWindowSmokeTests
             Assert.True(window.DashboardView.AllyContextColumn.ActualWidth > 0);
             Assert.True(window.DashboardView.AllyShipColumn.ActualWidth > 0);
             Assert.True(window.DashboardView.AllyPrColumn.ActualWidth > 0);
+            Assert.Equal(108, window.DashboardView.AllyContextColumn.MinWidth);
+            Assert.Equal(168, window.DashboardView.AllyShipColumn.MinWidth);
+            Assert.Equal(92, window.DashboardView.AllyPrColumn.MinWidth);
             if (window.DashboardView.ActualWidth >= 1400)
             {
                 Assert.InRange(window.DashboardView.AllyContextColumn.ActualWidth, 110, 120);
