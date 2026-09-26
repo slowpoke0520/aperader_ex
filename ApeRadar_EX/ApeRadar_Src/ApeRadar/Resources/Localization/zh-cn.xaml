@@ -655,6 +655,17 @@
 
     <system:String x:Key="NoteEditWindowTitle">编辑备注</system:String>
     <system:String x:Key="NoteEditWindowPlayerName">玩家：</system:String>
+    <system:String x:Key="NoteEditWindowContentLabel">备注内容</system:String>
+    <system:String x:Key="NoteQuickOptionsTitle">快捷备注</system:String>
+    <system:String x:Key="NoteQuickOptionsManage">管理快捷选项…</system:String>
+    <system:String x:Key="NoteQuickOptionsHint">每行一个，最多 8 项；每项最多 24 个字符。</system:String>
+    <system:String x:Key="NoteQuickOptionsSave">保存选项</system:String>
+    <system:String x:Key="NoteQuickOptionsReset">恢复默认</system:String>
+    <system:String x:Key="NoteQuickOptionReliable">可靠队友</system:String>
+    <system:String x:Key="NoteQuickOptionWatch">需要注意</system:String>
+    <system:String x:Key="NoteQuickOptionAutomation">疑似脚本</system:String>
+    <system:String x:Key="NoteQuickOptionLowTier">低级房经验多</system:String>
+    <system:String x:Key="RosterBadgeNoteCompact">备注</system:String>
 
     <system:String x:Key="StringNone">无</system:String>
     <system:String x:Key="StringUnknownShip">未知舰艇</system:String>
@@ -734,6 +745,7 @@
     <system:String x:Key="MsgBoxMainInterfaceRestart">主界面样式将在重启海猴雷达后生效。</system:String>
     <system:String x:Key="DashboardSubtitle">战舰世界对局分析工具</system:String>
     <system:String x:Key="DashboardNavBattle">对局分析</system:String>
+    <system:String x:Key="DashboardCurrentBattle">当前对局</system:String>
     <system:String x:Key="DashboardHelp">帮助</system:String>
     <system:String x:Key="DashboardBuild">构建</system:String>
     <system:String x:Key="DashboardDataSource">数据来源：</system:String>
@@ -745,7 +757,7 @@
     <system:String x:Key="DashboardSaveScreenshot">保存截图</system:String>
     <system:String x:Key="DashboardAllyKeyShips">我方关键舰种</system:String>
     <system:String x:Key="DashboardEnemyKeyShips">敌方关键舰种</system:String>
-    <system:String x:Key="DashboardVersusMetrics">对阵指标</system:String>
+    <system:String x:Key="DashboardVersusMetrics">阵容对比</system:String>
     <system:String x:Key="DashboardColumnPlayer">玩家 / 战舰</system:String>
     <system:String x:Key="DashboardColumnCurrentShip">当前舰船</system:String>
     <system:String x:Key="DashboardColumnPerformance">水平</system:String>

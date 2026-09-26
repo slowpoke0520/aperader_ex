@@ -69,6 +69,8 @@ public sealed class HistoryWindowSmokeTests
                     ValidateDashboardWindowLayout(language);
                     progress = $"{language}: config window";
                     ValidateConfigWindowLayout(language);
+                    progress = $"{language}: note editor";
+                    ValidateNoteEditor(language);
                 }
                 app.Shutdown();
             }
@@ -313,6 +315,8 @@ public sealed class HistoryWindowSmokeTests
                 .Select(i => CreateTierPerformancePlayer($"Allied dashboard sample {i}", i == 1 ? "0" : "1"))
                 .Concat(Enumerable.Range(1, 12).Select(i => CreateTierPerformancePlayer($"Enemy dashboard sample {i}", "2")))
                 .ToList();
+            players[0].Note = "可靠队友";
+            players[12].Note = "谨慎推进";
             Battlefield battlefield = (Battlefield)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Battlefield));
             battlefield.BattleType = "RandomBattle";
             battlefield.BattleStartTime = DateTimeOffset.Now;
@@ -337,6 +341,7 @@ public sealed class HistoryWindowSmokeTests
             Assert.Equal(window.DashboardView.AlliesGrid.RowHeight, window.DashboardView.EnemiesGrid.RowHeight);
             Assert.Equal(48, window.DashboardView.AlliesGrid.RowHeight);
             Assert.Equal(window.DashboardView.AlliesGrid.Columns.Count, window.DashboardView.EnemiesGrid.Columns.Count);
+            Assert.Equal(5, window.DashboardView.AlliesGrid.Columns.Count);
             for (int i = 0; i < window.DashboardView.AlliesGrid.Columns.Count; i++)
                 Assert.Equal(window.DashboardView.AlliesGrid.Columns[i].ActualWidth, window.DashboardView.EnemiesGrid.Columns[i].ActualWidth, 1);
             Assert.False(window.DashboardView.AlliesGrid.CanUserResizeColumns);
@@ -348,6 +353,13 @@ public sealed class HistoryWindowSmokeTests
             Assert.True(window.DashboardView.AllyContextColumn.ActualWidth > 0);
             Assert.True(window.DashboardView.AllyShipColumn.ActualWidth > 0);
             Assert.True(window.DashboardView.AllyPrColumn.ActualWidth > 0);
+            Rect comparisonBounds = window.DashboardView.ComparisonPanel.TransformToAncestor(window.DashboardView.ComparisonCard)
+                .TransformBounds(new Rect(window.DashboardView.ComparisonPanel.RenderSize));
+            Assert.InRange(
+                Math.Abs((comparisonBounds.Left + comparisonBounds.Right) / 2 - window.DashboardView.ComparisonCard.ActualWidth / 2),
+                0,
+                1);
+            Assert.True(window.DashboardView.RosterToolbar.ActualHeight >= 30);
             Assert.Equal(108, window.DashboardView.AllyContextColumn.MinWidth);
             Assert.Equal(168, window.DashboardView.AllyShipColumn.MinWidth);
             Assert.Equal(92, window.DashboardView.AllyPrColumn.MinWidth);
@@ -371,6 +383,8 @@ public sealed class HistoryWindowSmokeTests
 
             DataGridRow dashboardFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(0));
             DataGridRow dashboardEnemyFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.EnemiesGrid.ItemContainerGenerator.ContainerFromIndex(0));
+            Assert.Contains(FindVisualChildren<TextBlock>(dashboardFirstRow), text => text.Text == "可靠队友");
+            Assert.Contains(FindVisualChildren<TextBlock>(dashboardEnemyFirstRow), text => text.Text == "谨慎推进");
             string[] removedInlineLabels = { "场", "胜", "伤", "总", "船", "Btl", "WR", "Dmg", "Acc", "Ship" };
             Assert.DoesNotContain(FindVisualChildren<TextBlock>(dashboardFirstRow), text => removedInlineLabels.Contains(text.Text));
             Assert.DoesNotContain(FindVisualChildren<TextBlock>(dashboardEnemyFirstRow), text => removedInlineLabels.Contains(text.Text));
@@ -411,6 +425,8 @@ public sealed class HistoryWindowSmokeTests
             window.Height = 940;
             window.UpdateLayout();
             window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            dashboardFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(0));
+            dashboardEnemyFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.EnemiesGrid.ItemContainerGenerator.ContainerFromIndex(0));
             ContextMenu dashboardRowMenu = Assert.IsType<ContextMenu>(dashboardFirstRow.ContextMenu);
             ContextMenu dashboardEnemyRowMenu = Assert.IsType<ContextMenu>(dashboardEnemyFirstRow.ContextMenu);
             Assert.NotSame(dashboardRowMenu, dashboardEnemyRowMenu);
@@ -426,7 +442,8 @@ public sealed class HistoryWindowSmokeTests
             });
             PumpDispatcher(TimeSpan.FromMilliseconds(400));
             Assert.True(window.DashboardView.PlayerDetailPopup.IsOpen);
-            Assert.Same(dashboardFirstRow, window.DashboardView.PlayerDetailPopup.PlacementTarget);
+            DataGridRow popupTarget = Assert.IsType<DataGridRow>(window.DashboardView.PlayerDetailPopup.PlacementTarget);
+            Assert.Same(dashboardFirstRow.DataContext, popupTarget.DataContext);
             Assert.Equal(System.Windows.Controls.Primitives.PlacementMode.Custom, window.DashboardView.PlayerDetailPopup.Placement);
             dashboardFirstRow.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
             {
@@ -632,6 +649,29 @@ public sealed class HistoryWindowSmokeTests
         finally
         {
             ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = previous;
+        }
+    }
+
+    private static void ValidateNoteEditor(string language)
+    {
+        string previous = ApeRadar.Properties.Settings.Default.NoteQuickOptions;
+        try
+        {
+            ApeRadar.Properties.Settings.Default.NoteQuickOptions = "";
+            NoteEditWindow window = new("ExamplePlayer");
+            window.Show();
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+            Assert.Equal(4, window.QuickOptionsPanel.Children.Count);
+            Assert.All(window.QuickOptionsPanel.Children.OfType<Button>(), button => Assert.True(button.ActualHeight >= 28));
+            Assert.Equal(Visibility.Collapsed, window.QuickOptionsEditor.Visibility);
+            SaveWindowSnapshot(window, $"note-editor-{language}.png");
+            window.Close();
+        }
+        finally
+        {
+            ApeRadar.Properties.Settings.Default.NoteQuickOptions = previous;
         }
     }
 

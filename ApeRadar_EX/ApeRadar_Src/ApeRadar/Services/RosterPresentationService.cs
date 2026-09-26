@@ -98,6 +98,17 @@ namespace ApeRadar.Services
                 badges.Add(new(RosterBadgeKind.Watch, severity, compact, display, Text(resourceKey, display)));
             }
 
+            if (!string.IsNullOrWhiteSpace(player.Note))
+            {
+                string note = player.Note.Trim();
+                badges.Add(new(
+                    RosterBadgeKind.Note,
+                    RosterBadgeSeverity.Info,
+                    Text("RosterBadgeNoteCompact", "Note"),
+                    NoteQuickOptionUtils.ToBadgeText(note),
+                    $"{Text("LabelNote", "Note: ")}{note}"));
+            }
+
             if (player.IsCustomMarked)
                 badges.Add(new(RosterBadgeKind.CustomMark, RosterBadgeSeverity.Warning, "★", Text("RosterBadgeMarked", "Marked"), Text("RosterBadgeMarkedTip", "Personal marker")));
 

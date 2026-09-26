@@ -3,10 +3,10 @@
   <Profiles />
   <Settings>
     <Setting Name="SoftwareVersion" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">2.1.1-ex.12-dev.17</Value>
+      <Value Profile="(Default)">2.1.1-ex.12-dev.18</Value>
     </Setting>
     <Setting Name="SoftwareDate" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">20260925</Value>
+      <Value Profile="(Default)">20260927</Value>
     </Setting>
     <Setting Name="SettingsUpgradeDone" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
@@ -204,6 +204,9 @@
       <Value Profile="(Default)">VORTEX</Value>
     </Setting>
     <Setting Name="WgApplicationId" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="NoteQuickOptions" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
     <Setting Name="YuyukoAPIPushEnabled" Type="System.Boolean" Scope="User">

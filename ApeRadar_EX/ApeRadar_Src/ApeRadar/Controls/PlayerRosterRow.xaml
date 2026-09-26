@@ -51,10 +51,10 @@
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border CornerRadius="3" Padding="4,1" Margin="1,0" Opacity="{Binding Opacity}"
+                            <Border CornerRadius="4" Height="22" Padding="3,0" Margin="1,0" VerticalAlignment="Center" Opacity="{Binding Opacity}"
                                     Background="{Binding Severity, Converter={StaticResource BadgeBrush}, ConverterParameter=Background}"
                                     ToolTip="{Binding ToolTip}">
-                                <TextBlock Text="{Binding DisplayText}" FontSize="9" FontWeight="SemiBold"
+                                <TextBlock Text="{Binding DisplayText}" FontSize="12" FontWeight="Bold" TextTrimming="CharacterEllipsis" MaxWidth="50" VerticalAlignment="Center"
                                            Foreground="{Binding Severity, Converter={StaticResource BadgeBrush}, ConverterParameter=Foreground}"/>
                             </Border>
                         </DataTemplate>
@@ -62,7 +62,7 @@
                 </ItemsControl>
                 <Border CornerRadius="3" Padding="4,1" Margin="1,0" Background="{StaticResource SurfaceMutedBrush}"
                         Visibility="{Binding HasOverflowBadges, Converter={StaticResource BoolToVisibility}}" ToolTip="{Binding AllStatusToolTip}">
-                    <TextBlock Text="{Binding OverflowBadgeText}" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding OverflowBadgeText}" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
                 </Border>
             </StackPanel>
             <TextBlock Grid.Column="2" Text="{Binding Player.Karma, Converter={StaticResource BattleData}}" FontSize="9" Foreground="{StaticResource TextSecondaryBrush}"

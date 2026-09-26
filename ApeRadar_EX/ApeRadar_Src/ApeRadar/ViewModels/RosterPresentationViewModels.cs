@@ -98,6 +98,7 @@ namespace ApeRadar.ViewModels
     internal enum RosterBadgeKind
     {
         Watch,
+        Note,
         CustomMark,
         RecentEncounter,
         FixedTeammate,

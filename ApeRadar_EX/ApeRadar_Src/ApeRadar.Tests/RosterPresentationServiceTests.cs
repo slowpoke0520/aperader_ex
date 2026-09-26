@@ -86,6 +86,9 @@ public sealed class RosterPresentationServiceTests
         PlayerRosterRowViewModel row = CreateRow(player, new(0, 0, 0, 0, 0, 0, 0, true));
 
         Assert.Contains("Reliable caller", row.ContextPreview);
+        RosterStatusBadgeViewModel note = Assert.Single(row.StatusBadges, badge => badge.Kind == RosterBadgeKind.Note);
+        Assert.Contains("Reliable", note.DisplayText);
+        Assert.Contains("Reliable caller", note.ToolTip);
         Assert.Contains(row.StatusBadges, badge => badge.Kind == RosterBadgeKind.FixedTeammate);
         Assert.DoesNotContain(row.StatusBadges, badge => badge.Kind == RosterBadgeKind.RecentEncounter);
     }

@@ -655,6 +655,17 @@
 
     <system:String x:Key="NoteEditWindowTitle">Edit Note</system:String>
     <system:String x:Key="NoteEditWindowPlayerName">Player: </system:String>
+    <system:String x:Key="NoteEditWindowContentLabel">Note</system:String>
+    <system:String x:Key="NoteQuickOptionsTitle">Quick notes</system:String>
+    <system:String x:Key="NoteQuickOptionsManage">Manage quick notes…</system:String>
+    <system:String x:Key="NoteQuickOptionsHint">One per line, up to 8 items and 24 characters each.</system:String>
+    <system:String x:Key="NoteQuickOptionsSave">Save options</system:String>
+    <system:String x:Key="NoteQuickOptionsReset">Restore defaults</system:String>
+    <system:String x:Key="NoteQuickOptionReliable">Reliable teammate</system:String>
+    <system:String x:Key="NoteQuickOptionWatch">Needs attention</system:String>
+    <system:String x:Key="NoteQuickOptionAutomation">Suspected automation</system:String>
+    <system:String x:Key="NoteQuickOptionLowTier">Low-tier focused</system:String>
+    <system:String x:Key="RosterBadgeNoteCompact">Note</system:String>
 
     <system:String x:Key="StringNone">None</system:String>
     <system:String x:Key="StringUnknownShip">Unknown Ship</system:String>
@@ -734,6 +745,7 @@
     <system:String x:Key="MsgBoxMainInterfaceRestart">The main interface style will be applied after ApeRadar restarts.</system:String>
     <system:String x:Key="DashboardSubtitle">World of Warships battle analysis</system:String>
     <system:String x:Key="DashboardNavBattle">Battle analysis</system:String>
+    <system:String x:Key="DashboardCurrentBattle">Current battle</system:String>
     <system:String x:Key="DashboardHelp">Help</system:String>
     <system:String x:Key="DashboardBuild">Build</system:String>
     <system:String x:Key="DashboardDataSource">Data source: </system:String>
@@ -745,7 +757,7 @@
     <system:String x:Key="DashboardSaveScreenshot">Save screenshot</system:String>
     <system:String x:Key="DashboardAllyKeyShips">Allied key classes</system:String>
     <system:String x:Key="DashboardEnemyKeyShips">Enemy key classes</system:String>
-    <system:String x:Key="DashboardVersusMetrics">Team metrics</system:String>
+    <system:String x:Key="DashboardVersusMetrics">Roster comparison</system:String>
     <system:String x:Key="DashboardColumnPlayer">Player / ship</system:String>
     <system:String x:Key="DashboardColumnCurrentShip">Current ship</system:String>
     <system:String x:Key="DashboardColumnPerformance">Skill</system:String>
