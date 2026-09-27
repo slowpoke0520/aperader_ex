@@ -64,6 +64,44 @@ public sealed class BattleRosterCoordinatorTests
     }
 
     [Fact]
+    public async Task VortexNotFound_IsolatedWithoutCancellingSuccessfulSiblingRequest()
+    {
+        Task<string> missing = ApiUtils.VortexHttpGetAllowNotFoundAsync(() =>
+            Task.FromException<string>(new NetworkRequestException(ApiFailureKind.NotFound)));
+        Task<string> successful = ApiUtils.VortexHttpGetAllowNotFoundAsync(() =>
+            Task.FromResult("{\"status\":\"ok\",\"data\":{}}"));
+
+        string[] responses = await Task.WhenAll(missing, successful);
+
+        Assert.Contains("Not Found", responses[0]);
+        Assert.Contains("\"status\":\"ok\"", responses[1]);
+    }
+
+    [Fact]
+    public async Task VortexTransientFailure_RemainsRosterLevelFailure()
+    {
+        NetworkRequestException exception = await Assert.ThrowsAsync<NetworkRequestException>(() =>
+            ApiUtils.VortexHttpGetAllowNotFoundAsync(() =>
+                Task.FromException<string>(new NetworkRequestException(ApiFailureKind.Network))));
+
+        Assert.Equal(ApiFailureKind.Network, exception.FailureKind);
+    }
+
+    [Fact]
+    public void RosterResult_IsPartialForOnePlayerFailureAndFailedWhenEveryPlayerFails()
+    {
+        Player available = new("Available", Server.ASIA, "1", "3760142160") { ID = "100", Battles = 20 };
+        Player missing = new("Missing", Server.ASIA, "1", "3760142160") { ID = "200", IsDataFetchFailed = true };
+
+        BattleRosterLoadResult partial = new(new[] { available, missing }, APIType.VORTEX, 0, 1, Array.Empty<ApiFailureKind>());
+        BattleRosterLoadResult failed = new(new[] { missing }, APIType.VORTEX, 0, 1, Array.Empty<ApiFailureKind>());
+
+        Assert.True(partial.IsPartial);
+        Assert.False(partial.IsFailed);
+        Assert.True(failed.IsFailed);
+    }
+
+    [Fact]
     public void EmptyMetadataBattlefield_DoesNotProduceNanTeamSummaries()
     {
         Battlefield battlefield = new("random", DateTimeOffset.UtcNow, Array.Empty<Player>().ToList());

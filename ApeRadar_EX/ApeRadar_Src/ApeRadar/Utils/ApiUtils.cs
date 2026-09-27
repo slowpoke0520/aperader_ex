@@ -10,6 +10,36 @@ namespace ApeRadar.Utils
 {
     static internal class ApiUtils
     {
+        private const string VortexNotFoundResponse = "{\"status\":\"error\",\"error\":\"Not Found\"}";
+
+        internal static async Task<string> VortexHttpGetAllowNotFoundAsync(
+            Func<Task<string>> request,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                return await request().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (NetworkRequestException ex) when (ex.FailureKind == ApiFailureKind.NotFound)
+            {
+                // A missing account/ship/mode is a player-level absence, not a
+                // roster-level outage.  Keep the Vortex JSON contract so the
+                // caller can leave just that metric unavailable while the other
+                // players and endpoints continue to load.
+                return VortexNotFoundResponse;
+            }
+        }
+
+        internal static Task<string> VortexHttpGetAllowNotFoundAsync(
+            string url,
+            CancellationToken cancellationToken = default) =>
+            VortexHttpGetAllowNotFoundAsync(() => NetworkUtils.HttpGet(url, cancellationToken), cancellationToken);
+
         private static double CalcWeightedWinrate(double accountWinrateSolo, double accountBattlesSolo, double accountWinrateDiv2, double accountBattlesDiv2, double accountWinrateDiv3, double accountBattlesDiv3, double shipWinrate, double shipBattles)
         {
             double accountSoloWeight = accountBattlesSolo * Properties.Settings.Default.WeightedWinrateAccountSoloWeightMultiplier;
@@ -483,7 +513,7 @@ namespace ApeRadar.Utils
                     }
                     else
                     {
-                        taskListVortexApiGetPlayerID.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/search/{Uri.EscapeDataString(p.Name)}", cancellationToken));
+                        taskListVortexApiGetPlayerID.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/search/{Uri.EscapeDataString(p.Name)}", cancellationToken));
                     }
                 }
             }
@@ -549,12 +579,12 @@ namespace ApeRadar.Utils
             {
                 if (p.Name[..1] != ":" && p.ID != "-1" && playersToFetch.Contains(p.ID))
                 {
-                    taskListVortexApiGetPlayersAccountData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/", cancellationToken));
-                    taskListVortexApiGetPlayersClanData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/clans/", cancellationToken));
-                    taskListVortexApiGetPlayersShipsAllData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/pvp/", cancellationToken));
-                    taskListVortexApiGetPlayersShipsSoloData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_solo/", cancellationToken));
-                    taskListVortexApiGetPlayersShipsDiv2Data.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div2/", cancellationToken));
-                    taskListVortexApiGetPlayersShipsDiv3Data.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div3/", cancellationToken));
+                    taskListVortexApiGetPlayersAccountData.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/", cancellationToken));
+                    taskListVortexApiGetPlayersClanData.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/clans/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsAllData.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/pvp/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsSoloData.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_solo/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsDiv2Data.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div2/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsDiv3Data.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div3/", cancellationToken));
                 }
             }
 
@@ -591,7 +621,8 @@ namespace ApeRadar.Utils
 
                     JToken? accountData = JObjectVortexApiPlayerAccountData["data"]?[p.ID];
                     JToken? accountStatistics = accountData?["statistics"];
-                    if (JObjectVortexApiPlayerAccountData["status"]?.Value<string>() == "ok" && accountData?.HasValues == true && accountData?["hidden_profile"] == null && accountStatistics?.HasValues == true)
+                    bool accountRequestSucceeded = JObjectVortexApiPlayerAccountData["status"]?.Value<string>() == "ok";
+                    if (accountRequestSucceeded && accountData?.HasValues == true && accountData?["hidden_profile"] == null && accountStatistics?.HasValues == true)
                     {
                         JToken? karma = accountStatistics["basic"]?["karma"];
                         p.Karma = karma?.Value<double>() ?? 0;
@@ -701,12 +732,17 @@ namespace ApeRadar.Utils
                             p.AvgExpPerBattle_Div3 = 0;
                         }
                     }
-                    else
+                    else if (accountRequestSucceeded)
                     {
                         p.IsHidden = true;
                     }
+                    else
+                    {
+                        p.IsDataFetchFailed = true;
+                        LogUtils.WriteInfo($"Vortex account statistics unavailable; preserving the rest of the roster. Name={p.Name}, ID={p.ID}, Server={ServerExt.GetNameByServer(server)}");
+                    }
 
-                    if (JObjectVortexApiPlayerClanData["status"]!.Value<string>() == "ok" && JObjectVortexApiPlayerClanData["data"]!["clan"]!.HasValues)
+                    if (JObjectVortexApiPlayerClanData["status"]?.Value<string>() == "ok" && JObjectVortexApiPlayerClanData["data"]?["clan"]?.HasValues == true)
                     {
                         p.ClanID = JObjectVortexApiPlayerClanData["data"]!["clan_id"]!.Value<string>()!;
                         p.ClanTag = $"[{JObjectVortexApiPlayerClanData["data"]!["clan"]!["tag"]!.Value<string>()}]";
@@ -860,7 +896,10 @@ namespace ApeRadar.Utils
                         TierPerformanceUtils.ApplyTo(p, playerShipsByTier);
                     }
 
-                    PlayerDataCache.Set(server, p.ID, p.ShipID, PlayerDataSnapshot.FromPlayer(p));
+                    if (!p.IsDataFetchFailed)
+                    {
+                        PlayerDataCache.Set(server, p.ID, p.ShipID, PlayerDataSnapshot.FromPlayer(p));
+                    }
                 }
                 LogUtils.WriteDebug($"player:{p}");
             }

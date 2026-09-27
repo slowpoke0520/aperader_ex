@@ -68,6 +68,22 @@ public sealed class DashboardPresentationTests
     }
 
     [Fact]
+    public void KnownPlayerWithFailedAccountEndpoint_IsMarkedAsFetchFailure()
+    {
+        Player failedPlayer = new("Known", Server.ASIA, "1", "3760142160")
+        {
+            ID = "123456",
+            IsDataFetchFailed = true
+        };
+
+        DashboardPlayerRowViewModel failed = CreateRow(failedPlayer, true);
+
+        Assert.True(failed.IsFetchFailed);
+        Assert.True(failed.IsAnomaly);
+        Assert.Contains(failed.StatusBadges, badge => badge.Kind == RosterBadgeKind.FetchFailed);
+    }
+
+    [Fact]
     public void Summary_IncludesLowSamplesButExcludesHiddenPlayers()
     {
         Player low = CreatePlayer("Low", "1", 100, 0.50, 900, 5, 0.40, 600);

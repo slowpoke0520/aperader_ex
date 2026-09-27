@@ -231,6 +231,8 @@ public sealed class HistoryWindowSmokeTests
             }
         }
         DataGridRow firstRow = Assert.IsType<DataGridRow>(window.DataGridAlliesList.ItemContainerGenerator.ContainerFromIndex(0));
+        Point firstRowScreenPoint = firstRow.PointToScreen(new Point(firstRow.ActualWidth / 2, firstRow.ActualHeight / 2));
+        System.Windows.Forms.Cursor.Position = new System.Drawing.Point((int)firstRowScreenPoint.X, (int)firstRowScreenPoint.Y);
         firstRow.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
         {
             RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent,
@@ -317,6 +319,17 @@ public sealed class HistoryWindowSmokeTests
                 .ToList();
             players[0].Note = "可靠队友";
             players[12].Note = "谨慎推进";
+            players[13].Battles = -1;
+            players[13].AccountWinrate = -1;
+            players[13].PR = -1;
+            players[13].ShipBattles = -1;
+            players[13].ShipWinrate = -1;
+            players[13].ShipAvgDmgPerBattle = -1;
+            players[13].ShipPR = -1;
+            players[13].TierBattles = -1;
+            players[13].TierWinrate = -1;
+            players[13].TierPR = -1;
+            players[13].IsDataFetchFailed = true;
             Battlefield battlefield = (Battlefield)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Battlefield));
             battlefield.BattleType = "RandomBattle";
             battlefield.BattleStartTime = DateTimeOffset.Now;
@@ -338,6 +351,10 @@ public sealed class HistoryWindowSmokeTests
             Assert.Equal(Visibility.Collapsed, window.LegacyRoot.Visibility);
             Assert.Equal(12, window.DashboardView.AlliesGrid.Items.Count);
             Assert.Equal(12, window.DashboardView.EnemiesGrid.Items.Count);
+            Assert.DoesNotContain(window.Dashboard.Allies, row => row.IsFetchFailed);
+            Assert.Single(window.Dashboard.Enemies, row => row.IsFetchFailed);
+            Assert.Equal(12, window.Dashboard.Allies.Count(row => row.HasValidAccount));
+            Assert.Equal(11, window.Dashboard.Enemies.Count(row => row.HasValidAccount));
             Assert.Equal(window.DashboardView.AlliesGrid.RowHeight, window.DashboardView.EnemiesGrid.RowHeight);
             Assert.Equal(48, window.DashboardView.AlliesGrid.RowHeight);
             Assert.Equal(window.DashboardView.AlliesGrid.Columns.Count, window.DashboardView.EnemiesGrid.Columns.Count);
@@ -435,6 +452,8 @@ public sealed class HistoryWindowSmokeTests
             PumpDispatcher(TimeSpan.FromMilliseconds(100));
             Assert.True(dashboardRowMenu.IsOpen);
             dashboardRowMenu.IsOpen = false;
+            Point dashboardFirstRowScreenPoint = dashboardFirstRow.PointToScreen(new Point(dashboardFirstRow.ActualWidth / 2, dashboardFirstRow.ActualHeight / 2));
+            System.Windows.Forms.Cursor.Position = new System.Drawing.Point((int)dashboardFirstRowScreenPoint.X, (int)dashboardFirstRowScreenPoint.Y);
             dashboardFirstRow.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
             {
                 RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent,

@@ -28,8 +28,11 @@ namespace ApeRadar.Services
         int SuccessfulRequestCount,
         IReadOnlyList<ApiFailureKind> Failures)
     {
-        public bool IsFailed => SuccessfulRequestCount == 0 && Failures.Count > 0;
-        public bool IsPartial => IsFailed || Failures.Count > 0 || Players.Count == 0 || Players.Any(player => player.ID == "-1" || player.IsDataStale);
+        public bool IsFailed =>
+            (SuccessfulRequestCount == 0 && Failures.Count > 0) ||
+            (Players.Count > 0 && Players.All(player => !player.IsHidden && (player.ID == "-1" || player.IsDataFetchFailed)));
+        public bool IsPartial => IsFailed || Failures.Count > 0 || Players.Count == 0 ||
+            Players.Any(player => player.ID == "-1" || player.IsDataStale || player.IsDataFetchFailed);
     }
 
     internal interface IPlayerStatsProvider

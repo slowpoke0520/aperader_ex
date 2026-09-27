@@ -93,7 +93,7 @@ namespace ApeRadar.ViewModels
         public bool IsMarked => Player.WatchStatus != WatchStatus.NONE || Player.IsCustomMarked;
         public bool IsShipLowSample => HasValidShip && Player.ShipBattles < 20;
         public bool IsTierLowSample => HasValidTier && Player.TierBattles < 50;
-        public bool IsFetchFailed => LoadCompleted && !Player.IsHidden && Player.ID == "-1";
+        public bool IsFetchFailed => LoadCompleted && !Player.IsHidden && (Player.ID == "-1" || Player.IsDataFetchFailed);
         public bool IsLoading => !LoadCompleted && !Player.IsHidden && Player.ID == "-1";
         public bool IsAnomaly => Player.IsHidden || IsFetchFailed || Player.IsLowTierBiased;
 
