@@ -157,7 +157,10 @@ internal static class NoteTagsLayoutAssertions
         ApeRadar.Properties.Settings.Default.MainInterfaceStyle = style;
         MainWindow window = new(historyServices, initializeRuntime: false)
         {
-            WindowState = WindowState.Normal, Width = 1920, Height = 1040, ShowInTaskbar = false
+            // Hosted CI desktops can clamp a Window to their native maximum tracking size.
+            // Keep the requested logical viewport, rather than testing a narrower badge layout.
+            WindowState = WindowState.Normal, Width = 1920, Height = 1040,
+            MinWidth = 1920, MinHeight = 1040, ShowInTaskbar = false
         };
         List<Player> players = Enumerable.Range(1, 12).Select(i => CreatePlayer($"Ally{i}", "1", ""))
             .Concat(Enumerable.Range(1, 12).Select(i => CreatePlayer($"Enemy{i}", "2", ""))).ToList();
@@ -195,6 +198,8 @@ internal static class NoteTagsLayoutAssertions
             window.WindowState = WindowState.Normal;
             window.Show();
             Layout(window);
+            Assert.Equal(1920d, window.ActualWidth, 1);
+            Assert.Equal(1040d, window.ActualHeight, 1);
             RosterBaseline allyBaseline = CaptureBaseline(RealizeRow(allies, ally, window), ally, style, language);
             RosterBaseline enemyBaseline = CaptureBaseline(RealizeRow(enemies, enemy, window), enemy, style, language);
             double rowHeight = allies.RowHeight;
