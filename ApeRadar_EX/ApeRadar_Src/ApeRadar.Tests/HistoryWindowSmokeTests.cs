@@ -298,8 +298,7 @@ public sealed class HistoryWindowSmokeTests
             });
             PumpDispatcher(TimeSpan.FromMilliseconds(300));
             Assert.True(window.PlayerDetailPopup.IsOpen);
-            System.Drawing.Rectangle virtualScreen = System.Windows.Forms.SystemInformation.VirtualScreen;
-            NativeMouseInput.MoveTo(new Point(virtualScreen.Right - 2, virtualScreen.Bottom - 2));
+            MoveToHoverExitTarget(window, firstRow, window.PlayerDetailPopup, $"{language} Legacy hover exit");
             PumpDispatcher(TimeSpan.FromMilliseconds(50));
             window.PlayerDetailPopup.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
             {
@@ -307,7 +306,7 @@ public sealed class HistoryWindowSmokeTests
                 Source = window.PlayerDetailPopup
             });
             PumpDispatcher(TimeSpan.FromMilliseconds(300));
-            Assert.False(window.PlayerDetailPopup.IsOpen);
+            Assert.False(window.PlayerDetailPopup.IsOpen, HoverExitDiagnostic(firstRow, window.PlayerDetailPopup));
             firstRow.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
             {
                 RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent,
@@ -558,15 +557,15 @@ public sealed class HistoryWindowSmokeTests
             });
             PumpDispatcher(TimeSpan.FromMilliseconds(300));
             Assert.True(window.DashboardView.PlayerDetailPopup.IsOpen);
-            System.Drawing.Rectangle dashboardScreen = System.Windows.Forms.SystemInformation.VirtualScreen;
-            NativeMouseInput.MoveTo(new Point(dashboardScreen.Right - 2, dashboardScreen.Bottom - 2));
+            MoveToHoverExitTarget(window, dashboardFirstRow, window.DashboardView.PlayerDetailPopup, $"{language} Dashboard hover exit");
             window.DashboardView.PlayerDetailPopup.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
             {
                 RoutedEvent = System.Windows.Input.Mouse.MouseLeaveEvent,
                 Source = window.DashboardView.PlayerDetailPopup
             });
             PumpDispatcher(TimeSpan.FromMilliseconds(300));
-            Assert.False(window.DashboardView.PlayerDetailPopup.IsOpen);
+            Assert.False(window.DashboardView.PlayerDetailPopup.IsOpen,
+                HoverExitDiagnostic(dashboardFirstRow, window.DashboardView.PlayerDetailPopup));
 
             double widthBeforeDrawer = window.DashboardView.AlliesGrid.ActualWidth;
             Button analysisButton = Assert.IsType<Button>(FindVisualParent<Button>(window.DashboardView.NavAnalysisText));
@@ -922,7 +921,9 @@ public sealed class HistoryWindowSmokeTests
                 !row.IsMouseOver, TimeSpan.FromSeconds(2), $"{scenario}: neutral mouse target", Diagnostic);
             enteredBeforeTarget = entered;
             NativeMouseInput.MoveTo(target);
-            WaitForUiCondition(() => window.IsActive && row.IsMouseOver && entered - enteredBeforeTarget == 1 &&
+            // Popup layout can re-evaluate mouse hit testing and raise another enter event.
+            // Verify real input reached this row, not an internal event count.
+            WaitForUiCondition(() => window.IsActive && row.IsMouseOver && entered > enteredBeforeTarget &&
                 ReferenceEquals(System.Windows.Input.Mouse.PrimaryDevice.ActiveSource, source),
                 TimeSpan.FromSeconds(2), $"{scenario}: real hover target", Diagnostic);
             WaitForUiCondition(() => popup.IsOpen, TimeSpan.FromSeconds(2), $"{scenario}: popup opening", Diagnostic);
@@ -941,6 +942,28 @@ public sealed class HistoryWindowSmokeTests
             row.MouseLeave -= onLeft;
         }
     }
+
+    private static void MoveToHoverExitTarget(MainWindow window, DataGridRow row,
+        System.Windows.Controls.Primitives.Popup popup, string scenario)
+    {
+        // A screen corner can still be over another player when this fixture exceeds the desktop.
+        // Use the same neutral column-header target as the real hover-entry check instead.
+        Assert.Same(window, Window.GetWindow(row));
+        Point target = row.PointToScreen(new Point(row.ActualWidth / 2, -8));
+        var source = Assert.IsType<System.Windows.Interop.HwndSource>(PresentationSource.FromVisual(row));
+        Assert.Equal(source.Handle, NativeMouseInput.WindowAt(target));
+        NativeMouseInput.MoveTo(target);
+        WaitForUiCondition(() => !row.IsMouseOver && !popup.IsMouseOver && popup.Child?.IsMouseOver != true &&
+            FindVisualParent<DataGridRow>(System.Windows.Input.Mouse.DirectlyOver as DependencyObject) == null &&
+            ReferenceEquals(System.Windows.Input.Mouse.PrimaryDevice.ActiveSource, source),
+            TimeSpan.FromSeconds(2), scenario, () => HoverExitDiagnostic(row, popup));
+    }
+
+    private static string HoverExitDiagnostic(DataGridRow row, System.Windows.Controls.Primitives.Popup popup) =>
+        $"popupOpen={popup.IsOpen}, rowMouseOver={row.IsMouseOver}, popupMouseOver={popup.IsMouseOver}, "
+        + $"popupContentMouseOver={popup.Child?.IsMouseOver}, "
+        + $"hoveredRow={FindVisualParent<DataGridRow>(System.Windows.Input.Mouse.DirectlyOver as DependencyObject)?.Item}, "
+        + $"directlyOver={System.Windows.Input.Mouse.DirectlyOver?.GetType().Name}, cursor={System.Windows.Forms.Cursor.Position}";
 
     private static class NativeMouseInput
     {
