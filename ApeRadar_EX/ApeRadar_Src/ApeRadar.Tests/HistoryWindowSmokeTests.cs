@@ -396,14 +396,11 @@ public sealed class HistoryWindowSmokeTests
             window.Dashboard.Update(battlefield, true, new DashboardBattleMetadata(
                 "Northern Lights", "Random battle", "ASIA", DateTimeOffset.Now, "Vortex", DateTimeOffset.Now));
 
-            // MainWindow starts maximized in production. Force a normal window here so the
-            // requested render size is deterministic on CI runners with smaller desktops.
+            // MainWindow starts maximized in production; test the requested logical viewport.
             window.WindowState = WindowState.Normal;
-            window.Width = 1600;
-            window.Height = 940;
+            SetDashboardViewport(window, 1600, 940);
             window.Show();
-            window.UpdateLayout();
-            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            SetDashboardViewport(window, 1600, 940);
 
             Assert.Equal(Visibility.Visible, window.DashboardView.Visibility);
             Assert.Equal(Visibility.Collapsed, window.LegacyRoot.Visibility);
@@ -507,10 +504,7 @@ public sealed class HistoryWindowSmokeTests
             Assert.InRange(brandBounds.Right, 0, window.DashboardView.SidebarColumn.ActualWidth + 0.5);
             Assert.InRange(versionBounds.Right, 0, window.DashboardView.SidebarColumn.ActualWidth + 0.5);
 
-            window.Width = 1920;
-            window.Height = 1040;
-            window.UpdateLayout();
-            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            SetDashboardViewport(window, 1920, 1040);
             AssertDataGridCellContentsStayInside(window.DashboardView.AlliesGrid, 1920, 1040);
             AssertDataGridCellContentsStayInside(window.DashboardView.EnemiesGrid, 1920, 1040);
             bool hasWideViewport = window.DashboardView.ActualWidth >= 1400;
@@ -534,10 +528,7 @@ public sealed class HistoryWindowSmokeTests
             ValidateBattleChartRendering(window, dashboard: true);
             ValidateNotificationEscape(window, dashboard: true);
 
-            window.Width = 1600;
-            window.Height = 940;
-            window.UpdateLayout();
-            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            SetDashboardViewport(window, 1600, 940);
             dashboardFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(0));
             dashboardEnemyFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.EnemiesGrid.ItemContainerGenerator.ContainerFromIndex(0));
             ContextMenu dashboardRowMenu = Assert.IsType<ContextMenu>(dashboardFirstRow.ContextMenu);
@@ -606,17 +597,13 @@ public sealed class HistoryWindowSmokeTests
             window.DashboardView.AllyAll.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.Equal(12, window.Dashboard.Allies.Count);
 
-            window.Width = 1040;
-            window.Height = 680;
-            window.UpdateLayout();
-            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            SetDashboardViewport(window, 1040, 680);
             Assert.Equal(new GridLength(64), window.DashboardView.SidebarColumn.Width);
             Assert.True(window.DashboardView.AlliesGrid.ActualWidth > 0);
             Assert.True(window.DashboardView.EnemiesGrid.ActualWidth > 0);
             SaveWindowSnapshot(window, $"dashboard-{language}-1040x680.png");
             ValidateDashboardScaling(window, language);
-            window.Width = 1280;
-            window.Height = 720;
+            SetDashboardViewport(window, 1280, 720);
             players[0].Name = "A_long_player_name_for_real_layout_validation_12345";
             players[1].PR = players[1].ShipPR = players[1].TierPR = -1;
             players[2].ShipBattles = 3;
@@ -731,8 +718,10 @@ public sealed class HistoryWindowSmokeTests
         {
             // Chart rendering needs a known viewport, not the runner's default window size.
             // Minimums also prevent native desktop tracking limits from shrinking this fixture.
-            window.MinWidth = window.Width = 1440;
-            window.MinHeight = window.Height = 800;
+            window.MinWidth = 1440;
+            window.MinHeight = 800;
+            window.Width = 1440;
+            window.Height = 800;
             window.Topmost = true;
             window.Activate();
             window.UpdateLayout();
@@ -1135,6 +1124,20 @@ public sealed class HistoryWindowSmokeTests
         combo.IsDropDownOpen = false;
     }
 
+    private static void SetDashboardViewport(MainWindow window, double width, double height)
+    {
+        // Native tracking limits can otherwise silently test a smaller viewport on CI.
+        window.MinWidth = width;
+        window.MinHeight = height;
+        window.Width = width;
+        window.Height = height;
+        if (!window.IsVisible) return;
+        window.UpdateLayout();
+        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        Assert.Equal(width, window.ActualWidth, 1);
+        Assert.Equal(height, window.ActualHeight, 1);
+    }
+
     private static void ValidateDashboardScaling(MainWindow window, string language)
     {
         FrameworkElement root = Assert.IsAssignableFrom<FrameworkElement>(window.Content);
@@ -1144,8 +1147,7 @@ public sealed class HistoryWindowSmokeTests
             foreach ((int width, int height) in new[] { (1280, 720), (1366, 768), (1600, 900), (1920, 1080) })
                 foreach (double scale in new[] { 1d, 1.25, 1.5, 2 })
                 {
-                    window.Width = width;
-                    window.Height = height;
+                    SetDashboardViewport(window, width, height);
                     root.LayoutTransform = new ScaleTransform(scale, scale);
                     window.UpdateLayout();
                     window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
