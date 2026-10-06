@@ -725,13 +725,31 @@ public sealed class HistoryWindowSmokeTests
     private static void ValidateBattleChartRendering(MainWindow window, bool dashboard)
     {
         bool previousTopmost = window.Topmost;
+        double previousWidth = window.Width, previousHeight = window.Height;
+        double previousMinWidth = window.MinWidth, previousMinHeight = window.MinHeight;
         try
         {
+            // Chart rendering needs a known viewport, not the runner's default window size.
+            // Minimums also prevent native desktop tracking limits from shrinking this fixture.
+            window.MinWidth = window.Width = 1440;
+            window.MinHeight = window.Height = 800;
             window.Topmost = true;
             window.Activate();
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            Assert.Equal(1440d, window.ActualWidth, 1);
+            Assert.Equal(800d, window.ActualHeight, 1);
             ValidateBattleChartRenderingCore(window, dashboard);
         }
-        finally { window.Topmost = previousTopmost; }
+        finally
+        {
+            window.MinWidth = previousMinWidth;
+            window.MinHeight = previousMinHeight;
+            window.Width = previousWidth;
+            window.Height = previousHeight;
+            window.Topmost = previousTopmost;
+            window.UpdateLayout();
+        }
     }
 
     private static void ValidateBattleChartRenderingCore(MainWindow window, bool dashboard)
@@ -781,9 +799,11 @@ public sealed class HistoryWindowSmokeTests
 
     private static void AssertChartPixels(FrameworkElement panel, FrameworkElement chart, string description)
     {
-        Assert.True(chart.ActualWidth > 100 && chart.ActualHeight > 50, $"{description}: no chart viewport.");
-        var liveChart = Assert.IsType<LiveChartsCore.SkiaSharpView.WPF.CartesianChart>(chart);
         Window window = Window.GetWindow(panel);
+        Assert.True(chart.ActualWidth > 100 && chart.ActualHeight > 50,
+            $"{description}: no chart viewport; chart={chart.ActualWidth:F1}x{chart.ActualHeight:F1}, "
+            + $"panel={panel.ActualWidth:F1}x{panel.ActualHeight:F1}, window={window.ActualWidth:F1}x{window.ActualHeight:F1}.");
+        var liveChart = Assert.IsType<LiveChartsCore.SkiaSharpView.WPF.CartesianChart>(chart);
         int greenPixels = 0, redPixels = 0;
         int measured = 0, painted = 0, updated = 0;
         var surface = FindVisualChild<SkiaSharp.Views.WPF.SKElement>(chart);
