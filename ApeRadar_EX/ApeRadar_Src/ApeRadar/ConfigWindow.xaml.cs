@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -8,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using ApeRadar.Models;
+using ApeRadar.Services;
 using ApeRadar.Utils;
 using ApeRadar.ViewModels;
 using Microsoft.Win32;
@@ -19,6 +19,7 @@ namespace ApeRadar
     {
         private readonly bool initializeRuntime;
         private readonly string initialMainInterfaceStyle;
+        private readonly SettingsDraft settingsDraft;
 
         private void LoadSettings()
         {
@@ -144,67 +145,67 @@ namespace ApeRadar
                         }
                     }
 
-                    Properties.Settings.Default.GamePath = ComboBoxGamePath.Text;
-                    Properties.Settings.Default.OutputTextTemplateGeneralStatistics = TxtOutputTextTemplateGeneralStatistics.Text;
-                    Properties.Settings.Default.OutputTextTemplateParticularPlayerStatistics = TxtOutputTextTemplateParticularPlayerStatistics.Text;
-                    Properties.Settings.Default.SecondaryServerEnabled = ChkBoxSecondaryServerEnabled.IsChecked ?? false;
-                    Properties.Settings.Default.SecondaryServer = ComboBoxSecondaryServer.SelectedValue.ToString();
-                    Properties.Settings.Default.MaximumRetryAttemptsOnError = Convert.ToInt32(SliderMaximumRetryAttemptsOnError.Value);
-                    Properties.Settings.Default.WinrateTypeUsed = ComboBoxWinrateTypeSelect.SelectedIndex;
-                    Properties.Settings.Default.ColorStyle = ComboBoxColorStyle.SelectedIndex;
-                    Properties.Settings.Default.ApeIcon = TxtApeIcon.Text;
-                    Properties.Settings.Default.UnicumIcon = TxtUnicumIcon.Text;
-                    Properties.Settings.Default.HiddenIcon = TxtHiddenIcon.Text;
-                    Properties.Settings.Default.WatchIcon = TxtWatchIcon.Text;
-                    Properties.Settings.Default.PlayerColumnFontSize = SliderPlayerColumnFontSize.Value;
-                    Properties.Settings.Default.StatisticsColumnFontSize = SliderStatisticsColumnFontSize.Value;
-                    Properties.Settings.Default.DetailedStatisticsFontSize = SliderDetailedStatisticsFontSize.Value;
-                    Properties.Settings.Default.OutputTextFontSize = SliderOutputTextFontSize.Value;
-                    Properties.Settings.Default.AccountWinrateVisibility = ComboBoxAccountWinrateVisibility.SelectedIndex;
-                    Properties.Settings.Default.WeightedWinrateVisibility = ComboBoxWeightedWinrateVisibility.SelectedIndex;
-                    Properties.Settings.Default.ShipWinrateVisibility = ComboBoxShipWinrateVisibility.SelectedIndex;
-                    Properties.Settings.Default.AccountAvgExpVisibility = ComboBoxAccountAvgExpVisibility.SelectedIndex;
-                    Properties.Settings.Default.ShipAvgExpVisibility = ComboBoxShipAvgExpVisibility.SelectedIndex;
-                    Properties.Settings.Default.ShipAvgDmgVisibility = ComboBoxShipAvgDmgVisibility.SelectedIndex;
-                    Properties.Settings.Default.TagVisibility = ComboBoxTagVisibility.SelectedIndex;
-                    Properties.Settings.Default.PRVisibility = ComboBoxPRVisibility.SelectedIndex;
-                    Properties.Settings.Default.OutputTextShortMode = ChkBoxShortMode.IsChecked ?? false;
-                    Properties.Settings.Default.OutputTextExcludeSelf = ChkBoxExcludeYourself.IsChecked ?? false;
-                    Properties.Settings.Default.OutputTextAutoCopy = ChkBoxAutoCopy.IsChecked ?? false;
-                    Properties.Settings.Default.APITypeSelection = ComboBoxAPIType.SelectedValue.ToString();
-                    Properties.Settings.Default.WgApplicationId = TxtWgApplicationId.Text.Trim();
-                    Properties.Settings.Default.YuyukoAPIPushEnabled = ChkBoxEnableYuyukoAPIPush.IsChecked ?? false;
-                    Properties.Settings.Default.DebugMode = ChkBoxEnableDebugMode.IsChecked ?? false;
-                    Properties.Settings.Default.ApeWinrateThreshold = ApeWinrateThreshold;
-                    Properties.Settings.Default.UnicumWinrateThreshold = UnicumWinrateThreshold;
-                    Properties.Settings.Default.ApeBattleCountThreshold = ApeBattleCountThreshold;
-                    Properties.Settings.Default.UnicumBattleCountThreshold = UnicumBattleCountThreshold;
-                    Properties.Settings.Default.WeightedWinrateAccountSoloWeightMultiplier = WeightedWinrateAccountSoloWeightMultiplier;
-                    Properties.Settings.Default.WeightedWinrateAccountDiv2WeightMultiplier = WeightedWinrateAccountDiv2WeightMultiplier;
-                    Properties.Settings.Default.WeightedWinrateAccountDiv3WeightMultiplier = WeightedWinrateAccountDiv3WeightMultiplier;
-                    Properties.Settings.Default.WeightedWinrateShipMaxWeight = WeightedWinrateShipMaxWeight;
-                    Properties.Settings.Default.WeightedWinrateShipBattlesAtMaxWeight = WeightedWinrateShipBattlesAtMaxWeight;
-                    Properties.Settings.Default.OutputTextDelimiter = TxtDelimiter.Text;
-                    Properties.Settings.Default.Server = ComboBoxServer.SelectedValue.ToString();
-                    Properties.Settings.Default.ShipNameLanguage = ComboBoxShipNameLanguage.SelectedValue.ToString();
-                    Properties.Settings.Default.SoftwareUpdateChannel = ComboBoxSoftwareUpdateChannel.SelectedValue?.ToString()
-                        ?? SoftwareReleaseSelector.StableSettingValue;
-                    Properties.Settings.Default.MainInterfaceStyle = NormalizeMainInterfaceStyle(ComboBoxMainInterfaceStyle.SelectedValue?.ToString());
-                    Properties.Settings.Default.CheckForUpdatesOnStartup = ChkBoxCheckForUpdatesOnStartup.IsChecked ?? false;
-                    Properties.Settings.Default.ShowExperimentalReplayMetrics = ChkBoxShowExperimentalReplayMetrics.IsChecked ?? false;
-                    Properties.Settings.Default.ShowTierPerformanceStats = ChkBoxShowTierPerformanceStats.IsChecked ?? false;
-                    Properties.Settings.Default.ShowAccountRosterColumn = ChkBoxShowAccountRosterColumn.IsChecked ?? true;
-                    Properties.Settings.Default.ShowShipRosterColumn = ChkBoxShowShipRosterColumn.IsChecked ?? true;
-                    Properties.Settings.Default.ShowPerformanceRosterColumn = ChkBoxShowPerformanceRosterColumn.IsChecked ?? true;
-                    Properties.Settings.Default.ShowRecentEncounterBadges = ChkBoxShowRecentEncounterBadges.IsChecked ?? true;
-                    Properties.Settings.Default.ShowFixedTeammateBadges = ChkBoxShowFixedTeammateBadges.IsChecked ?? true;
-                    Properties.Settings.Default.ShowCachedDataBadges = ChkBoxShowCachedDataBadges.IsChecked ?? true;
-                    Properties.Settings.Default.ShowShipTypeIcon = ChkBoxShowShipTypeIcon.IsChecked ?? false;
-                    Properties.Settings.Default.RosterDisplayDensity = RosterDisplayDensityExtensions.Parse(ComboBoxRosterDisplayDensity.SelectedValue?.ToString()).ToSettingValue();
-                    Properties.Settings.Default.ShowLegacyPerformanceTag = ChkBoxShowLegacyPerformanceTag.IsChecked ?? false;
-                    Properties.Settings.Default.RosterPerformanceMetric = RosterPerformanceMetricExtensions.Parse(ComboBoxRosterPerformanceMetric.SelectedValue?.ToString()).ToSettingValue();
-                    Properties.Settings.Default.OutputTextUnlock = ChkBoxTextOutputUnlocked.IsChecked ?? false;
-                    Properties.Settings.Default.Save();
+                    settingsDraft.Set(nameof(Properties.Settings.GamePath), ComboBoxGamePath.Text);
+                    settingsDraft.Set(nameof(Properties.Settings.OutputTextTemplateGeneralStatistics), TxtOutputTextTemplateGeneralStatistics.Text);
+                    settingsDraft.Set(nameof(Properties.Settings.OutputTextTemplateParticularPlayerStatistics), TxtOutputTextTemplateParticularPlayerStatistics.Text);
+                    settingsDraft.Set(nameof(Properties.Settings.SecondaryServerEnabled), ChkBoxSecondaryServerEnabled.IsChecked ?? false);
+                    settingsDraft.Set(nameof(Properties.Settings.SecondaryServer), ComboBoxSecondaryServer.SelectedValue.ToString());
+                    settingsDraft.Set(nameof(Properties.Settings.MaximumRetryAttemptsOnError), Convert.ToInt32(SliderMaximumRetryAttemptsOnError.Value));
+                    settingsDraft.Set(nameof(Properties.Settings.WinrateTypeUsed), ComboBoxWinrateTypeSelect.SelectedIndex);
+                    settingsDraft.Set(nameof(Properties.Settings.ColorStyle), ComboBoxColorStyle.SelectedIndex);
+                    settingsDraft.Set(nameof(Properties.Settings.ApeIcon), TxtApeIcon.Text);
+                    settingsDraft.Set(nameof(Properties.Settings.UnicumIcon), TxtUnicumIcon.Text);
+                    settingsDraft.Set(nameof(Properties.Settings.HiddenIcon), TxtHiddenIcon.Text);
+                    settingsDraft.Set(nameof(Properties.Settings.WatchIcon), TxtWatchIcon.Text);
+                    settingsDraft.Set(nameof(Properties.Settings.PlayerColumnFontSize), SliderPlayerColumnFontSize.Value);
+                    settingsDraft.Set(nameof(Properties.Settings.StatisticsColumnFontSize), SliderStatisticsColumnFontSize.Value);
+                    settingsDraft.Set(nameof(Properties.Settings.DetailedStatisticsFontSize), SliderDetailedStatisticsFontSize.Value);
+                    settingsDraft.Set(nameof(Properties.Settings.OutputTextFontSize), SliderOutputTextFontSize.Value);
+                    settingsDraft.Set(nameof(Properties.Settings.AccountWinrateVisibility), ComboBoxAccountWinrateVisibility.SelectedIndex);
+                    settingsDraft.Set(nameof(Properties.Settings.WeightedWinrateVisibility), ComboBoxWeightedWinrateVisibility.SelectedIndex);
+                    settingsDraft.Set(nameof(Properties.Settings.ShipWinrateVisibility), ComboBoxShipWinrateVisibility.SelectedIndex);
+                    settingsDraft.Set(nameof(Properties.Settings.AccountAvgExpVisibility), ComboBoxAccountAvgExpVisibility.SelectedIndex);
+                    settingsDraft.Set(nameof(Properties.Settings.ShipAvgExpVisibility), ComboBoxShipAvgExpVisibility.SelectedIndex);
+                    settingsDraft.Set(nameof(Properties.Settings.ShipAvgDmgVisibility), ComboBoxShipAvgDmgVisibility.SelectedIndex);
+                    settingsDraft.Set(nameof(Properties.Settings.TagVisibility), ComboBoxTagVisibility.SelectedIndex);
+                    settingsDraft.Set(nameof(Properties.Settings.PRVisibility), ComboBoxPRVisibility.SelectedIndex);
+                    settingsDraft.Set(nameof(Properties.Settings.OutputTextShortMode), ChkBoxShortMode.IsChecked ?? false);
+                    settingsDraft.Set(nameof(Properties.Settings.OutputTextExcludeSelf), ChkBoxExcludeYourself.IsChecked ?? false);
+                    settingsDraft.Set(nameof(Properties.Settings.OutputTextAutoCopy), ChkBoxAutoCopy.IsChecked ?? false);
+                    settingsDraft.Set(nameof(Properties.Settings.APITypeSelection), ComboBoxAPIType.SelectedValue.ToString());
+                    settingsDraft.Set(nameof(Properties.Settings.WgApplicationId), TxtWgApplicationId.Text.Trim());
+                    settingsDraft.Set(nameof(Properties.Settings.YuyukoAPIPushEnabled), ChkBoxEnableYuyukoAPIPush.IsChecked ?? false);
+                    settingsDraft.Set(nameof(Properties.Settings.DebugMode), ChkBoxEnableDebugMode.IsChecked ?? false);
+                    settingsDraft.Set(nameof(Properties.Settings.ApeWinrateThreshold), ApeWinrateThreshold);
+                    settingsDraft.Set(nameof(Properties.Settings.UnicumWinrateThreshold), UnicumWinrateThreshold);
+                    settingsDraft.Set(nameof(Properties.Settings.ApeBattleCountThreshold), ApeBattleCountThreshold);
+                    settingsDraft.Set(nameof(Properties.Settings.UnicumBattleCountThreshold), UnicumBattleCountThreshold);
+                    settingsDraft.Set(nameof(Properties.Settings.WeightedWinrateAccountSoloWeightMultiplier), WeightedWinrateAccountSoloWeightMultiplier);
+                    settingsDraft.Set(nameof(Properties.Settings.WeightedWinrateAccountDiv2WeightMultiplier), WeightedWinrateAccountDiv2WeightMultiplier);
+                    settingsDraft.Set(nameof(Properties.Settings.WeightedWinrateAccountDiv3WeightMultiplier), WeightedWinrateAccountDiv3WeightMultiplier);
+                    settingsDraft.Set(nameof(Properties.Settings.WeightedWinrateShipMaxWeight), WeightedWinrateShipMaxWeight);
+                    settingsDraft.Set(nameof(Properties.Settings.WeightedWinrateShipBattlesAtMaxWeight), WeightedWinrateShipBattlesAtMaxWeight);
+                    settingsDraft.Set(nameof(Properties.Settings.OutputTextDelimiter), TxtDelimiter.Text);
+                    settingsDraft.Set(nameof(Properties.Settings.Server), ComboBoxServer.SelectedValue.ToString());
+                    settingsDraft.Set(nameof(Properties.Settings.ShipNameLanguage), ComboBoxShipNameLanguage.SelectedValue.ToString());
+                    settingsDraft.Set(nameof(Properties.Settings.SoftwareUpdateChannel), ComboBoxSoftwareUpdateChannel.SelectedValue?.ToString()
+                        ?? SoftwareReleaseSelector.StableSettingValue);
+                    settingsDraft.Set(nameof(Properties.Settings.MainInterfaceStyle), NormalizeMainInterfaceStyle(ComboBoxMainInterfaceStyle.SelectedValue?.ToString()));
+                    settingsDraft.Set(nameof(Properties.Settings.CheckForUpdatesOnStartup), ChkBoxCheckForUpdatesOnStartup.IsChecked ?? false);
+                    settingsDraft.Set(nameof(Properties.Settings.ShowExperimentalReplayMetrics), ChkBoxShowExperimentalReplayMetrics.IsChecked ?? false);
+                    settingsDraft.Set(nameof(Properties.Settings.ShowTierPerformanceStats), ChkBoxShowTierPerformanceStats.IsChecked ?? false);
+                    settingsDraft.Set(nameof(Properties.Settings.ShowAccountRosterColumn), ChkBoxShowAccountRosterColumn.IsChecked ?? true);
+                    settingsDraft.Set(nameof(Properties.Settings.ShowShipRosterColumn), ChkBoxShowShipRosterColumn.IsChecked ?? true);
+                    settingsDraft.Set(nameof(Properties.Settings.ShowPerformanceRosterColumn), ChkBoxShowPerformanceRosterColumn.IsChecked ?? true);
+                    settingsDraft.Set(nameof(Properties.Settings.ShowRecentEncounterBadges), ChkBoxShowRecentEncounterBadges.IsChecked ?? true);
+                    settingsDraft.Set(nameof(Properties.Settings.ShowFixedTeammateBadges), ChkBoxShowFixedTeammateBadges.IsChecked ?? true);
+                    settingsDraft.Set(nameof(Properties.Settings.ShowCachedDataBadges), ChkBoxShowCachedDataBadges.IsChecked ?? true);
+                    settingsDraft.Set(nameof(Properties.Settings.ShowShipTypeIcon), ChkBoxShowShipTypeIcon.IsChecked ?? false);
+                    settingsDraft.Set(nameof(Properties.Settings.RosterDisplayDensity), RosterDisplayDensityExtensions.Parse(ComboBoxRosterDisplayDensity.SelectedValue?.ToString()).ToSettingValue());
+                    settingsDraft.Set(nameof(Properties.Settings.ShowLegacyPerformanceTag), ChkBoxShowLegacyPerformanceTag.IsChecked ?? false);
+                    settingsDraft.Set(nameof(Properties.Settings.RosterPerformanceMetric), RosterPerformanceMetricExtensions.Parse(ComboBoxRosterPerformanceMetric.SelectedValue?.ToString()).ToSettingValue());
+                    settingsDraft.Set(nameof(Properties.Settings.OutputTextUnlock), ChkBoxTextOutputUnlocked.IsChecked ?? false);
+                    settingsDraft.Commit(Properties.Settings.Default.Save);
                     ShipTypePresentation.RefreshOpenWindows();
                     if (Properties.Settings.Default.DebugMode)
                     {
@@ -321,6 +322,7 @@ namespace ApeRadar
         {
             this.initializeRuntime = initializeRuntime;
             initialMainInterfaceStyle = NormalizeMainInterfaceStyle(Properties.Settings.Default.MainInterfaceStyle);
+            settingsDraft = new SettingsDraft(Properties.Settings.Default);
             InitializeComponent();
             if (!initializeRuntime) return;
             LoadSettings();
@@ -330,6 +332,7 @@ namespace ApeRadar
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e)
         {
+            settingsDraft.Cancel();
             this.Close();
         }
 
@@ -450,14 +453,9 @@ namespace ApeRadar
             }
         }
 
-        private static T Default<T>(string propertyName)
+        private T Default<T>(string propertyName)
         {
-            object? value = Properties.Settings.Default.Properties[propertyName]?.DefaultValue;
-            if (value is T typed) return typed;
-            string text = value?.ToString() ?? "";
-            if (typeof(T) == typeof(string)) return (T)(object)text;
-            return (T)(TypeDescriptor.GetConverter(typeof(T)).ConvertFromInvariantString(text)
-                ?? throw new InvalidOperationException($"Setting {propertyName} has no default value."));
+            return settingsDraft.Default<T>(propertyName);
         }
 
         private void ConfigTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -351,7 +351,8 @@ public sealed class HistoryRepositoryTests : IDisposable
     public async Task VersionOneDatabase_IsBackedUpMigratedAndBackfilled()
     {
         Directory.CreateDirectory(directory);
-        await using (SqliteConnection connection = new($"Data Source={DatabasePath}"))
+        string legacyPath = Path.Combine(directory, "legacy-v1.db");
+        await using (SqliteConnection connection = new($"Data Source={legacyPath}"))
         {
             await connection.OpenAsync();
             await using SqliteCommand command = connection.CreateCommand();
@@ -369,6 +370,7 @@ public sealed class HistoryRepositoryTests : IDisposable
                 """;
             await command.ExecuteNonQueryAsync();
         }
+        File.Copy(legacyPath, DatabasePath);
 
         SqliteHistoryRepository repository = new(DatabasePath);
         await repository.InitializeAsync();
@@ -376,7 +378,13 @@ public sealed class HistoryRepositoryTests : IDisposable
         BattleRecord battle = Assert.Single(await repository.GetBattlesAsync(new HistoryQuery()));
         Assert.NotNull(battle.SessionId);
         Assert.Single(await repository.GetSessionsAsync());
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v4-*.bak"));
+        string backupPath = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v4-*.bak"));
+        await using SqliteConnection backupConnection = new($"Data Source={backupPath};Mode=ReadOnly");
+        await backupConnection.OpenAsync();
+        await using SqliteCommand backupCommand = backupConnection.CreateCommand();
+        backupCommand.CommandText = "SELECT BattleKey FROM Battles WHERE BattleKey='legacy'";
+        Assert.Equal("legacy", await backupCommand.ExecuteScalarAsync());
+        Assert.True(File.Exists(legacyPath));
     }
 
     [Fact]

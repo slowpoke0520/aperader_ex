@@ -9,6 +9,63 @@ namespace ApeRadar.Tests;
 public sealed class BattleRosterCoordinatorTests
 {
     [Fact]
+    public void ProviderResolver_PreservesConfiguredProviderAndUnsupportedServerFallbacks()
+    {
+        PlayerStatsProviderResolver resolver = new();
+
+        Assert.Equal(APIType.WG_PUBLIC, resolver.Resolve(CreateRequest(APIType.WG_PUBLIC, Server.ASIA)).Type);
+        Assert.Equal(APIType.WG_PUBLIC_WITH_YUYUKO_PROXY,
+            resolver.Resolve(CreateRequest(APIType.WG_PUBLIC_WITH_YUYUKO_PROXY, Server.EU)).Type);
+        Assert.Equal(APIType.VORTEX, resolver.Resolve(CreateRequest(APIType.VORTEX, Server.NA)).Type);
+        Assert.Equal(APIType.VORTEX, resolver.Resolve(CreateRequest(APIType.WG_PUBLIC, Server.RU)).Type);
+        Assert.Equal(APIType.VORTEX,
+            resolver.Resolve(CreateRequest(APIType.WG_PUBLIC, Server.ASIA, Server.CN, secondaryServerEnabled: true)).Type);
+    }
+
+    [Fact]
+    public async Task Coordinator_RoutesCrossServerRefreshAndKeepsSuccessfulSideWhenOtherSideFails()
+    {
+        JObject arena = JObject.Parse("""
+            {
+              "vehicles": [
+                { "id": 101, "name": "Ally", "relation": 1, "shipId": "4179601392" },
+                { "id": 102, "name": "Enemy", "relation": 2, "shipId": "4179601393" }
+              ]
+            }
+            """);
+        Player ally = new("Ally", Server.ASIA, "1", "4179601392") { ID = "100", Battles = 42 };
+        RecordingProvider provider = new(
+            APIType.WG_PUBLIC,
+            (relationFilter, _) => relationFilter == 1
+                ? ApiResult<List<Player>>.Success(new List<Player> { ally })
+                : ApiResult<List<Player>>.Failed(ApiFailureKind.Network));
+        BattleRosterCoordinator coordinator = new(new FixedProviderResolver(provider));
+        BattleRosterRequest request = new(
+            arena,
+            2,
+            Server.ASIA,
+            Server.EU,
+            true,
+            APIType.WG_PUBLIC,
+            true,
+            "200",
+            Server.EU);
+
+        BattleRosterLoadResult result = await coordinator.LoadAsync(request, CancellationToken.None);
+
+        Assert.Equal(2, provider.Calls.Count);
+        Assert.Contains(provider.Calls, call => call.RelationFilter == 1 && call.Server == Server.ASIA && call.ForcedPlayerId == null);
+        Assert.Contains(provider.Calls, call => call.RelationFilter == 2 && call.Server == Server.EU && call.ForcedPlayerId == "200");
+        Assert.Equal(APIType.WG_PUBLIC, result.Provider);
+        Assert.Equal(1, result.SuccessfulRequestCount);
+        Assert.Equal(new[] { ApiFailureKind.Network }, result.Failures);
+        Assert.Equal(42, result.Players.Single(player => player.Name == "Ally").Battles);
+        Assert.Equal("-1", result.Players.Single(player => player.Name == "Enemy").ID);
+        Assert.True(result.IsPartial);
+        Assert.False(result.IsFailed);
+    }
+
+    [Fact]
     public void MetadataRoster_IsAvailableWithoutNetwork_AndRoutesCrossServerEnemies()
     {
         JObject arena = JObject.Parse("""
@@ -123,4 +180,47 @@ public sealed class BattleRosterCoordinatorTests
         Assert.Equal(TimeSpan.FromDays(7), PlayerDataCache.IdentityTtl);
         Assert.Equal(TimeSpan.FromDays(30), PlayerDataCache.Retention);
     }
+
+    private static BattleRosterRequest CreateRequest(
+        APIType apiType,
+        Server primaryServer,
+        Server secondaryServer = Server.EU,
+        bool secondaryServerEnabled = false) =>
+        new(new JObject { ["vehicles"] = new JArray() }, 0, primaryServer, secondaryServer, secondaryServerEnabled, apiType, false, null, null);
+
+    private sealed class FixedProviderResolver : IPlayerStatsProviderResolver
+    {
+        private readonly IPlayerStatsProvider provider;
+
+        public FixedProviderResolver(IPlayerStatsProvider provider) => this.provider = provider;
+
+        public IPlayerStatsProvider Resolve(BattleRosterRequest request) => provider;
+    }
+
+    private sealed class RecordingProvider : IPlayerStatsProvider
+    {
+        private readonly Func<int, Server, ApiResult<List<Player>>> resultFactory;
+
+        public RecordingProvider(APIType type, Func<int, Server, ApiResult<List<Player>>> resultFactory)
+        {
+            Type = type;
+            this.resultFactory = resultFactory;
+        }
+
+        public APIType Type { get; }
+        public List<ProviderCall> Calls { get; } = new();
+
+        public Task<ApiResult<List<Player>>> LoadAsync(
+            BattleRosterRequest request,
+            int relationFilter,
+            Server server,
+            string? forcedPlayerId,
+            CancellationToken cancellationToken)
+        {
+            Calls.Add(new ProviderCall(relationFilter, server, forcedPlayerId));
+            return Task.FromResult(resultFactory(relationFilter, server));
+        }
+    }
+
+    private sealed record ProviderCall(int RelationFilter, Server Server, string? ForcedPlayerId);
 }

@@ -21,14 +21,6 @@ namespace ApeRadar.Utils.Converters
         internal static readonly Brush DrawBackground = CreateBrush("#FFF8D7");
         internal static readonly Brush UnknownForeground = CreateBrush("#5B636B");
         internal static readonly Brush UnknownBackground = CreateBrush("#F1F3F5");
-        private static readonly Brush PrBadForeground = CreateBrush("#B42318");
-        private static readonly Brush PrBelowAverageForeground = CreateBrush("#B54708");
-        private static readonly Brush PrAverageForeground = CreateBrush("#7A5B00");
-        private static readonly Brush PrGoodForeground = CreateBrush("#237B3A");
-        private static readonly Brush PrVeryGoodForeground = CreateBrush("#146C2E");
-        private static readonly Brush PrGreatForeground = CreateBrush("#007C70");
-        private static readonly Brush PrUnicumForeground = CreateBrush("#7E22CE");
-        private static readonly Brush PrSuperUnicumForeground = CreateBrush("#6B21A8");
         private static readonly Brush PrBadBackground = CreateBrush("#FDECEA");
         private static readonly Brush PrBelowAverageBackground = CreateBrush("#FFF0E0");
         private static readonly Brush PrAverageBackground = CreateBrush("#FFF8D7");
@@ -46,17 +38,9 @@ namespace ApeRadar.Utils.Converters
             _ => UnknownBackground
         };
 
-        internal static Brush GetPrForeground(object? value) => TryGetPr(value, out var pr) ? pr switch
-        {
-            < 750 => PrBadForeground,
-            < 1100 => PrBelowAverageForeground,
-            < 1350 => PrAverageForeground,
-            < 1550 => PrGoodForeground,
-            < 1750 => PrVeryGoodForeground,
-            < 2100 => PrGreatForeground,
-            < 2450 => PrUnicumForeground,
-            _ => PrSuperUnicumForeground
-        } : UnknownForeground;
+        internal static Brush GetPrForeground(object? value) => TryGetPr(value, out var pr)
+            ? RosterMetricBrushConverter.ForValue(pr, ViewModels.RosterMetricKind.PersonalRating)
+            : UnknownForeground;
 
         internal static Brush GetPrBackground(object? value) => TryGetPr(value, out var pr) ? pr switch
         {
@@ -74,10 +58,10 @@ namespace ApeRadar.Utils.Converters
         {
             switch (value)
             {
-                case double number when number >= 0:
+                case double number when double.IsFinite(number) && number >= 0:
                     pr = number;
                     return true;
-                case float number when number >= 0:
+                case float number when float.IsFinite(number) && number >= 0:
                     pr = number;
                     return true;
                 case decimal number when number >= 0:

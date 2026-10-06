@@ -25,14 +25,16 @@ namespace ApeRadar.Utils.Converters
             if (value is not MetricItemViewModel metric || !metric.IsAvailable)
                 return Neutral;
 
-            return metric.Kind switch
+            return ForValue(metric.ColorScore, metric.Kind);
+        }
+
+        internal static Brush ForValue(double? value, RosterMetricKind kind) => value.HasValue && !double.IsFinite(value.Value) ? Neutral : kind switch
             {
-                RosterMetricKind.Winrate => Winrate(metric.ColorScore),
-                RosterMetricKind.PersonalRating or RosterMetricKind.DamageRating => Rating(metric.ColorScore),
+                RosterMetricKind.Winrate => Winrate(value),
+                RosterMetricKind.PersonalRating or RosterMetricKind.DamageRating => Rating(value),
                 RosterMetricKind.Warning => Warning,
                 _ => Neutral
             };
-        }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
             throw new NotSupportedException();

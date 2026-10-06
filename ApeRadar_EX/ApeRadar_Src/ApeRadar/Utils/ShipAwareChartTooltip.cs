@@ -64,7 +64,7 @@ namespace ApeRadar.Utils
             string shipName = "";
             string shipType = "";
             string heading = point.Context.Series.Name ?? "";
-            string value = point.PrimaryValue.ToString("N2", CultureInfo.CurrentCulture);
+            string value = point.PrimaryValue.ToString("0.00", CultureInfo.CurrentCulture);
 
             if (model is Player player)
             {

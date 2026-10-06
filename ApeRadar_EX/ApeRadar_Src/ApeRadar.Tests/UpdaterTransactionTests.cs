@@ -133,6 +133,45 @@ public sealed class UpdaterTransactionTests : IDisposable
         Assert.False(UpdateRequest.TryParse(badHash, out _));
     }
 
+    [Fact]
+    public void UpdateRequest_AcceptsUppercaseHashAndCanonicalizesPublicArguments()
+    {
+        string install = Directory.CreateDirectory(Path.Combine(root, "public-contract-install")).FullName;
+        string updater = Environment.ProcessPath!;
+        string[] args =
+        {
+            "--apply-update", "123", "https://example.test/releases/ApeRadar-win-x64.zip", new string('A', 64),
+            install, updater, "2.1.1-ex.12-dev.19", "EN_US"
+        };
+
+        Assert.True(UpdateRequest.TryParse(args, out UpdateRequest? request));
+        Assert.Equal(Path.GetFullPath(install), request!.InstallDirectory);
+        Assert.Equal(Path.GetFullPath(updater), request.UpdaterPath);
+        Assert.Equal("https://example.test/releases/ApeRadar-win-x64.zip", request.DownloadUrl);
+        Assert.Equal(new string('A', 64), request.ExpectedSha256);
+        Assert.Equal("EN_US", request.Language);
+    }
+
+    [Fact]
+    public void UpdateRequest_RejectsInvalidBoundaryArgumentsWithoutThrowing()
+    {
+        string install = Directory.CreateDirectory(Path.Combine(root, "invalid-contract-install")).FullName;
+        string[] valid =
+        {
+            "--apply-update", "123", "https://example.test/ApeRadar.zip", new string('a', 64),
+            install, Environment.ProcessPath!, "2.1.1-ex.12-dev.19", "ZH_CN"
+        };
+
+        Assert.False(UpdateRequest.TryParse(Array.Empty<string>(), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 0, "--inspect-update"), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 1, "0"), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 2, "http://example.test/ApeRadar.zip"), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 3, new string('g', 64)), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 4, Path.Combine(root, "missing-install")), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 5, Path.Combine(root, "different-updater.exe")), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 6, "   "), out _));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(root)) Directory.Delete(root, true);
@@ -146,4 +185,11 @@ public sealed class UpdaterTransactionTests : IDisposable
     }
 
     private static string Read(string directory, string relativePath) => File.ReadAllText(Path.Combine(directory, relativePath));
+
+    private static string[] Replace(string[] source, int index, string value)
+    {
+        string[] copy = (string[])source.Clone();
+        copy[index] = value;
+        return copy;
+    }
 }

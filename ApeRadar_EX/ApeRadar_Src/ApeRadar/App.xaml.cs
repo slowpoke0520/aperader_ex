@@ -3,6 +3,7 @@ using RestoreWindowPlace;
 using ApeRadar.Utils;
 using System;
 using ApeRadar.History;
+using ApeRadar.Services;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -17,11 +18,15 @@ namespace ApeRadar
     public partial class App : Application
     {
         private int crashDialogShown;
+        private bool verificationStartup;
+        private readonly HistoryServices historyServices;
         public WindowPlace WindowPlace { get; }
+        internal HistoryServices HistoryServices => historyServices;
 
         public App()
         {
             this.WindowPlace = new WindowPlace("placement.config");
+            historyServices = new HistoryServices();
         }
 
         protected override void OnStartup(StartupEventArgs e)
@@ -30,6 +35,15 @@ namespace ApeRadar
             AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
             TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
             base.OnStartup(e);
+            verificationStartup = Array.Exists(e.Args, argument => argument == "--verify-startup");
+            if (verificationStartup)
+            {
+                StartupVerifier.Run(this);
+                return;
+            }
+            MainWindow window = new(historyServices, initializeRuntime: true);
+            MainWindow = window;
+            window.Show();
         }
 
         private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
@@ -89,7 +103,7 @@ namespace ApeRadar
             TaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
             try
             {
-                var disposeTask = HistoryServices.DisposeAsync().AsTask();
+                Task disposeTask = historyServices.DisposeAsync().AsTask();
                 if (!disposeTask.Wait(TimeSpan.FromSeconds(10)))
                 {
                     LogUtils.WriteInfo("Battle history shutdown timed out; process exit will release remaining resources.");
@@ -101,7 +115,7 @@ namespace ApeRadar
             }
             catch (Exception ex) { LogUtils.WriteError("Battle history shutdown failed.", ex); }
             base.OnExit(e);
-            this.WindowPlace.Save();
+            if (!verificationStartup) this.WindowPlace.Save();
         }
     }
 }

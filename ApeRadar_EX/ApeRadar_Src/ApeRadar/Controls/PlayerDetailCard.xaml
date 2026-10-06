@@ -4,6 +4,7 @@
              xmlns:p="clr-namespace:ApeRadar.Properties"
              xmlns:cvt="clr-namespace:ApeRadar.Utils.Converters"
              xmlns:utils="clr-namespace:ApeRadar.Utils"
+             xmlns:controls="clr-namespace:ApeRadar.Controls"
              UseLayoutRounding="True" SnapsToDevicePixels="True">
     <UserControl.Resources>
         <cvt:BattleDataAvailabilityConverter x:Key="BattleData"/>
@@ -26,19 +27,24 @@
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="FontFamily" Value="{StaticResource NumericFontFamily}"/>
             <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
-            <Setter Property="Margin" Value="6,2"/>
+            <Setter Property="Margin" Value="3,2"/>
         </Style>
         <Style x:Key="DetailLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
             <Setter Property="Margin" Value="4,2"/>
         </Style>
         <DataTemplate x:Key="DetailBadgeTemplate">
-            <Border CornerRadius="4" Padding="6,2" Margin="0,0,5,4"
+            <Border x:Name="BadgeBorder" CornerRadius="4" Padding="6,2" Margin="0,0,5,4"
                     Background="{Binding Severity, Converter={StaticResource BadgeBrush}, ConverterParameter=Background}"
                     ToolTip="{Binding ToolTip}" Opacity="{Binding Opacity}">
                 <TextBlock Text="{Binding DisplayText}" FontSize="11" FontWeight="SemiBold"
                            Foreground="{Binding Severity, Converter={StaticResource BadgeBrush}, ConverterParameter=Foreground}"/>
             </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Kind}" Value="Note">
+                    <Setter TargetName="BadgeBorder" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
     </UserControl.Resources>
     <StackPanel>
@@ -68,67 +74,72 @@
             <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
         </ItemsControl>
 
-        <Grid>
+        <Grid x:Name="StatisticsGrid">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Style="{StaticResource SectionCard}">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Border x:Name="AccountSection" Grid.Column="0" Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="{DynamicResource DataGridToolTipAccount}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,5"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="72"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                        <TextBlock Grid.Column="1" Text="{DynamicResource DetailOverall}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Column="2" Text="{DynamicResource DataGridToolTipSolo}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Column="3" Text="{DynamicResource DataGridToolTipDiv2}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Column="4" Text="{DynamicResource DataGridToolTipDiv3}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Row="1" Text="{DynamicResource DataGridToolTipBattles}" Style="{StaticResource DetailLabel}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Player.Battles, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Player.Battles_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Player.Battles_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="4" Text="{Binding Player.Battles_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="2" Text="{DynamicResource DataGridToolTipWinrate}" Style="{StaticResource DetailLabel}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Player.AccountWinrate, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Foreground="{Binding Player.AccountWinrate, Converter={StaticResource WinrateColor}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Player.AccountWinrate_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding Player.AccountWinrate_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="4" Text="{Binding Player.AccountWinrate_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="3" Text="{DynamicResource DataGridToolTipAvgExp}" Style="{StaticResource DetailLabel}"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Player.AvgExpPerBattle, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding Player.AvgExpPerBattle_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding Player.AvgExpPerBattle_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="3" Grid.Column="4" Text="{Binding Player.AvgExpPerBattle_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                    </Grid>
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                            <TextBlock Grid.Column="1" Text="{DynamicResource DetailOverall}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Column="2" Text="{DynamicResource DataGridToolTipSolo}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Column="3" Text="{DynamicResource DataGridToolTipDiv2}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Column="4" Text="{DynamicResource DataGridToolTipDiv3}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Row="1" Text="{DynamicResource DataGridToolTipBattles}" Style="{StaticResource DetailLabel}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Player.Battles, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Player.Battles_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Player.Battles_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="4" Text="{Binding Player.Battles_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="2" Text="{DynamicResource DataGridToolTipWinrate}" Style="{StaticResource DetailLabel}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Player.AccountWinrate, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Foreground="{Binding Player.AccountWinrate, Converter={StaticResource WinrateColor}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Player.AccountWinrate_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding Player.AccountWinrate_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="4" Text="{Binding Player.AccountWinrate_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="3" Text="{DynamicResource DataGridToolTipAvgExp}" Style="{StaticResource DetailLabel}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Player.AvgExpPerBattle, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding Player.AvgExpPerBattle_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding Player.AvgExpPerBattle_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="4" Text="{Binding Player.AvgExpPerBattle_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                        </Grid>
+                    </ScrollViewer>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="2" Style="{StaticResource SectionCard}">
+            <Border x:Name="ShipSection" Grid.Column="2" Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="{DynamicResource DataGridToolTipShip}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,5"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="72"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                        <TextBlock Grid.Column="1" Text="{DynamicResource DetailOverall}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Column="2" Text="{DynamicResource DataGridToolTipSolo}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Column="3" Text="{DynamicResource DataGridToolTipDiv2}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Column="4" Text="{DynamicResource DataGridToolTipDiv3}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Row="1" Text="{DynamicResource DataGridToolTipBattles}" Style="{StaticResource DetailLabel}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Player.ShipBattles, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Player.ShipBattles_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Player.ShipBattles_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="1" Grid.Column="4" Text="{Binding Player.ShipBattles_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="2" Text="{DynamicResource DataGridToolTipWinrate}" Style="{StaticResource DetailLabel}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Player.ShipWinrate, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Foreground="{Binding Player.ShipWinrate, Converter={StaticResource WinrateColor}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Player.ShipWinrate_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding Player.ShipWinrate_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="4" Text="{Binding Player.ShipWinrate_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="3" Text="{DynamicResource DataGridToolTipAvgDmg}" Style="{StaticResource DetailLabel}"/>
-                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Player.ShipAvgDmgPerBattle, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding Player.ShipAvgDmgPerBattle_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding Player.ShipAvgDmgPerBattle_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="3" Grid.Column="4" Text="{Binding Player.ShipAvgDmgPerBattle_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="4" Text="{DynamicResource DataGridToolTipAvgExp}" Style="{StaticResource DetailLabel}"/>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Player.ShipAvgExpPerBattle, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding Player.ShipAvgExpPerBattle_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding Player.ShipAvgExpPerBattle_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                        <TextBlock Grid.Row="4" Grid.Column="4" Text="{Binding Player.ShipAvgExpPerBattle_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
-                    </Grid>
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                            <TextBlock Grid.Column="1" Text="{DynamicResource DetailOverall}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Column="2" Text="{DynamicResource DataGridToolTipSolo}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Column="3" Text="{DynamicResource DataGridToolTipDiv2}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Column="4" Text="{DynamicResource DataGridToolTipDiv3}" Style="{StaticResource DetailLabel}" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Row="1" Text="{DynamicResource DataGridToolTipBattles}" Style="{StaticResource DetailLabel}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Player.ShipBattles, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding Player.ShipBattles_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Player.ShipBattles_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="4" Text="{Binding Player.ShipBattles_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="2" Text="{DynamicResource DataGridToolTipWinrate}" Style="{StaticResource DetailLabel}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Player.ShipWinrate, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Foreground="{Binding Player.ShipWinrate, Converter={StaticResource WinrateColor}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Player.ShipWinrate_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding Player.ShipWinrate_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="4" Text="{Binding Player.ShipWinrate_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:p2}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="3" Text="{DynamicResource DataGridToolTipAvgDmg}" Style="{StaticResource DetailLabel}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Player.ShipAvgDmgPerBattle, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding Player.ShipAvgDmgPerBattle_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding Player.ShipAvgDmgPerBattle_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="4" Text="{Binding Player.ShipAvgDmgPerBattle_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="4" Text="{DynamicResource DataGridToolTipAvgExp}" Style="{StaticResource DetailLabel}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Player.ShipAvgExpPerBattle, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding Player.ShipAvgExpPerBattle_Solo, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding Player.ShipAvgExpPerBattle_Div2, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="4" Text="{Binding Player.ShipAvgExpPerBattle_Div3, Converter={StaticResource BattleData}, StringFormat={}{0:f0}}" Style="{StaticResource DetailValue}"/>
+                        </Grid>
+                    </ScrollViewer>
                 </StackPanel>
             </Border>
         </Grid>
@@ -161,7 +172,7 @@
         <Border Style="{StaticResource SectionCard}">
             <StackPanel>
                 <TextBlock Text="{DynamicResource DetailContextTitle}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                <TextBlock Text="{Binding Player.Note, StringFormat={}{0}}" TextWrapping="Wrap" Visibility="{Binding Player.Note, Converter={StaticResource TextVisibility}}"/>
+                <controls:NoteTagsControl Note="{Binding Player.Note}"/>
                 <TextBlock Text="{Binding Player.RecentEncounterDetails}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="{Binding Player.RecentEncounterDetails, Converter={StaticResource TextVisibility}}"/>
                 <TextBlock Text="{DynamicResource DetailNoContext}" Foreground="{StaticResource TextSecondaryBrush}">
                     <TextBlock.Style>

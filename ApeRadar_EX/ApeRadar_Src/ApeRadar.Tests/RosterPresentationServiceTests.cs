@@ -110,6 +110,7 @@ public sealed class RosterPresentationServiceTests
 
             Assert.Empty(disabled.Performance.Icon);
             Assert.Equal(ApeRadar.Properties.Settings.Default.ApeIcon, enabled.Performance.Icon);
+            Assert.Equal("#000000", enabled.Performance.ForegroundColor);
         }
         finally
         {
@@ -137,6 +138,8 @@ public sealed class RosterPresentationServiceTests
             Assert.Equal(player.AccountWinrate, winrate.Performance.RawValue);
             Assert.Equal(RosterPerformanceMetric.PR, pr.Performance.Metric);
             Assert.Equal(RosterPerformanceMetric.Winrate, winrate.Performance.Metric);
+            Assert.Equal("#000000", pr.Performance.ForegroundColor);
+            Assert.Equal("#000000", winrate.Performance.ForegroundColor);
             Assert.NotEqual(pr.Performance.ToolTip, winrate.Performance.ToolTip);
         }
         finally

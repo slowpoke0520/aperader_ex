@@ -12,12 +12,12 @@ using ApeRadar.Utils;
 
 namespace ApeRadar.History
 {
-    internal sealed class SqliteHistoryRepository : IHistoryRepository
+    internal sealed partial class SqliteHistoryRepository : IHistoryRepository
     {
-        private const int CurrentSchemaVersion = 4;
         private static readonly TimeSpan SessionGap = TimeSpan.FromMinutes(45);
         private const int ReconnectMergeWindowSeconds = 20 * 60;
         private readonly SemaphoreSlim writeLock = new(1, 1);
+        private readonly HistoryDatabaseMaintenance maintenance;
         private bool initialized;
 
         public SqliteHistoryRepository(string? databasePath = null)
@@ -25,6 +25,7 @@ namespace ApeRadar.History
             DatabasePath = databasePath ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "ApeRadar EX", "History", "history.db");
+            maintenance = new HistoryDatabaseMaintenance(DatabasePath, ConnectionString);
         }
 
         public string DatabasePath { get; }
@@ -49,19 +50,12 @@ namespace ApeRadar.History
                 Directory.CreateDirectory(Path.GetDirectoryName(DatabasePath)!);
                 try
                 {
-                    await BackupBeforeMigrationAsync(cancellationToken);
+                    await maintenance.BackupBeforeMigrationAsync(cancellationToken);
                     await CreateSchemaAsync(cancellationToken);
                 }
                 catch (SqliteException ex) when (ex.SqliteErrorCode is 11 or 26)
                 {
-                    SqliteConnection.ClearAllPools();
-                    if (File.Exists(DatabasePath))
-                    {
-                        string backup = $"{DatabasePath}.corrupt-{DateTimeOffset.Now:yyyyMMddHHmmss}";
-                        File.Move(DatabasePath, backup, true);
-                        TryMoveSidecar(DatabasePath + "-wal", backup + "-wal");
-                        TryMoveSidecar(DatabasePath + "-shm", backup + "-shm");
-                    }
+                    maintenance.IsolateCorruptDatabase();
                     await CreateSchemaAsync(cancellationToken);
                 }
                 initialized = true;
@@ -263,29 +257,6 @@ namespace ApeRadar.History
             }
         }
 
-        private async Task BackupBeforeMigrationAsync(CancellationToken cancellationToken)
-        {
-            if (!File.Exists(DatabasePath)) return;
-            try
-            {
-                await using SqliteConnection connection = new(ConnectionString);
-                await connection.OpenAsync(cancellationToken);
-                await using SqliteCommand command = connection.CreateCommand();
-                command.CommandText = "SELECT COALESCE(MAX(Version),0) FROM SchemaMigrations";
-                int version = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
-                if (version >= CurrentSchemaVersion) return;
-                await ExecuteAsync(connection, null, "PRAGMA wal_checkpoint(TRUNCATE);", cancellationToken);
-                await connection.CloseAsync();
-                SqliteConnection.ClearAllPools();
-                string backup = $"{DatabasePath}.pre-v{CurrentSchemaVersion}-{DateTimeOffset.Now:yyyyMMddHHmmss}.bak";
-                File.Copy(DatabasePath, backup, false);
-            }
-            catch (SqliteException ex) when (ex.SqliteErrorCode == 1)
-            {
-                // A database created before SchemaMigrations existed will be upgraded normally.
-            }
-        }
-
         private static async Task<bool> ColumnExistsAsync(SqliteConnection connection, string table, string column, CancellationToken cancellationToken)
         {
             await using SqliteCommand command = connection.CreateCommand();
@@ -476,54 +447,6 @@ namespace ApeRadar.History
             command.Parameters.AddWithValue("$id", battleId);
             await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
             return await reader.ReadAsync(cancellationToken) ? ReadBattle(reader) : null;
-        }
-
-        public async Task<IReadOnlyList<BattleRecord>> GetBattlesAsync(HistoryQuery query, CancellationToken cancellationToken = default)
-        {
-            await EnsureInitialized(cancellationToken);
-            List<BattleRecord> result = new();
-            await using SqliteConnection connection = new(ConnectionString);
-            await connection.OpenAsync(cancellationToken);
-            await using SqliteCommand command = connection.CreateCommand();
-            List<string> predicates = new();
-            if (!string.IsNullOrWhiteSpace(query.Server))
-            {
-                predicates.Add("Server=$server");
-                command.Parameters.AddWithValue("$server", query.Server);
-            }
-            if (!string.IsNullOrWhiteSpace(query.AccountId))
-            {
-                predicates.Add("AccountId=$account");
-                command.Parameters.AddWithValue("$account", query.AccountId);
-            }
-            if (!string.IsNullOrWhiteSpace(query.ShipId))
-            {
-                predicates.Add("ShipId=$ship");
-                command.Parameters.AddWithValue("$ship", query.ShipId);
-            }
-            if (query.From.HasValue)
-            {
-                predicates.Add("StartedAt >= $from");
-                command.Parameters.AddWithValue("$from", query.From.Value.UtcDateTime.ToString("O"));
-            }
-            if (query.To.HasValue)
-            {
-                predicates.Add("StartedAt < $to");
-                command.Parameters.AddWithValue("$to", query.To.Value.UtcDateTime.ToString("O"));
-            }
-            StringBuilder sql = new("SELECT * FROM Battles");
-            if (predicates.Count > 0) sql.Append(" WHERE ").Append(string.Join(" AND ", predicates));
-            sql.Append(query.Descending ? " ORDER BY StartedAt DESC" : " ORDER BY StartedAt");
-            if (query.Limit is > 0)
-            {
-                sql.Append(" LIMIT $limit OFFSET $offset");
-                command.Parameters.AddWithValue("$limit", query.Limit.Value);
-                command.Parameters.AddWithValue("$offset", Math.Max(0, query.Offset));
-            }
-            command.CommandText = sql.ToString();
-            await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken)) result.Add(ReadBattle(reader));
-            return result;
         }
 
         public Task<IReadOnlyList<HistoryFilterOption>> GetServersAsync(CancellationToken cancellationToken = default) =>
@@ -1208,10 +1131,6 @@ namespace ApeRadar.History
             .OrderBy(x => x, StringComparer.Ordinal));
 
         private static DateTimeOffset ParseDate(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
-        private static void TryMoveSidecar(string source, string destination)
-        {
-            if (File.Exists(source)) File.Move(source, destination, true);
-        }
         private Task EnsureInitialized(CancellationToken cancellationToken) => initialized ? Task.CompletedTask : InitializeAsync(cancellationToken);
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace ApeRadar.History
 {
@@ -50,16 +51,18 @@ namespace ApeRadar.History
             };
         }
 
-        public IReadOnlyList<HistoryTrendPoint> CalculateAdvancedTrend(IReadOnlyList<BattleRecord> battles, IReadOnlyDictionary<long, BattleAdvancedMetrics> advancedMetrics, string metric, int rollingWindow, bool includeExperimental)
+        public IReadOnlyList<HistoryTrendPoint> CalculateAdvancedTrend(IReadOnlyList<BattleRecord> battles, IReadOnlyDictionary<long, BattleAdvancedMetrics> advancedMetrics, string metric, int rollingWindow, bool includeExperimental, CancellationToken cancellationToken = default)
         {
             List<BattleRecord> ordered = battles.OrderBy(x => x.StartedAt).Where(x => x.BattleCount == 1).ToList();
             List<HistoryTrendPoint> result = new();
             for (int i = 0; i < ordered.Count; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 int first = rollingWindow <= 0 ? 0 : Math.Max(0, i - rollingWindow + 1);
                 List<double> values = new();
                 for (int j = first; j <= i; j++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     BattleRecord battle = ordered[j];
                     if (!advancedMetrics.TryGetValue(battle.Id, out BattleAdvancedMetrics? advanced)) continue;
                     double? value = MetricValue(battle, advanced, metric, includeExperimental);

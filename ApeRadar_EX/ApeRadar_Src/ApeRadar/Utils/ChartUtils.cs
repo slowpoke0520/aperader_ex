@@ -7,11 +7,29 @@ using System;
 using System.Collections.Generic;
 using LiveChartsCore.Defaults;
 using ApeRadar.Utils.Converters;
+using System.Windows.Threading;
 
 namespace ApeRadar.Utils
 {
     static internal class ChartUtils
     {
+        public static void EnsureLoaded(LiveChartsCore.SkiaSharpView.WPF.CartesianChart chart)
+        {
+            // Initially collapsed charts can receive Loaded before their template creates the core.
+            chart.ApplyTemplate();
+            if (chart.IsLoaded && chart.CoreChart is Chart<LiveChartsCore.SkiaSharpView.Drawing.SkiaSharpDrawingContext> core && !core.IsLoaded)
+            {
+                // The new canvas subscribes to drawing requests in its own Loaded event.
+                // Starting the core sooner can lose the first request and leave a blank chart.
+                chart.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
+                {
+                    if (chart.IsLoaded && chart.IsVisible && chart.CoreChart is Chart<LiveChartsCore.SkiaSharpView.Drawing.SkiaSharpDrawingContext> current && !current.IsLoaded)
+                    {
+                        current.Load();
+                    }
+                }));
+            }
+        }
 
         public static RectangularSection[] GetWinrateChartSections(Battlefield battlefield, int chartType)
         {

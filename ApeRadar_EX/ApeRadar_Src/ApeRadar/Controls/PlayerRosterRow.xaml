@@ -4,6 +4,7 @@
              xmlns:local="clr-namespace:ApeRadar"
              xmlns:utils="clr-namespace:ApeRadar.Utils"
              xmlns:cvt="clr-namespace:ApeRadar.Utils.Converters"
+             xmlns:controls="clr-namespace:ApeRadar.Controls"
              x:Name="Root" Focusable="False" IsTabStop="False"
              UseLayoutRounding="True" SnapsToDevicePixels="True">
     <UserControl.Resources>
@@ -33,10 +34,10 @@
         </Grid.RowDefinitions>
         <Grid x:Name="IdentityLineContainer" Grid.Row="0" ClipToBounds="True">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Style="{StaticResource IdentityLine}"
                        MaxWidth="{Binding ActualWidth, ElementName=IdentityLineContainer, Converter={StaticResource WidthReduction}, ConverterParameter=96}"
@@ -51,12 +52,23 @@
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border CornerRadius="4" Height="22" Padding="3,0" Margin="1,0" VerticalAlignment="Center" Opacity="{Binding Opacity}"
+                            <Border x:Name="BadgeBorder" CornerRadius="4" Height="22" Padding="3,0" Margin="1,0" VerticalAlignment="Center" Opacity="{Binding Opacity}"
                                     Background="{Binding Severity, Converter={StaticResource BadgeBrush}, ConverterParameter=Background}"
                                     ToolTip="{Binding ToolTip}">
-                                <TextBlock Text="{Binding DisplayText}" FontSize="12" FontWeight="Bold" TextTrimming="CharacterEllipsis" MaxWidth="50" VerticalAlignment="Center"
+                                <Grid>
+                                <TextBlock x:Name="BadgeText" Text="{Binding DisplayText}" FontSize="12" FontWeight="Bold" TextTrimming="CharacterEllipsis" MaxWidth="50" VerticalAlignment="Center"
                                            Foreground="{Binding Severity, Converter={StaticResource BadgeBrush}, ConverterParameter=Foreground}"/>
+                                <controls:NoteTagsControl x:Name="NoteTags" Note="{Binding NoteText}" Compact="True" MaximumVisibleTags="3" MaxWidth="180" Visibility="Collapsed"/>
+                                </Grid>
                             </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Kind}" Value="Note">
+                                    <Setter TargetName="BadgeText" Property="Visibility" Value="Collapsed"/>
+                                    <Setter TargetName="NoteTags" Property="Visibility" Value="Visible"/>
+                                    <Setter TargetName="BadgeBorder" Property="Background" Value="Transparent"/>
+                                    <Setter TargetName="BadgeBorder" Property="Padding" Value="0"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

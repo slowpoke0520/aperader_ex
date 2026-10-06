@@ -19,7 +19,10 @@ namespace ApeRadar.Services
         APIType ApiType,
         bool ForceRefresh,
         string? ForceRefreshPlayerId,
-        Server? ForceRefreshPlayerServer);
+        Server? ForceRefreshPlayerServer)
+    {
+        public PlayerStatisticsOptions? StatisticsOptions { get; init; }
+    }
 
     internal sealed record BattleRosterLoadResult(
         IReadOnlyList<Player> Players,
@@ -30,15 +33,9 @@ namespace ApeRadar.Services
     {
         public bool IsFailed =>
             (SuccessfulRequestCount == 0 && Failures.Count > 0) ||
-            (Players.Count > 0 && Players.All(player => !player.IsHidden && (player.ID == "-1" || player.IsDataFetchFailed)));
+            (Players.Count > 0 && Players.All(player => player.Availability.IsUnavailable));
         public bool IsPartial => IsFailed || Failures.Count > 0 || Players.Count == 0 ||
-            Players.Any(player => player.ID == "-1" || player.IsDataStale || player.IsDataFetchFailed);
-    }
-
-    internal interface IPlayerStatsProvider
-    {
-        APIType Type { get; }
-        Task<ApiResult<List<Player>>> LoadAsync(BattleRosterRequest request, int relationFilter, Server server, string? forcedPlayerId, CancellationToken cancellationToken);
+            Players.Any(player => player.Availability.IsPartial);
     }
 
     internal interface IBattleRosterCoordinator
@@ -47,55 +44,17 @@ namespace ApeRadar.Services
         Task<BattleRosterLoadResult> LoadAsync(BattleRosterRequest request, CancellationToken cancellationToken);
     }
 
-    internal sealed class WgPlayerStatsProvider : IPlayerStatsProvider
-    {
-        private readonly bool useProxy;
-        public WgPlayerStatsProvider(bool useProxy) => this.useProxy = useProxy;
-        public APIType Type => useProxy ? APIType.WG_PUBLIC_WITH_YUYUKO_PROXY : APIType.WG_PUBLIC;
-
-        public Task<ApiResult<List<Player>>> LoadAsync(BattleRosterRequest request, int relationFilter, Server server, string? forcedPlayerId, CancellationToken cancellationToken) =>
-            PlayerStatsProviderResult.CaptureAsync(() => ApiUtils.WgPublicApiGetPlayersStatistics(request.PlayerCount, relationFilter, request.Arena, server, useProxy,
-                request.ForceRefresh, forcedPlayerId, cancellationToken), cancellationToken);
-    }
-
-    internal sealed class VortexPlayerStatsProvider : IPlayerStatsProvider
-    {
-        public APIType Type => APIType.VORTEX;
-
-        public Task<ApiResult<List<Player>>> LoadAsync(BattleRosterRequest request, int relationFilter, Server server, string? forcedPlayerId, CancellationToken cancellationToken) =>
-            PlayerStatsProviderResult.CaptureAsync(() => ApiUtils.VortexApiGetPlayersStatistics(request.PlayerCount, relationFilter, request.Arena, server,
-                request.ForceRefresh, forcedPlayerId, cancellationToken), cancellationToken);
-    }
-
-    internal static class PlayerStatsProviderResult
-    {
-        public static async Task<ApiResult<List<Player>>> CaptureAsync(Func<Task<List<Player>>> loader, CancellationToken cancellationToken)
-        {
-            try
-            {
-                return ApiResult<List<Player>>.Success(await loader().ConfigureAwait(false));
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (NetworkRequestException ex)
-            {
-                return ApiResult<List<Player>>.Failed(ex.FailureKind, ex.InnerException?.Message, ex.RetryAfter);
-            }
-            catch (Newtonsoft.Json.JsonException ex)
-            {
-                return ApiResult<List<Player>>.Failed(ApiFailureKind.InvalidResponse, ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return ApiResult<List<Player>>.Failed(ApiFailureKind.Unknown, ex.Message);
-            }
-        }
-    }
-
     internal sealed class BattleRosterCoordinator : IBattleRosterCoordinator
     {
+        private readonly IPlayerStatsProviderResolver providerResolver;
+
+        public BattleRosterCoordinator() : this(new PlayerStatsProviderResolver())
+        {
+        }
+
+        internal BattleRosterCoordinator(IPlayerStatsProviderResolver providerResolver) =>
+            this.providerResolver = providerResolver ?? throw new ArgumentNullException(nameof(providerResolver));
+
         public IReadOnlyList<Player> CreateMetadataRoster(BattleRosterRequest request)
         {
             List<Player> players = new();
@@ -121,10 +80,11 @@ namespace ApeRadar.Services
         public async Task<BattleRosterLoadResult> LoadAsync(BattleRosterRequest request, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            request = request with { StatisticsOptions = request.StatisticsOptions ?? PlayerStatisticsOptions.Capture() };
             Stopwatch stopwatch = Stopwatch.StartNew();
             (long _, long requestCountBefore, long retryCountBefore) = NetworkUtils.GetMetricsSnapshot();
             (long cacheLookupsBefore, long cacheHitsBefore, _) = PlayerDataCache.GetMetricsSnapshot();
-            IPlayerStatsProvider provider = CreateProvider(request);
+            IPlayerStatsProvider provider = providerResolver.Resolve(request);
             string? primaryForcedId = request.ForceRefreshPlayerServer == request.PrimaryServer ? request.ForceRefreshPlayerId : null;
             string? secondaryForcedId = request.ForceRefreshPlayerServer == request.SecondaryServer ? request.ForceRefreshPlayerId : null;
 
@@ -147,7 +107,7 @@ namespace ApeRadar.Services
             List<ApiFailureKind> failures = results.Where(result => !result.IsSuccess).Select(result => result.Failure).ToList();
             List<Player> players = CreateMetadataRoster(request)
                 .Select(metadata => loaded.FirstOrDefault(player =>
-                    player.Name == metadata.Name && player.Relation == metadata.Relation && player.Server == metadata.Server) ?? metadata)
+                    player.Identity.MatchesRosterEntry(metadata.Identity)) ?? metadata)
                 .ToList();
             (long _, long requestCountAfter, long retryCountAfter) = NetworkUtils.GetMetricsSnapshot();
             (long cacheLookupsAfter, long cacheHitsAfter, _) = PlayerDataCache.GetMetricsSnapshot();
@@ -157,15 +117,5 @@ namespace ApeRadar.Services
             return new BattleRosterLoadResult(players, provider.Type, players.Count(player => player.IsDataStale), results.Count(result => result.IsSuccess), failures);
         }
 
-        private static IPlayerStatsProvider CreateProvider(BattleRosterRequest request)
-        {
-            bool wgSupported = request.PrimaryServer is not Server.RU and not Server.CN &&
-                (!request.SecondaryServerEnabled || request.SecondaryServer is not Server.RU and not Server.CN);
-            if (wgSupported && request.ApiType is APIType.WG_PUBLIC or APIType.WG_PUBLIC_WITH_YUYUKO_PROXY)
-            {
-                return new WgPlayerStatsProvider(request.ApiType == APIType.WG_PUBLIC_WITH_YUYUKO_PROXY);
-            }
-            return new VortexPlayerStatsProvider();
-        }
     }
 }

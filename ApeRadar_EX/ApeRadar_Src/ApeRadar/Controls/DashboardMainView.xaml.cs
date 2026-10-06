@@ -1,18 +1,17 @@
 using ApeRadar.Models;
+using ApeRadar.Services;
 using ApeRadar.Utils;
 using ApeRadar.ViewModels;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using SkiaSharp;
 using System;
+using System.Linq;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Threading;
 
 namespace ApeRadar.Controls
 {
@@ -46,15 +45,7 @@ namespace ApeRadar.Controls
 
     public partial class DashboardMainView : UserControl
     {
-        private const double StandardRosterRowHeight = 48;
-        private const double StandardRosterCapacityHeight = 663;
-        private const double FixedRosterHeightThreshold = 960;
-        private readonly DispatcherTimer detailOpenTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
-        private readonly DispatcherTimer detailCloseTimer = new() { Interval = TimeSpan.FromMilliseconds(200) };
-        private DashboardPlayerRowViewModel? pendingDetail;
-        private DataGridRow? pendingDetailTarget;
-        private bool pointerOverDetailRow;
-        private bool pointerOverDetail;
+        private readonly PlayerDetailPopupController<DashboardPlayerRowViewModel> detailPopup;
         private bool suppressSelectors;
         private bool analysisOpen;
 
@@ -82,9 +73,9 @@ namespace ApeRadar.Controls
         public DashboardMainView()
         {
             InitializeComponent();
-            detailOpenTimer.Tick += DetailOpenTimer_Tick;
-            detailCloseTimer.Tick += DetailCloseTimer_Tick;
-            PlayerDetailPopup.CustomPopupPlacementCallback = PlacePlayerDetailPopup;
+            detailPopup = new PlayerDetailPopupController<DashboardPlayerRowViewModel>(
+                PlayerDetailPopup, PlayerDetailBorder, PlayerDetailCardContent, this, AlliesGrid,
+                row => row.BaseRow.Detail, openIfTargetHovered: true);
             DataContextChanged += DashboardMainView_DataContextChanged;
             Loaded += (_, _) =>
             {
@@ -98,7 +89,7 @@ namespace ApeRadar.Controls
         internal void SetDashboard(BattleDashboardViewModel dashboard)
         {
             DataContext = dashboard;
-            SortCombo.SelectedValue = dashboard.SortMode.ToString();
+            RefreshLocalizedSelectors();
             RefreshSettings();
             UpdateContextHeader();
             UpdateFilterLabels();
@@ -108,13 +99,21 @@ namespace ApeRadar.Controls
         {
             Visibility account = Properties.Settings.Default.ShowAccountRosterColumn ? Visibility.Visible : Visibility.Collapsed;
             Visibility ship = Properties.Settings.Default.ShowShipRosterColumn ? Visibility.Visible : Visibility.Collapsed;
-            Visibility pr = Properties.Settings.Default.PRVisibility == 2 ? Visibility.Collapsed : Visibility.Visible;
             Visibility performance = Properties.Settings.Default.ShowPerformanceRosterColumn ? Visibility.Visible : Visibility.Collapsed;
 
             AllyContextColumn.Visibility = EnemyContextColumn.Visibility = account;
             AllyShipColumn.Visibility = EnemyShipColumn.Visibility = ship;
-            AllyPrColumn.Visibility = EnemyPrColumn.Visibility = pr;
             AllyPerformanceColumn.Visibility = EnemyPerformanceColumn.Visibility = performance;
+            RosterPerformanceMetric metric = RosterPerformanceMetricExtensions.Parse(Properties.Settings.Default.RosterPerformanceMetric);
+            bool weighted = metric == RosterPerformanceMetric.Winrate && Properties.Settings.Default.WinrateTypeUsed != 0;
+            string basis = metric == RosterPerformanceMetric.PR ? "PR" : weighted ? "WWR" : "WR";
+            string fullBasis = metric == RosterPerformanceMetric.PR ? Find("RosterPerformancePR", "Account PR") :
+                weighted ? Find("RosterPerformanceWeightedWinrate", "Weighted win rate") :
+                Find("RosterPerformanceAccountWinrate", "Account win rate");
+            AllyPerformanceColumn.Header = EnemyPerformanceColumn.Header = $"{Find("DashboardColumnPerformance", "Skill")} · {basis}";
+            Style skillHeader = new(typeof(System.Windows.Controls.Primitives.DataGridColumnHeader), (Style)FindResource("DashboardRosterHeader"));
+            skillHeader.Setters.Add(new Setter(FrameworkElement.ToolTipProperty, fullBasis));
+            AllyPerformanceColumn.HeaderStyle = EnemyPerformanceColumn.HeaderStyle = skillHeader;
         }
 
         internal void UpdateSessionSummary(string text, string tooltip)
@@ -122,6 +121,7 @@ namespace ApeRadar.Controls
             SessionText.Text = text;
             SessionToolTip = tooltip;
             SessionCard.ToolTip = tooltip;
+            CompactSessionButton.ToolTip = tooltip;
         }
 
         internal void SetRosterInputEnabled(bool enabled)
@@ -162,9 +162,11 @@ namespace ApeRadar.Controls
             SortCombo.DisplayMemberPath = nameof(ListItem.Content);
             SortCombo.SelectedValuePath = nameof(ListItem.Value);
             int selectedSort = DataContext is BattleDashboardViewModel dashboard ? dashboard.SortMode : Properties.Settings.Default.PlayerListSortBy;
-            SortCombo.SelectedValue = Math.Clamp(selectedSort, 0, 7).ToString();
+            SortCombo.SelectedIndex = Math.Clamp(selectedSort, 0, 7);
             suppressSelectors = false;
             UpdateFilterLabels();
+            UpdateContextHeader();
+            RefreshSettings();
         }
 
         internal void CloseTransientUi()
@@ -204,7 +206,7 @@ namespace ApeRadar.Controls
             if (e.PropertyName is nameof(BattleDashboardViewModel.Allies) or nameof(BattleDashboardViewModel.Enemies) || e.PropertyName?.Contains("Count", StringComparison.Ordinal) == true)
                 UpdateFilterLabels();
             if (e.PropertyName == nameof(BattleDashboardViewModel.Summary))
-                UpdateMatchupLayout();
+                UpdateResponsiveLayout();
         }
 
         private void UpdateContextHeader()
@@ -219,15 +221,25 @@ namespace ApeRadar.Controls
         private void UpdateFilterLabels()
         {
             if (DataContext is not BattleDashboardViewModel dashboard) return;
-            AllyAll.Content = $"{Find("DashboardFilterAll", "All")} {dashboard.AllyTotalCount}";
-            AllyMarked.Content = $"{Find("DashboardFilterMarked", "Marked")} {dashboard.AllyMarkedCount}";
-            AllyLow.Content = $"{Find("DashboardFilterLowSample", "Low")} {dashboard.AllyLowSampleCount}";
-            AllyAnomaly.Content = $"{Find("DashboardFilterAnomaly", "Issues")} {dashboard.AllyAnomalyCount}";
-            EnemyAll.Content = $"{Find("DashboardFilterAll", "All")} {dashboard.EnemyTotalCount}";
-            EnemyMarked.Content = $"{Find("DashboardFilterMarked", "Marked")} {dashboard.EnemyMarkedCount}";
-            EnemyLow.Content = $"{Find("DashboardFilterLowSample", "Low")} {dashboard.EnemyLowSampleCount}";
-            EnemyAnomaly.Content = $"{Find("DashboardFilterAnomaly", "Issues")} {dashboard.EnemyAnomalyCount}";
+            SetFilterLabel(AllyAll, "DashboardFilterAll", "All", "•", dashboard.AllyTotalCount);
+            SetFilterLabel(AllyMarked, "DashboardFilterMarked", "Marked", "★", dashboard.AllyMarkedCount);
+            SetFilterLabel(AllyLow, "DashboardFilterLowSample", "Low", "↓", dashboard.AllyLowSampleCount);
+            SetFilterLabel(AllyAnomaly, "DashboardFilterAnomaly", "Issues", "!", dashboard.AllyAnomalyCount);
+            SetFilterLabel(EnemyAll, "DashboardFilterAll", "All", "•", dashboard.EnemyTotalCount);
+            SetFilterLabel(EnemyMarked, "DashboardFilterMarked", "Marked", "★", dashboard.EnemyMarkedCount);
+            SetFilterLabel(EnemyLow, "DashboardFilterLowSample", "Low", "↓", dashboard.EnemyLowSampleCount);
+            SetFilterLabel(EnemyAnomaly, "DashboardFilterAnomaly", "Issues", "!", dashboard.EnemyAnomalyCount);
             UpdateFilterStyles(dashboard);
+        }
+
+        private void SetFilterLabel(Button button, string key, string fallback, string glyph, int count)
+        {
+            string label = $"{Find(key, fallback)} {count}";
+            button.ToolTip = label;
+            System.Windows.Automation.AutomationProperties.SetName(button, label);
+            button.MinWidth = AlliesGrid.ActualWidth < 340 ? 32 : 48;
+            button.Padding = new Thickness(AlliesGrid.ActualWidth < 340 ? 3 : 5, 0, AlliesGrid.ActualWidth < 340 ? 3 : 5, 0);
+            button.Content = AlliesGrid.ActualWidth < 440 ? $"{glyph}{count}" : label;
         }
 
         private void UpdateFilterStyles(BattleDashboardViewModel dashboard)
@@ -247,8 +259,9 @@ namespace ApeRadar.Controls
 
         private void UpdateResponsiveLayout()
         {
-            bool compactSidebar = ActualWidth < 1400;
-            SidebarColumn.Width = new GridLength(compactSidebar ? 64 : 208);
+            DashboardLayout layout = DashboardLayoutCalculator.Calculate(ActualWidth, ActualHeight);
+            bool compactSidebar = layout.CompactSidebar;
+            SidebarColumn.Width = new GridLength(layout.SidebarWidth);
             BrandText.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
             NavBattleText.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
             NavHistoryText.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
@@ -256,36 +269,54 @@ namespace ApeRadar.Controls
             NavReplayText.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
             NavSettingsText.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
             SessionCard.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
+            CompactSessionButton.Visibility = compactSidebar ? Visibility.Visible : Visibility.Collapsed;
             SidebarVersion.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
-            SidebarLinks.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
+            SidebarLinks.Visibility = Visibility.Visible;
+            SidebarLinks.ColumnDefinitions[1].Width = compactSidebar ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+            Grid.SetColumn(HelpNavButton, compactSidebar ? 0 : 1);
+            Grid.SetRow(HelpNavButton, compactSidebar ? 1 : 0);
+            if (compactSidebar)
+            {
+                UpdateNavButton.Content = "↑";
+                HelpNavButton.Content = "?";
+            }
+            else
+            {
+                UpdateNavButton.SetResourceReference(ContentControl.ContentProperty, "BtnSoftwareUpdate");
+                HelpNavButton.SetResourceReference(ContentControl.ContentProperty, "DashboardHelp");
+            }
+            MainContentGrid.Margin = layout.PageMargin;
+            BrandRow.Height = new GridLength(layout.CompactHeight ? 52 : 72);
+            BrandHeaderGrid.Margin = new Thickness(14, layout.CompactHeight ? 8 : 12, 14, layout.CompactHeight ? 8 : 12);
+            foreach (Button button in NavigationButtons.Children.OfType<Button>())
+            {
+                button.Height = layout.CompactHeight ? 32 : 44;
+                button.Margin = new Thickness(8, layout.CompactHeight ? 1 : 2, 8, layout.CompactHeight ? 1 : 2);
+            }
+            BattleHeading.Margin = new Thickness(0, 0, 0, layout.CompactHeight ? 0 : 4);
+            ((Grid)MainContentGrid.Parent).RowDefinitions[0].Height = new GridLength(layout.CompactHeight ? 36 : DashboardLayout.TopBarHeight);
+            MainContentGrid.RowDefinitions[0].Height = new GridLength(layout.CompactHeight ? 32 : DashboardLayout.HeadingHeight);
+            MainContentGrid.RowDefinitions[1].Height = new GridLength(DashboardLayout.SummaryHeight);
+            MainContentGrid.RowDefinitions[2].Height = new GridLength(DashboardLayout.ToolbarHeight);
+            ComparisonCard.Height = 64;
             BattleMetadataText.Visibility = ActualWidth < 1240 ? Visibility.Collapsed : Visibility.Visible;
 
-            // Keep player rows stable. On tall screens the card ends immediately after
-            // the fixed 12-player capacity; on shorter screens the viewport shrinks and
-            // scrolls without changing typography or row height.
-            AlliesGrid.RowHeight = EnemiesGrid.RowHeight = StandardRosterRowHeight;
-            bool showFixedRosterCapacity = ActualHeight >= FixedRosterHeightThreshold;
+            // Use the viewport budget, independent of filters or the overlay drawer.
+            // Keep the readable two-line minimum on genuinely smaller windows.
+            AlliesGrid.RowHeight = EnemiesGrid.RowHeight = layout.RowHeight;
+            bool showFixedRosterCapacity = layout.FitsFullRoster;
             RosterAreaRow.Height = showFixedRosterCapacity
                 ? GridLength.Auto
                 : new GridLength(1, GridUnitType.Star);
             RosterTeamsGrid.Height = showFixedRosterCapacity
-                ? StandardRosterCapacityHeight
+                ? layout.RosterHeight
                 : double.NaN;
             RosterTeamsGrid.VerticalAlignment = showFixedRosterCapacity
                 ? VerticalAlignment.Top
                 : VerticalAlignment.Stretch;
-            UpdateMatchupLayout();
+            UpdateFilterLabels();
             AnalysisDrawer.Width = Math.Min(420, Math.Max(320, ActualWidth - 64));
-            UpdatePlayerDetailBounds();
-        }
-
-        private void UpdateMatchupLayout()
-        {
-            bool show = ActualWidth >= 1180 && DataContext is BattleDashboardViewModel { Summary.HasKeyShipMatchup: true };
-            AllyMatchupPanel.Visibility = EnemyMatchupPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            AllyMatchupColumn.Width = EnemyMatchupColumn.Width = show ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-            AllyMatchupSeparatorColumn.Width = EnemyMatchupSeparatorColumn.Width = show ? new GridLength(1) : new GridLength(0);
-            ComparisonColumn.Width = show ? new GridLength(430) : new GridLength(1, GridUnitType.Star);
+            detailPopup.UpdateBounds();
         }
 
         private void Filter_Click(object sender, RoutedEventArgs e)
@@ -323,6 +354,11 @@ namespace ApeRadar.Controls
         {
             analysisOpen = !analysisOpen;
             AnalysisDrawer.Visibility = analysisOpen ? Visibility.Visible : Visibility.Collapsed;
+            if (analysisOpen)
+            {
+                ChartUtils.EnsureLoaded(DashboardWinrateChart);
+                ChartUtils.EnsureLoaded(DashboardKdeChart);
+            }
             ClosePlayerDetail();
         }
 
@@ -385,117 +421,29 @@ namespace ApeRadar.Controls
         private void RosterRow_MouseEnter(object sender, MouseEventArgs e)
         {
             if (sender is not DataGridRow { DataContext: DashboardPlayerRowViewModel row } target) return;
-            detailCloseTimer.Stop();
-            pointerOverDetailRow = true;
-            pendingDetail = row;
-            pendingDetailTarget = target;
-            detailOpenTimer.Stop();
-            detailOpenTimer.Start();
+            detailPopup.RowEntered(row, target);
         }
 
-        private void RosterRow_MouseLeave(object sender, MouseEventArgs e)
-        {
-            detailOpenTimer.Stop();
-            pointerOverDetailRow = false;
-            detailCloseTimer.Stop();
-            detailCloseTimer.Start();
-        }
+        private void RosterRow_MouseLeave(object sender, MouseEventArgs e) => detailPopup.RowLeft();
 
-        private void DetailOpenTimer_Tick(object? sender, EventArgs e)
-        {
-            detailOpenTimer.Stop();
-            if (pendingDetail == null || pendingDetailTarget == null || (!pointerOverDetailRow && !pendingDetailTarget.IsMouseOver)) return;
-            PlayerDetailCardContent.DataContext = pendingDetail.BaseRow.Detail;
-            PlayerDetailPopup.PlacementTarget = pendingDetailTarget;
-            PlayerDetailPopup.IsOpen = true;
-            UpdatePlayerDetailBounds();
-            detailCloseTimer.Start();
-        }
+        private void PlayerDetailPopup_MouseEnter(object sender, MouseEventArgs e) => detailPopup.PopupEntered();
 
-        private void PlayerDetailPopup_MouseEnter(object sender, MouseEventArgs e)
-        {
-            pointerOverDetail = true;
-            detailCloseTimer.Stop();
-        }
+        private void PlayerDetailPopup_MouseLeave(object sender, MouseEventArgs e) => detailPopup.PopupLeft();
 
-        private void PlayerDetailPopup_MouseLeave(object sender, MouseEventArgs e)
-        {
-            pointerOverDetail = false;
-            detailCloseTimer.Stop();
-            detailCloseTimer.Start();
-        }
-
-        private void DetailCloseTimer_Tick(object? sender, EventArgs e)
-        {
-            detailCloseTimer.Stop();
-            if (pointerOverDetailRow || pointerOverDetail || PlayerDetailBorder.IsMouseOver || pendingDetailTarget?.IsMouseOver == true)
-            {
-                detailCloseTimer.Start();
-                return;
-            }
-            ClosePlayerDetail();
-        }
-
-        private void UpdatePlayerDetailBounds()
-        {
-            System.Windows.Forms.Screen screen;
-            if (pendingDetailTarget is FrameworkElement target && target.IsLoaded)
-            {
-                Point point = target.PointToScreen(new Point(target.ActualWidth / 2, target.ActualHeight / 2));
-                screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)point.X, (int)point.Y));
-            }
-            else
-            {
-                screen = System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Cursor.Position);
-            }
-            DpiScale dpi = VisualTreeHelper.GetDpi(this);
-            PlayerDetailBorder.Width = Math.Min(560, Math.Max(360, screen.WorkingArea.Width / dpi.DpiScaleX - 32));
-            PlayerDetailBorder.MaxHeight = Math.Min(720, Math.Max(300, screen.WorkingArea.Height / dpi.DpiScaleY * 0.70));
-        }
-
-        private CustomPopupPlacement[] PlacePlayerDetailPopup(Size popupSize, Size targetSize, Point offset)
-        {
-            double y = targetSize.Height / 2 - popupSize.Height / 2;
-            bool ally = FindVisualParent<DataGrid>(pendingDetailTarget) == AlliesGrid;
-            double preferredX = ally ? targetSize.Width + 8 : -popupSize.Width - 8;
-            double fallbackX = ally ? -popupSize.Width - 8 : targetSize.Width + 8;
-            return new[]
-            {
-                new CustomPopupPlacement(new Point(preferredX, y), PopupPrimaryAxis.Horizontal),
-                new CustomPopupPlacement(new Point(fallbackX, y), PopupPrimaryAxis.Horizontal),
-                new CustomPopupPlacement(new Point(preferredX, targetSize.Height + 6), PopupPrimaryAxis.Vertical),
-                new CustomPopupPlacement(new Point(preferredX, -popupSize.Height - 6), PopupPrimaryAxis.Vertical)
-            };
-        }
-
-        private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
-        {
-            while (child != null)
-            {
-                if (child is T match) return match;
-                child = VisualTreeHelper.GetParent(child);
-            }
-            return null;
-        }
-
-        private void ClosePlayerDetail()
-        {
-            detailOpenTimer.Stop();
-            detailCloseTimer.Stop();
-            PlayerDetailPopup.IsOpen = false;
-            PlayerDetailCardContent.DataContext = null;
-            pendingDetail = null;
-            pendingDetailTarget = null;
-            pointerOverDetailRow = false;
-            pointerOverDetail = false;
-        }
+        private void ClosePlayerDetail() => detailPopup.Close();
 
         private void RosterGrid_ScrollChanged(object sender, ScrollChangedEventArgs e) => ClosePlayerDetail();
 
         private void Root_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key != Key.Escape) return;
-            if (PlayerDetailPopup.IsOpen)
+            if (NotificationPopup.IsOpen)
+            {
+                NotificationPopup.IsOpen = false;
+                StatusButton.Focus();
+                e.Handled = true;
+            }
+            else if (PlayerDetailPopup.IsOpen)
             {
                 ClosePlayerDetail();
                 e.Handled = true;

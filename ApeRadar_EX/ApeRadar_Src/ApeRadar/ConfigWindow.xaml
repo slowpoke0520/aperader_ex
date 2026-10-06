@@ -6,6 +6,7 @@
         xmlns:local="clr-namespace:ApeRadar"
         xmlns:cvt="clr-namespace:ApeRadar.Utils.Converters"
         xmlns:model="clr-namespace:ApeRadar.Models"
+        xmlns:controls="clr-namespace:ApeRadar.Controls"
         xmlns:p="clr-namespace:ApeRadar.Properties"
         xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
         mc:Ignorable="d"
@@ -23,28 +24,28 @@
         <cvt:WatchStatusColorConverter x:Key="CvtWatchStatusColor"/>
         <cvt:WeightedWinratePieChartWeightConverter x:Key="CvtWeightedWinratePieChartWeight"/>
         <DataTemplate x:Key="ServerHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderServer}" FontSize="10"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderServer}" FontSize="12"/>
         </DataTemplate>
         <DataTemplate x:Key="IDHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderID}" FontSize="10"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderID}" FontSize="12"/>
         </DataTemplate>
         <DataTemplate x:Key="NameHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderName}" FontSize="10"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderName}" FontSize="12"/>
         </DataTemplate>
         <DataTemplate x:Key="ServerTemplate">
-            <TextBlock Text="{Binding Server,Converter={StaticResource CvtServerName}}" FontSize="10" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+            <TextBlock Text="{Binding Server,Converter={StaticResource CvtServerName}}" FontSize="12" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
         </DataTemplate>
         <DataTemplate x:Key="IDTemplate">
-            <TextBlock Text="{Binding ID}" FontSize="10" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+            <TextBlock Text="{Binding ID}" FontSize="12" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
         </DataTemplate>
         <DataTemplate x:Key="NameTemplate">
-            <TextBlock Text="{Binding Name}" FontSize="10" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+            <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
         </DataTemplate>
         <DataTemplate x:Key="NoteHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderNote}" FontSize="10"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderNote}" FontSize="12"/>
         </DataTemplate>
         <DataTemplate x:Key="NoteTemplate">
-            <TextBlock Text="{Binding Note}" FontSize="10" TextWrapping="Wrap" VerticalAlignment="Center" Margin="2,0,0,0" ToolTip="{Binding Note}"/>
+            <controls:NoteTagsControl Note="{Binding Note}" Compact="True" MaximumVisibleTags="3" VerticalAlignment="Center" Margin="2,0,0,0"/>
         </DataTemplate>
         <ContextMenu x:Key="RowMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
             <MenuItem x:Name="ContextMenuAddToWatchListPositive" Header="{DynamicResource ContextMenuAddToWatchListPositive}" Click="ContextMenuAddToWatchListPositive_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemAddToWatchListPositiveIsEnabled}}"/>
@@ -72,14 +73,16 @@
         </Style>
     </Window.Resources>
     <Grid Margin="12">
-        <Grid.RowDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
+        <TextBlock Grid.Row="0" Text="{DynamicResource WindowTitleConfig}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="4,0,4,12"/>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
             <Grid MinWidth="900" MinHeight="500">
                 <TabControl x:Name="ConfigTabs" TabStripPlacement="Left" SelectionChanged="ConfigTabs_SelectionChanged">
-                    <TabItem Header="{DynamicResource TabHeaderGeneral}" Height="60" Width="180">
+                    <TabItem Header="{DynamicResource TabHeaderGeneral}" MinHeight="46" Width="168">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
@@ -167,7 +170,7 @@
                                 <Label Content="{DynamicResource LabelSoftwareVersion}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5"/>
                             </Grid>
                             <Grid Grid.Row="10" Grid.Column="3">
-                                <TextBlock VerticalAlignment="Center" Margin="5">
+                                <TextBlock VerticalAlignment="Center" Margin="5,0" TextWrapping="Wrap">
                                     <Run Text="{Binding Source={x:Static p:Settings.Default},Mode=OneWay,Path=SoftwareVersion}"/>
                                     <Run Text="Build"/>
                                     <Run Text="{Binding Source={x:Static p:Settings.Default},Mode=OneWay,Path=SoftwareDate}"/>
@@ -196,7 +199,7 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="{DynamicResource TabHeaderAppearance}"  Height="60" Width="180">
+                    <TabItem Header="{DynamicResource TabHeaderAppearance}"  MinHeight="46" Width="168">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
@@ -400,7 +403,7 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="{DynamicResource TabHeaderWinrateAndTag}" Height="60" Width="180">
+                    <TabItem Header="{DynamicResource TabHeaderWinrateAndTag}" MinHeight="46" Width="168">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
@@ -556,8 +559,8 @@
                             </Grid>
                             <Grid Grid.Row="11" Grid.Column="5">
                                 <StackPanel Orientation="Vertical">
-                                    <Label Content="{DynamicResource LabelWeightedWinratePieChartDescriptionLine1}" FontSize="10" HorizontalAlignment="Center"/>
-                                    <Label Content="{DynamicResource LabelWeightedWinratePieChartDescriptionLine2}" FontSize="10" HorizontalAlignment="Center"/>
+                                    <Label Content="{DynamicResource LabelWeightedWinratePieChartDescriptionLine1}" FontSize="12" HorizontalAlignment="Center"/>
+                                    <Label Content="{DynamicResource LabelWeightedWinratePieChartDescriptionLine2}" FontSize="12" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
                             <Grid Grid.Row="9" Grid.Column="3">
@@ -587,7 +590,7 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Height="60" Width="180">
+                    <TabItem MinHeight="46" Width="168">
                         <TabItem.Header>
                             <TextBlock TextAlignment="Center">
                                 <Run Text="{DynamicResource TabHeaderTextOutput}"/>
@@ -688,7 +691,7 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Height="60" Width="180">
+                    <TabItem MinHeight="46" Width="168">
                         <TabItem.Header>
                             <TextBlock TextAlignment="Center">
                                 <Run Text="{DynamicResource TabHeaderTextOutput}"/>
@@ -745,7 +748,7 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="{DynamicResource TabHeaderWatchList}" Height="60" Width="180">
+                    <TabItem Header="{DynamicResource TabHeaderWatchList}" MinHeight="46" Width="168">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
@@ -822,7 +825,7 @@
                               </Grid>
                           </Grid>
                     </TabItem>
-                    <TabItem Header="{DynamicResource TabHeaderAdvanced}" Height="60" Width="180">
+                    <TabItem Header="{DynamicResource TabHeaderAdvanced}" MinHeight="46" Width="168">
                         <Grid x:Name="AdvancedOptionsGrid">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
@@ -935,7 +938,7 @@
                 </TabControl>
             </Grid>
         </ScrollViewer>
-            <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,1,1,0" Padding="10" Margin="0,8,0,0">
+            <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,1,1,0" Padding="10" Margin="0,8,0,0">
                 <DockPanel LastChildFill="False">
                     <Button x:Name="BtnDefault" DockPanel.Dock="Right" Content="{DynamicResource BtnDefault}" MinWidth="100" Click="BtnDefault_Click"/>
                     <Button x:Name="BtnSave" Content="{DynamicResource BtnSave}" MinWidth="100" Click="BtnSave_Click" Style="{StaticResource PrimaryButtonStyle}"/>

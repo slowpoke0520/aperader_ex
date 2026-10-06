@@ -11,14 +11,22 @@ namespace ApeRadar
 {
     public partial class HistoryWindow : Window
     {
+        private readonly History.HistoryServices historyServices;
+        private readonly bool ownsHistoryServices;
         private readonly HistoryViewModel viewModel;
         private bool ready;
         private bool filterRefreshInProgress;
 
-        public HistoryWindow() : this(true) { }
+        public HistoryWindow() : this(new History.HistoryServices(), initializeOnLoaded: true, ownsHistoryServices: true) { }
 
-        internal HistoryWindow(bool initializeOnLoaded)
+        internal HistoryWindow(bool initializeOnLoaded) : this(new History.HistoryServices(), initializeOnLoaded, ownsHistoryServices: true) { }
+
+        internal HistoryWindow(History.HistoryServices historyServices, bool initializeOnLoaded) : this(historyServices, initializeOnLoaded, ownsHistoryServices: false) { }
+
+        private HistoryWindow(History.HistoryServices historyServices, bool initializeOnLoaded, bool ownsHistoryServices)
         {
+            this.historyServices = historyServices ?? throw new ArgumentNullException(nameof(historyServices));
+            this.ownsHistoryServices = ownsHistoryServices;
             InitializeComponent();
             HistoryChart.Tooltip = new ShipAwareChartTooltip();
             string chartFontFamily = ChartFontUtils.Resolve(HistoryChart.FontFamily);
@@ -28,15 +36,23 @@ namespace ApeRadar
                 FontFamily = chartFontFamily
             };
             viewModel = new HistoryViewModel(
-                History.HistoryServices.Repository,
-                History.HistoryServices.Analysis,
-                History.HistoryServices.SessionAnalysis,
-                History.HistoryServices.Insights,
-                History.HistoryServices.Coordinator,
+                historyServices.Repository,
+                historyServices.Analysis,
+                historyServices.SessionAnalysis,
+                historyServices.Insights,
+                historyServices.Coordinator,
                 chartFontFamily);
             DataContext = viewModel;
             if (initializeOnLoaded) Loaded += HistoryWindow_Loaded;
-            Closed += (_, _) => viewModel.Dispose();
+            Closed += HistoryWindow_Closed;
+        }
+
+        internal History.HistoryServices HistoryServices => historyServices;
+
+        private void HistoryWindow_Closed(object? sender, EventArgs e)
+        {
+            viewModel.Dispose();
+            if (ownsHistoryServices) historyServices.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
 
         private async void HistoryWindow_Loaded(object sender, RoutedEventArgs e)

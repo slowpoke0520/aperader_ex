@@ -21,42 +21,43 @@ namespace ApeRadar.Services
 
         private static PlayerRosterRowViewModel CreateRow(Player player, RosterPresentationOptions options)
         {
+            double V(double value, RosterMetricKind kind = RosterMetricKind.Neutral) => RosterStatistic.Value(value, kind, player.IsHidden);
             RosterMetricColumnViewModel account = Column(
                 RosterColumnKind.Account,
-                Number(Text("RosterMetricBattlesShort", "Games"), player.Battles, "N0", RosterMetricKind.Neutral, options.AccountVisibility),
-                Percent(Text("RosterMetricWinrateShort", "WR"), player.AccountWinrate, RosterMetricKind.Winrate, options.AccountVisibility, RosterMetricEmphasis.Primary),
-                Number(Text("RosterMetricAvgExpShort", "XP"), player.AvgExpPerBattle, "N0", RosterMetricKind.Neutral, options.AccountAverageExperienceVisibility));
+                Number(Text("RosterMetricBattlesShort", "Games"), V(player.Battles), "0", RosterMetricKind.Neutral, options.AccountVisibility),
+                Percent(Text("RosterMetricWinrateShort", "WR"), V(player.AccountWinrate, RosterMetricKind.Winrate), RosterMetricKind.Winrate, options.AccountVisibility, RosterMetricEmphasis.Primary),
+                Number(Text("RosterMetricAvgExpShort", "XP"), V(player.AvgExpPerBattle), "0", RosterMetricKind.Neutral, options.AccountAverageExperienceVisibility));
 
             RosterMetricColumnViewModel weighted = Column(
                 RosterColumnKind.Weighted,
-                Percent(Text("RosterMetricWinrateShort", "WR"), player.WeightedWinrate, RosterMetricKind.Winrate,
+                Percent(Text("RosterMetricWinrateShort", "WR"), V(player.WeightedWinrate, RosterMetricKind.Winrate), RosterMetricKind.Winrate,
                     options.WeightedVisibility, RosterMetricEmphasis.Primary));
 
             double damageRating = player.ShipBattles > 0 && player.ShipAvgDmgPerBattle >= 0
-                ? PRUtils.CalculateDamageRating(player.ShipID, player.ShipBattles, player.ShipAvgDmgPerBattle * player.ShipBattles)
+                ? PRUtils.CalculateDamageRating(player.ShipID, V(player.ShipBattles), player.ShipAvgDmgPerBattle * player.ShipBattles)
                 : -1;
             RosterMetricColumnViewModel ship = Column(
                 RosterColumnKind.Ship,
-                Number(Text("RosterMetricBattlesShort", "Games"), player.ShipBattles, "N0", RosterMetricKind.Neutral, options.ShipVisibility),
-                Percent(Text("RosterMetricWinrateShort", "WR"), player.ShipWinrate, RosterMetricKind.Winrate, options.ShipVisibility, RosterMetricEmphasis.Primary),
-                Number(Text("RosterMetricAvgDamageShort", "Dmg"), player.ShipAvgDmgPerBattle, "N0", RosterMetricKind.DamageRating,
+                Number(Text("RosterMetricBattlesShort", "Games"), V(player.ShipBattles), "0", RosterMetricKind.Neutral, options.ShipVisibility),
+                Percent(Text("RosterMetricWinrateShort", "WR"), V(player.ShipWinrate, RosterMetricKind.Winrate), RosterMetricKind.Winrate, options.ShipVisibility, RosterMetricEmphasis.Primary),
+                Number(Text("RosterMetricAvgDamageShort", "Dmg"), V(player.ShipAvgDmgPerBattle), "0", RosterMetricKind.DamageRating,
                     options.ShipAverageDamageVisibility, damageRating),
-                Number(Text("RosterMetricAvgExpShort", "XP"), player.ShipAvgExpPerBattle, "N0", RosterMetricKind.Neutral,
+                Number(Text("RosterMetricAvgExpShort", "XP"), V(player.ShipAvgExpPerBattle), "0", RosterMetricKind.Neutral,
                     options.ShipAverageExperienceVisibility, emphasis: RosterMetricEmphasis.Tertiary));
 
             RosterMetricColumnViewModel personalRating = Column(
                 RosterColumnKind.PersonalRating,
-                Number(Text("DataGridToolTipAccount", "Account"), player.PR, "N0", RosterMetricKind.PersonalRating,
+                Number(Text("DataGridToolTipAccount", "Account"), V(player.PR), "0", RosterMetricKind.PersonalRating,
                     options.PersonalRatingVisibility, emphasis: RosterMetricEmphasis.Primary),
-                Number(Text("DataGridToolTipShip", "Ship"), player.ShipPR, "N0", RosterMetricKind.PersonalRating,
+                Number(Text("DataGridToolTipShip", "Ship"), V(player.ShipPR), "0", RosterMetricKind.PersonalRating,
                     options.PersonalRatingVisibility, emphasis: RosterMetricEmphasis.Primary));
 
             RosterMetricColumnViewModel tier = options.ShowTierPerformance
                 ? Column(
                     RosterColumnKind.Tier,
                     TierBattleMetric(player),
-                    Percent(Text("RosterMetricWinrateShort", "WR"), player.TierWinrate, RosterMetricKind.Winrate, 0, RosterMetricEmphasis.Primary),
-                    Number("PR", player.TierPR, "N0", RosterMetricKind.PersonalRating, 0, emphasis: RosterMetricEmphasis.Primary))
+                    Percent(Text("RosterMetricWinrateShort", "WR"), V(player.TierWinrate, RosterMetricKind.Winrate), RosterMetricKind.Winrate, 0, RosterMetricEmphasis.Primary),
+                    Number("PR", V(player.TierPR), "0", RosterMetricKind.PersonalRating, 0, emphasis: RosterMetricEmphasis.Primary))
                 : Column(RosterColumnKind.Tier);
 
             IReadOnlyList<RosterStatusBadgeViewModel> badges = BuildStatusBadges(player, options);
@@ -73,10 +74,10 @@ namespace ApeRadar.Services
             string tooltip = player.IsTierSampleSmall ? Text("TierStatsSmallSample", "Small same-tier sample") : "";
             return new MetricItemViewModel(
                 Text("RosterMetricBattlesShort", "Games"),
-                Format(player.TierBattles, "N0"),
+                Format(RosterStatistic.Value(player.TierBattles, hidden: player.IsHidden), "0"),
                 null,
                 RosterMetricKind.Neutral,
-                player.TierBattles >= 0,
+                RosterStatistic.IsAvailable(player.TierBattles, hidden: player.IsHidden),
                 1,
                 RosterMetricEmphasis.Secondary,
                 warningGlyph,
@@ -106,7 +107,7 @@ namespace ApeRadar.Services
                     RosterBadgeSeverity.Info,
                     Text("RosterBadgeNoteCompact", "Note"),
                     NoteQuickOptionUtils.ToBadgeText(note),
-                    $"{Text("LabelNote", "Note: ")}{note}"));
+                    $"{Text("LabelNote", "Note: ")}{note}") { NoteText = player.Note });
             }
 
             if (player.IsCustomMarked)
@@ -136,7 +137,7 @@ namespace ApeRadar.Services
                 ? player.AccountWinrate
                 : player.WeightedWinrate;
             double value = options.PerformanceMetric == RosterPerformanceMetric.PR ? player.PR : winrate;
-            bool available = !hidden && value >= 0;
+            bool available = RosterStatistic.IsAvailable(value, options.PerformanceMetric == RosterPerformanceMetric.PR ? RosterMetricKind.PersonalRating : RosterMetricKind.Winrate, hidden);
             PlayerSkillBand band = options.PerformanceMetric == RosterPerformanceMetric.PR
                 ? PlayerSkillBandUtils.FromPr(available ? value : -1)
                 : PlayerSkillBandFromWinrate(available ? value : -1);
@@ -145,7 +146,9 @@ namespace ApeRadar.Services
                 : options.PerformanceMetric == RosterPerformanceMetric.PR
                     ? SkillBandColor(band)
                     : WinrateColor(value, Properties.Settings.Default.ColorStyle);
-            string foreground = band is PlayerSkillBand.Average or PlayerSkillBand.Good ? "#202A34" : "#FFFFFF";
+            // Match the original roster: performance glyphs stay black on every
+            // skill-band color instead of turning white on darker cells.
+            string foreground = "#000000";
             string icon = hidden ? Properties.Settings.Default.HiddenIcon : "";
 
             if (!hidden && options.ShowLegacyPerformanceTag && options.LegacyTagVisibility != 2)
@@ -164,7 +167,7 @@ namespace ApeRadar.Services
                     ? Text("RosterPerformanceAccountWinrate", "Account win rate")
                     : Text("RosterPerformanceWeightedWinrate", "Weighted win rate");
             string formatted = !available ? "—" : options.PerformanceMetric == RosterPerformanceMetric.PR
-                ? value.ToString("N0", CultureInfo.CurrentCulture)
+                ? value.ToString("0", CultureInfo.CurrentCulture)
                 : value.ToString("P1", CultureInfo.CurrentCulture);
             string bandText = SkillBandText(band);
             string tooltip = !available
@@ -257,12 +260,12 @@ namespace ApeRadar.Services
         private static string BuildSealClubTooltip(Player player)
         {
             string format = Text("RosterBadgeSealClubTip",
-                "Low tiers: {0:N0} games, {1:P1}, PR {2:N0}; high tiers: {3:N0} games, {4:P1}, PR {5:N0}.");
+                "Low tiers: {0:0} games, {1:P1}, PR {2:0}; high tiers: {3:0} games, {4:P1}, PR {5:0}.");
             return string.Format(format, player.LowTierBattles, player.LowTierWinrate, player.LowTierPR,
                 player.HighTierBattles, player.HighTierWinrate, player.HighTierPR);
         }
 
-        private static string SkillBandText(PlayerSkillBand band) => band switch
+        internal static string SkillBandText(PlayerSkillBand band) => band switch
         {
             PlayerSkillBand.Bad => Text("RosterSkillBad", "Bad"),
             PlayerSkillBand.BelowAverage => Text("RosterSkillBelowAverage", "Below average"),
@@ -279,15 +282,15 @@ namespace ApeRadar.Services
             new(kind, items);
 
         private static MetricItemViewModel? Percent(string label, double value, RosterMetricKind kind, int visibility, RosterMetricEmphasis emphasis = RosterMetricEmphasis.Secondary) =>
-            visibility == 2 ? null : new(label, Format(value, "P1"), value, kind, value >= 0, Opacity(visibility), emphasis);
+            visibility == 2 ? null : new(label, RosterStatistic.Format(value, "P1", kind), value, kind, RosterStatistic.IsAvailable(value, kind), Opacity(visibility), emphasis);
 
         private static MetricItemViewModel? Number(string label, double value, string format, RosterMetricKind kind, int visibility, double? colorScore = null, RosterMetricEmphasis emphasis = RosterMetricEmphasis.Secondary) =>
-            visibility == 2 ? null : new(label, Format(value, format), colorScore ?? value, kind, value >= 0, Opacity(visibility), emphasis);
+            visibility == 2 ? null : new(label, Format(value, format), colorScore ?? value, kind, RosterStatistic.IsAvailable(value, kind), Opacity(visibility), emphasis);
 
         private static double Opacity(int visibility) => visibility == 1 ? 0.55 : 1;
 
         private static string Format(double value, string format) =>
-            value < 0 ? "—" : value.ToString(format, CultureInfo.CurrentCulture);
+            RosterStatistic.Format(value, format);
 
         private static string Text(string resourceKey, string fallback) =>
             Application.Current?.TryFindResource(resourceKey) as string ?? fallback;

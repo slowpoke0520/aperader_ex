@@ -2,6 +2,7 @@ using ApeRadar.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace ApeRadar.History
 {
@@ -31,12 +32,13 @@ namespace ApeRadar.History
             };
         }
 
-        public IReadOnlyList<HistoryTrendPoint> CalculateTrend(IReadOnlyList<BattleRecord> battles, string metric, int rollingWindow)
+        public IReadOnlyList<HistoryTrendPoint> CalculateTrend(IReadOnlyList<BattleRecord> battles, string metric, int rollingWindow, CancellationToken cancellationToken = default)
         {
             List<BattleRecord> ordered = battles.OrderBy(x => x.StartedAt).ToList();
             List<HistoryTrendPoint> points = new();
             for (int i = 0; i < ordered.Count; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 List<BattleRecord> window = TakeWindow(ordered, i, rollingWindow);
                 double? value = metric switch
                 {

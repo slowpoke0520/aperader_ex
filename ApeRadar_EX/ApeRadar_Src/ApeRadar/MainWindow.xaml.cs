@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections;
 using System.Collections.ObjectModel;
@@ -22,7 +22,6 @@ using ApeRadar.Utils.Sorters;
 using ApeRadar.History;
 using ApeRadar.Services;
 
-using Newtonsoft.Json.Linq;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using SkiaSharp;
@@ -35,24 +34,23 @@ namespace ApeRadar
 {
     partial class MainWindow : Window
     {
+        private readonly IRosterLoadSettings rosterSettings = new RosterLoadSettings();
+        private readonly IStatsCache statsCache = new PersistentStatsCache();
         private string currentBattleFilename = "";
         private string currentBattleID = "";
         private DateTimeOffset currentBattleStartTime = DateTimeOffset.MinValue;
         private int sessionSummaryTicks;
         private bool sessionSummaryRefreshing;
-        private CancellationTokenSource? rosterLoadCancellation;
-        private long rosterLoadGeneration;
+        private long rosterUiGeneration;
         private bool analysisDrawerOpen;
         private bool notificationsExpanded;
-        private readonly DispatcherTimer playerDetailOpenTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
-        private readonly DispatcherTimer playerDetailCloseTimer = new() { Interval = TimeSpan.FromMilliseconds(200) };
-        private PlayerRosterRowViewModel? pendingDetailRow;
-        private FrameworkElement? pendingDetailTarget;
-        private PlayerRosterRowViewModel? currentDetailRow;
-        private bool pointerOverDetailRow;
-        private readonly IBattleRosterCoordinator battleRosterCoordinator = new BattleRosterCoordinator();
+        private readonly PlayerDetailPopupController<PlayerRosterRowViewModel> detailPopup;
+        private readonly IRosterLoadUseCase rosterLoadUseCase;
+        private readonly IRosterHistoryCaptureService rosterHistoryCaptureService;
         private readonly IRosterPresentationService rosterPresentationService = new RosterPresentationService();
         private readonly IDashboardPresentationService dashboardPresentationService = new DashboardPresentationService();
+        private readonly HistoryServices historyServices;
+        private readonly bool ownsHistoryServices;
         private readonly BattleDashboardViewModel dashboard;
         private readonly bool useDashboardInterface;
         private DashboardBattleMetadata currentDashboardMetadata = DashboardBattleMetadata.Empty;
@@ -115,6 +113,7 @@ namespace ApeRadar
 
         public RosterStatusViewModel RosterStatus { get; } = new();
         internal BattleDashboardViewModel Dashboard => dashboard;
+        internal HistoryServices HistoryServices => historyServices;
 
         private void SwitchLanguage(Language language)
         {
@@ -335,22 +334,24 @@ namespace ApeRadar
             return null;
         }
 
-        private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
-        {
-            while (child != null)
-            {
-                if (child is T match) return match;
-                child = VisualTreeHelper.GetParent(child);
-            }
-            return null;
-        }
-
-        public MainWindow() : this(initializeRuntime: true)
+        public MainWindow() : this(new HistoryServices(), initializeRuntime: true, ownsHistoryServices: true)
         {
         }
 
-        internal MainWindow(bool initializeRuntime)
+        internal MainWindow(bool initializeRuntime) : this(new HistoryServices(), initializeRuntime, ownsHistoryServices: true)
         {
+        }
+
+        internal MainWindow(HistoryServices historyServices, bool initializeRuntime) : this(historyServices, initializeRuntime, ownsHistoryServices: false)
+        {
+        }
+
+        private MainWindow(HistoryServices historyServices, bool initializeRuntime, bool ownsHistoryServices)
+        {
+            this.historyServices = historyServices ?? throw new ArgumentNullException(nameof(historyServices));
+            this.ownsHistoryServices = ownsHistoryServices;
+            rosterLoadUseCase = new RosterLoadUseCase(new BattleRosterCoordinator());
+            rosterHistoryCaptureService = new RosterHistoryCaptureService(() => this.historyServices.Coordinator);
             dashboard = new BattleDashboardViewModel(dashboardPresentationService);
             useDashboardInterface = ConfigWindow.NormalizeMainInterfaceStyle(Properties.Settings.Default.MainInterfaceStyle) == "Dashboard";
             InitializeComponent();
@@ -368,9 +369,10 @@ namespace ApeRadar
             DashboardView.LanguageChanged += DashboardLanguageChanged;
             DashboardView.PlayerActionRequested += DashboardPlayerActionRequested;
             WinrateChart.Tooltip = new ShipAwareChartTooltip();
-            playerDetailOpenTimer.Tick += PlayerDetailOpenTimer_Tick;
-            playerDetailCloseTimer.Tick += PlayerDetailCloseTimer_Tick;
-            PlayerDetailPopup.CustomPopupPlacementCallback = PlacePlayerDetailPopup;
+            detailPopup = new PlayerDetailPopupController<PlayerRosterRowViewModel>(
+                PlayerDetailPopup, PlayerDetailCardBorder, PlayerDetailCardContent, this, DataGridAlliesList,
+                row => row.Detail, reopenBeforeShow: true, keepOpenWhileOverRow: false,
+                sameRow: (left, right) => left.Detail.IdentityKey == right.Detail.IdentityKey);
             Deactivated += (_, _) =>
             {
                 ClosePlayerDetail();
@@ -539,12 +541,23 @@ namespace ApeRadar
         {
             analysisDrawerOpen = !analysisDrawerOpen;
             UpdateResponsiveLayout();
+            if (analysisDrawerOpen)
+            {
+                ChartUtils.EnsureLoaded(WinrateChart);
+                ChartUtils.EnsureLoaded(KDEChart);
+            }
         }
 
         private void MainWindowGrid_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key != Key.Escape) return;
-            if (PlayerDetailPopup.IsOpen)
+            if (NotificationPopup.IsOpen)
+            {
+                NotificationPopup.IsOpen = false;
+                BtnToggleNotifications.Focus();
+                e.Handled = true;
+            }
+            else if (PlayerDetailPopup.IsOpen)
             {
                 ClosePlayerDetail();
                 e.Handled = true;
@@ -627,7 +640,7 @@ namespace ApeRadar
             EffectiveStatisticsFontSize = fit.Layout.StatisticsFontSize;
             IsCompactRoster = density == RosterDisplayDensity.Compact;
             UseCompactStatusBadges = fit.Layout.UseCompactStatusBadges;
-            UpdatePlayerDetailBounds();
+            detailPopup.UpdateBounds();
         }
 
         private static void ApplyRosterColumnWidths(DataGrid dataGrid, RosterColumnWidths widths)
@@ -649,123 +662,19 @@ namespace ApeRadar
             }
         }
 
-        private void UpdatePlayerDetailBounds()
-        {
-            System.Windows.Forms.Screen screen;
-            if (pendingDetailTarget is FrameworkElement target && target.IsLoaded)
-            {
-                Point point = target.PointToScreen(new Point(target.ActualWidth / 2, target.ActualHeight / 2));
-                screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)point.X, (int)point.Y));
-            }
-            else
-            {
-                screen = System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Cursor.Position);
-            }
-            DpiScale dpi = VisualTreeHelper.GetDpi(this);
-            PlayerDetailCardBorder.Width = Math.Min(560, Math.Max(360, screen.WorkingArea.Width / dpi.DpiScaleX - 32));
-            PlayerDetailCardBorder.MaxHeight = Math.Min(720, Math.Max(300, screen.WorkingArea.Height / dpi.DpiScaleY * 0.70));
-        }
-
-        private CustomPopupPlacement[] PlacePlayerDetailPopup(Size popupSize, Size targetSize, Point offset)
-        {
-            double y = targetSize.Height / 2 - popupSize.Height / 2;
-            bool ally = FindVisualParent<DataGrid>(pendingDetailTarget) == DataGridAlliesList;
-            double preferredX = ally ? targetSize.Width + 8 : -popupSize.Width - 8;
-            double fallbackX = ally ? -popupSize.Width - 8 : targetSize.Width + 8;
-            return new[]
-            {
-                new CustomPopupPlacement(new Point(preferredX, y), PopupPrimaryAxis.Horizontal),
-                new CustomPopupPlacement(new Point(fallbackX, y), PopupPrimaryAxis.Horizontal),
-                new CustomPopupPlacement(new Point(preferredX, targetSize.Height + 6), PopupPrimaryAxis.Vertical),
-                new CustomPopupPlacement(new Point(preferredX, -popupSize.Height - 6), PopupPrimaryAxis.Vertical)
-            };
-        }
-
         private void RosterRow_MouseEnter(object sender, MouseEventArgs e)
         {
             if (sender is not DataGridRow row || row.DataContext is not PlayerRosterRowViewModel rosterRow) return;
-            playerDetailCloseTimer.Stop();
-            playerDetailOpenTimer.Stop();
-            if (currentDetailRow?.Detail.IdentityKey != rosterRow.Detail.IdentityKey && PlayerDetailPopup.IsOpen)
-                ClosePlayerDetail();
-            pointerOverDetailRow = true;
-            pendingDetailRow = rosterRow;
-            pendingDetailTarget = row;
-            playerDetailOpenTimer.Start();
+            detailPopup.RowEntered(rosterRow, row);
         }
 
-        private void RosterRow_MouseLeave(object sender, MouseEventArgs e)
-        {
-            pointerOverDetailRow = false;
-            playerDetailOpenTimer.Stop();
-            playerDetailCloseTimer.Stop();
-            playerDetailCloseTimer.Start();
-        }
+        private void RosterRow_MouseLeave(object sender, MouseEventArgs e) => detailPopup.RowLeft();
 
-        private void PlayerDetailOpenTimer_Tick(object? sender, EventArgs e)
-        {
-            playerDetailOpenTimer.Stop();
-            if (pointerOverDetailRow && pendingDetailRow != null && pendingDetailTarget != null)
-                ShowPlayerDetail(pendingDetailRow, pendingDetailTarget);
-        }
+        private void ClosePlayerDetail() => detailPopup.Close();
 
-        private void PlayerDetailCloseTimer_Tick(object? sender, EventArgs e)
-        {
-            playerDetailCloseTimer.Stop();
-            bool overRow = pendingDetailTarget?.IsMouseOver == true;
-            bool overPopup = PlayerDetailCardBorder.IsMouseOver;
-            if (!overRow && !overPopup)
-                ClosePlayerDetail();
-            else
-                playerDetailCloseTimer.Start();
-        }
+        private void PlayerDetailPopup_MouseEnter(object sender, MouseEventArgs e) => detailPopup.PopupEntered();
 
-        private void ShowPlayerDetail(PlayerRosterRowViewModel row, FrameworkElement target)
-        {
-            playerDetailOpenTimer.Stop();
-            playerDetailCloseTimer.Stop();
-            if (PlayerDetailPopup.IsOpen) PlayerDetailPopup.IsOpen = false;
-            currentDetailRow = row;
-            pendingDetailTarget = target;
-            PlayerDetailCardContent.DataContext = row.Detail;
-            PlayerDetailPopup.PlacementTarget = target;
-            PlayerDetailPopup.Placement = PlacementMode.Custom;
-            PlayerDetailPopup.StaysOpen = true;
-            UpdatePlayerDetailBounds();
-            PlayerDetailPopup.IsOpen = true;
-            // Poll while open as a fallback for Popup mouse-leave events that can
-            // be lost when WPF moves the popup into its own native window.
-            playerDetailCloseTimer.Start();
-        }
-
-        private void ClosePlayerDetail()
-        {
-            playerDetailOpenTimer.Stop();
-            playerDetailCloseTimer.Stop();
-            pendingDetailRow = null;
-            pendingDetailTarget = null;
-            pointerOverDetailRow = false;
-            PlayerDetailPopup.IsOpen = false;
-            currentDetailRow = null;
-            PlayerDetailCardContent.DataContext = null;
-        }
-
-        private void PlayerDetailPopup_MouseEnter(object sender, MouseEventArgs e)
-        {
-            playerDetailCloseTimer.Stop();
-        }
-
-        private void PlayerDetailPopup_MouseLeave(object sender, MouseEventArgs e)
-        {
-            playerDetailCloseTimer.Stop();
-            playerDetailCloseTimer.Start();
-        }
-
-        private void PlayerDetailPopup_Closed(object? sender, EventArgs e)
-        {
-            currentDetailRow = null;
-            PlayerDetailCardContent.DataContext = null;
-        }
+        private void PlayerDetailPopup_MouseLeave(object sender, MouseEventArgs e) => detailPopup.PopupLeft();
 
         private void RosterDataGrid_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
@@ -776,8 +685,8 @@ namespace ApeRadar
 
         private void BtnCopyPlayerDetail_Click(object sender, RoutedEventArgs e)
         {
-            if (currentDetailRow == null) return;
-            Clipboard.SetDataObject(TextUtils.GenerateParticularPlayerStatisticsOutputText(currentDetailRow.Player));
+            if (detailPopup.CurrentRow == null) return;
+            Clipboard.SetDataObject(TextUtils.GenerateParticularPlayerStatisticsOutputText(detailPopup.CurrentRow.Player));
             NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessagePlayerDetailCopied") as string);
         }
 
@@ -821,227 +730,137 @@ namespace ApeRadar
 
         private async Task ReadPlayersListAndGetDataFromServer(string filename, bool forceRefresh = false, string? forceRefreshPlayerID = null, Server? forceRefreshPlayerServer = null)
         {
-            long generation = Interlocked.Increment(ref rosterLoadGeneration);
-            CancellationTokenSource cancellation = new();
-            CancellationTokenSource? previousCancellation = rosterLoadCancellation;
-            rosterLoadCancellation = cancellation;
-            previousCancellation?.Cancel();
-            previousCancellation?.Dispose();
-            CancellationToken cancellationToken = cancellation.Token;
-
+            long uiGeneration = Interlocked.Increment(ref rosterUiGeneration);
             LogUtils.WriteInfo("Reading Players List");
             LogUtils.WriteInfo($"gamePath={Properties.Settings.Default.GamePath}");
             LogUtils.WriteInfo($"filename={filename}");
+            RosterLoadCommand command = rosterSettings.Capture(filename, forceRefresh, forceRefreshPlayerID, forceRefreshPlayerServer);
 
-            int maximumRetryAttempts = Properties.Settings.Default.MaximumRetryAttemptsOnError;
-            const int delayTimeBetweenRetryAttempts = 1000;
-
-            for (int i = 0; i <= maximumRetryAttempts; i++)
+            try
             {
-                try
+                RosterLoadExecution? execution = await rosterLoadUseCase.LoadAsync(
+                    command,
+                    attemptStarted: () => SetRosterInputEnabled(false),
+                    metadataReady: metadata => ApplyRosterMetadata(metadata),
+                    statisticsLoading: () => NotificationMessageUtils.CreateMessage(
+                        MessageType.INFO,
+                        FindResource("NotificationMessageRetrivingData") as string),
+                    attemptFailed: ReportRosterLoadFailure,
+                    retrying: attempt => NotificationMessageUtils.CreateMessage(
+                        MessageType.INFO,
+                        $"{FindResource("NotificationMessageRetrying")}{attempt}{FindResource("NotificationMessageAttempt")}"));
+                if (execution == null) return;
+
+                List<Player> playerList = execution.Players.ToList();
+                currentDashboardMetadata = new(
+                    HistoryMapNameLocalizer.GetDisplayName(execution.RawMapName),
+                    FormatBattleMode(execution.BattleType),
+                    FormatDashboardServer(execution.Server),
+                    execution.BattleStartTime,
+                    APITypeExt.GetNameByAPIType(execution.Provider),
+                    DateTimeOffset.Now);
+                Battlefield battlefield = new(execution.BattleType, execution.BattleStartTime, playerList);
+
+                foreach (Player player in playerList)
                 {
-                    BtnRefresh.IsEnabled = false;
-                    BtnOpen.IsEnabled = false;
-                    DashboardView.SetRosterInputEnabled(false);
+                    if (!string.IsNullOrEmpty(player.Note))
+                        NotificationMessageUtils.CreateMessage(MessageType.INFO, $"{FindResource("NotificationMessageNoteEncountered") as string}{player.Name}{FindResource("NotificationMessageNoteEncounteredMiddle") as string}{player.Note}");
+                }
 
-                    Server server = ServerExt.GetServerByName(Properties.Settings.Default.Server);
+                if (Properties.Settings.Default.YuyukoAPIPushEnabled)
+                    ApiUtils.YuyukoApiPushBattlefieldInfo(battlefield);
 
-                    LogUtils.WriteInfo($"server={ServerExt.GetNameByServer(server)}");
-                    if (server == Server.AUTO)
+                ApplyBattlefieldToUI(battlefield, loadCompleted: true);
+                statsCache.Save();
+                EncounterHistoryUtils.RecordBattle(playerList, execution.BattleId, execution.BattleStartTime);
+                if (execution.HistoryCapture != null)
+                    _ = CaptureHistoryAsync(execution.HistoryCapture);
+                currentBattleFilename = execution.Filename;
+                currentBattleID = execution.BattleId;
+                currentBattleStartTime = execution.BattleStartTime;
+
+                if (execution.BackgroundRefresh != null)
+                {
+                    int stalePlayerCount = playerList.Count(player => player.IsDataStale);
+                    NotificationMessageUtils.CreateMessage(MessageType.INFO, $"{stalePlayerCount}{FindResource("NotificationMessageDataUsingCache") as string}");
+                    RosterStatus.Set(RosterLoadState.Refreshing, FindResource("RosterStatusRefreshing") as string ?? "Refreshing cached data…");
+                    _ = ApplyBackgroundRefreshAsync(execution.BackgroundRefresh.Start(), battlefield);
+                }
+                else
+                {
+                    SetRosterStatus(execution.RosterResult);
+                }
+
+                if (execution.RosterResult.IsFailed)
+                {
+                    ApiFailureKind failure = execution.RosterResult.Failures.FirstOrDefault();
+                    string failureResource = failure switch
                     {
-                        server = ServerExt.AutoDetectServer($@"{Properties.Settings.Default.GamePath}\profile\clientrunner.log");
-                        LogUtils.WriteInfo($"detectedServer={ServerExt.GetNameByServer(server)}");
-                    }
-
-                    //secondary server: enemy players come from different server, for cross-server CW only
-                    Server secondaryServer = ServerExt.GetServerByName(Properties.Settings.Default.SecondaryServer);
-                    LogUtils.WriteInfo($"secondaryServer={ServerExt.GetNameByServer(secondaryServer)}");
-                    JObject JObjectWatchList = WatchListUtils.ReadWatchList(@".\WatchList.json");
-                    JObject JObjectTempArenaInfo = FileUtils.ReadTempArenaInfoFile(filename);
-
-                    string battleType = JObjectTempArenaInfo["matchGroup"]!.Value<string>()!;
-                    DateTimeOffset battleStartTime = DateTimeOffset.ParseExact(JObjectTempArenaInfo["dateTime"]!.Value<string>()!, "dd.MM.yyyy HH:mm:ss", CultureInfo.CurrentCulture);
-                    string rawMapName = JObjectTempArenaInfo["mapDisplayName"]?.Value<string>()
-                        ?? JObjectTempArenaInfo["mapName"]?.Value<string>()
-                        ?? "";
-
-                    int playerCount = JObjectTempArenaInfo["vehicles"]!.Count();
-                    LogUtils.WriteInfo($"playerCount={playerCount}");
-
-                    APIType apiType = APITypeExt.GetAPITypeByName(Properties.Settings.Default.APITypeSelection);
-                    BattleRosterRequest rosterRequest = new(
-                        JObjectTempArenaInfo,
-                        playerCount,
-                        server,
-                        secondaryServer,
-                        Properties.Settings.Default.SecondaryServerEnabled,
-                        apiType,
-                        forceRefresh,
-                        forceRefreshPlayerID,
-                        forceRefreshPlayerServer);
-
-                    currentDashboardMetadata = new(
-                        HistoryMapNameLocalizer.GetDisplayName(rawMapName),
-                        FormatBattleMode(battleType),
-                        FormatDashboardServer(server),
-                        battleStartTime,
-                        APITypeExt.GetNameByAPIType(apiType),
-                        null);
-
-                    if (forceRefreshPlayerID == null)
-                    {
-                        List<Player> metadataPlayers = battleRosterCoordinator.CreateMetadataRoster(rosterRequest).ToList();
-                        Battlefield metadataBattlefield = new(battleType, battleStartTime, metadataPlayers);
-                        ApplyBattlefieldToUI(metadataBattlefield, loadCompleted: false);
-                        RosterStatus.Set(RosterLoadState.Metadata, FindResource("RosterStatusMetadata") as string ?? "Loading player statistics…");
-                    }
-
-                    NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageRetrivingData") as string);
-                    BattleRosterLoadResult rosterResult = await battleRosterCoordinator.LoadAsync(rosterRequest, cancellationToken);
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (generation != Interlocked.Read(ref rosterLoadGeneration)) return;
-                    List<Player> playerList = rosterResult.Players.ToList();
-                    apiType = rosterResult.Provider;
-                    currentDashboardMetadata = currentDashboardMetadata with
-                    {
-                        Provider = APITypeExt.GetNameByAPIType(apiType),
-                        UpdatedAt = DateTimeOffset.Now
+                        ApiFailureKind.RateLimited => "NotificationMessageUpdateRateLimited",
+                        ApiFailureKind.Network or ApiFailureKind.Timeout or ApiFailureKind.Server => "NotificationMessageConnectionError",
+                        ApiFailureKind.InvalidResponse => "NotificationMessageJsonError",
+                        _ => "NotificationMessageOtherError"
                     };
-
-                    //check if player is on the watchlist
-                    foreach (Player p in playerList)
-                    {
-                        if (p.ID != "-1" && JObjectWatchList[ServerExt.GetNameByServer(p.Server)]!.SelectToken(p.ID) != null)
-                        {
-                            p.WatchStatus = WatchStatusExt.GetStatusByName(JObjectWatchList[ServerExt.GetNameByServer(p.Server)]![p.ID]!["status"]!.Value<string>()!);
-                            p.Note = WatchListUtils.GetPlayerNote(JObjectWatchList, p.Server, p.ID);
-                            p.IsCustomMarked = WatchListUtils.GetPlayerCustomMarker(JObjectWatchList, p.Server, p.ID);
-                        }
-                    }
-
-                    string arenaId = JObjectTempArenaInfo["arenaUniqueId"]?.Value<string>()
-                        ?? JObjectTempArenaInfo["arenaUniqueID"]?.Value<string>()
-                        ?? JObjectTempArenaInfo["arenaId"]?.Value<string>()
-                        ?? "";
-                    string shipComposition = string.Join(",", JObjectTempArenaInfo["vehicles"]!
-                        .Select(x => x["shipId"]?.Value<string>() ?? "")
-                        .OrderBy(x => x, StringComparer.Ordinal));
-                    string battleID = !string.IsNullOrWhiteSpace(arenaId)
-                        ? $"arena:{arenaId}"
-                        : $"{ServerExt.GetNameByServer(server)}|{battleStartTime:O}|{JObjectTempArenaInfo["mapName"]?.Value<string>()}|{JObjectTempArenaInfo["playerName"]?.Value<string>()}|{shipComposition}";
-                    EncounterHistoryUtils.ApplyRecentEncounterMarkers(playerList, battleID, battleStartTime);
-
-                    //battlefield is the main model containing ally and enemy player list
-                    Battlefield battlefield = new(battleType, battleStartTime, playerList);
-
-                    //remind the player of saved notes when encountering players with notes
-                    foreach (Player p in playerList)
-                    {
-                        if (!string.IsNullOrEmpty(p.Note))
-                        {
-                            NotificationMessageUtils.CreateMessage(MessageType.INFO, $"{FindResource("NotificationMessageNoteEncountered") as string}{p.Name}{FindResource("NotificationMessageNoteEncounteredMiddle") as string}{p.Note}");
-                        }
-                    }
-
-                    //push feature under dev
-                    if (Properties.Settings.Default.YuyukoAPIPushEnabled)
-                    {
-                        ApiUtils.YuyukoApiPushBattlefieldInfo(battlefield);
-                    }
-
-                    ApplyBattlefieldToUI(battlefield, loadCompleted: true);
-                    PlayerDataCache.Save();
-                    EncounterHistoryUtils.RecordBattle(playerList, battleID, battleStartTime);
-                    if (IsRandomBattle(battleType))
-                    {
-                        _ = CaptureHistoryAsync(battleID, battleType, battleStartTime,
-                            JObjectTempArenaInfo["mapName"]?.Value<string>() ?? JObjectTempArenaInfo["mapDisplayName"]?.Value<string>() ?? "",
-                            server, playerList);
-                    }
-                    currentBattleFilename = filename;
-                    currentBattleID = battleID;
-                    currentBattleStartTime = battleStartTime;
-
-                    //refresh stale cached players in background without blocking the UI
-                    List<Player> stalePlayers = playerList.Where(p => p.IsDataStale).ToList();
-                    if (stalePlayers.Count > 0)
-                    {
-                        NotificationMessageUtils.CreateMessage(MessageType.INFO, $"{stalePlayers.Count}{FindResource("NotificationMessageDataUsingCache") as string}");
-                        RosterStatus.Set(RosterLoadState.Refreshing, FindResource("RosterStatusRefreshing") as string ?? "Refreshing cached data…");
-                        BattleRosterRequest refreshRequest = rosterRequest with { ApiType = apiType, ForceRefresh = true, ForceRefreshPlayerId = null, ForceRefreshPlayerServer = null };
-                        _ = RefreshStalePlayersInBackground(refreshRequest, battlefield, generation, cancellationToken);
-                    }
-                    else
-                    {
-                        string stateResource = rosterResult.IsFailed ? "RosterStatusFailed" : rosterResult.IsPartial ? "RosterStatusPartial" : "RosterStatusComplete";
-                        RosterStatus.Set(rosterResult.IsFailed ? RosterLoadState.Failed : rosterResult.IsPartial ? RosterLoadState.Partial : RosterLoadState.Complete,
-                            FindResource(stateResource) as string ?? "Player data loaded.");
-                    }
-
-                    if (rosterResult.IsFailed)
-                    {
-                        ApiFailureKind failure = rosterResult.Failures.FirstOrDefault();
-                        string failureResource = failure switch
-                        {
-                            ApiFailureKind.RateLimited => "NotificationMessageUpdateRateLimited",
-                            ApiFailureKind.Network or ApiFailureKind.Timeout or ApiFailureKind.Server => "NotificationMessageConnectionError",
-                            ApiFailureKind.InvalidResponse => "NotificationMessageJsonError",
-                            _ => "NotificationMessageOtherError"
-                        };
-                        NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource(failureResource) as string);
-                    }
-                    else
-                    {
-                        NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageDataRetrieved") as string);
-                    }
-                    return;
+                    NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource(failureResource) as string);
                 }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    LogUtils.WriteError("", ex);
-                    _ = ex.Message switch
-                    {
-                        "FileFormatIncorrect" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageFileError") as string),
-                        "ServerAutoDetectionFailed" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageServerAutoDetectionFailed") as string),
-                        "HttpRequestFailed" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageConnectionError") as string),
-                        "JsonStringNotValid" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageJsonError") as string),
-                        _ => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageOtherError") as string),
-                    };
-                    if (generation == Interlocked.Read(ref rosterLoadGeneration))
-                    {
-                        RosterStatus.Set(RosterLoadState.Failed, FindResource("RosterStatusFailed") as string ?? "Player statistics could not be loaded.");
-                    }
-                    if (ex.Message == "FileFormatIncorrect" || ex.Message == "ServerAutoDetectionFailed")
-                    {
-                        return;
-                    }
-                    else
-                    {
-                        if (i < maximumRetryAttempts)
-                        {
-                            await Task.Delay(delayTimeBetweenRetryAttempts, cancellationToken);
-                            NotificationMessageUtils.CreateMessage(MessageType.INFO, $"{FindResource("NotificationMessageRetrying")}{i + 1}{FindResource("NotificationMessageAttempt")}");
-                        }
-                        else if (maximumRetryAttempts > 0)
-                        {
-                            NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageMaximumAttemptsReached") as string);
-                        }
-                    }
-                }
-                finally
-                {
-                    if (generation == Interlocked.Read(ref rosterLoadGeneration))
-                    {
-                        BtnRefresh.IsEnabled = true;
-                        BtnOpen.IsEnabled = true;
-                        DashboardView.SetRosterInputEnabled(true);
-                    }
-                }
+                else
+                    NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageDataRetrieved") as string);
             }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                rosterLoadUseCase.Cancel();
+                if (command.MaximumRetryAttempts > 0 && ex.Message is not "FileFormatIncorrect" and not "ServerAutoDetectionFailed")
+                    NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageMaximumAttemptsReached") as string);
+            }
+            finally
+            {
+                if (uiGeneration == Interlocked.Read(ref rosterUiGeneration)) SetRosterInputEnabled(true);
+            }
+        }
+
+        private void SetRosterInputEnabled(bool enabled)
+        {
+            BtnRefresh.IsEnabled = enabled;
+            BtnOpen.IsEnabled = enabled;
+            DashboardView.SetRosterInputEnabled(enabled);
+        }
+
+        private void ApplyRosterMetadata(RosterLoadMetadata metadata)
+        {
+            currentDashboardMetadata = new(
+                HistoryMapNameLocalizer.GetDisplayName(metadata.RawMapName),
+                FormatBattleMode(metadata.BattleType),
+                FormatDashboardServer(metadata.Server),
+                metadata.BattleStartTime,
+                APITypeExt.GetNameByAPIType(metadata.Provider),
+                null);
+            Battlefield metadataBattlefield = new(metadata.BattleType, metadata.BattleStartTime, metadata.Players.ToList());
+            ApplyBattlefieldToUI(metadataBattlefield, loadCompleted: false);
+            RosterStatus.Set(RosterLoadState.Metadata, FindResource("RosterStatusMetadata") as string ?? "Loading player statistics…");
+        }
+
+        private void ReportRosterLoadFailure(Exception exception)
+        {
+            LogUtils.WriteError("", exception);
+            _ = exception.Message switch
+            {
+                "FileFormatIncorrect" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageFileError") as string),
+                "ServerAutoDetectionFailed" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageServerAutoDetectionFailed") as string),
+                "HttpRequestFailed" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageConnectionError") as string),
+                "JsonStringNotValid" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageJsonError") as string),
+                _ => NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageOtherError") as string),
+            };
+            RosterStatus.Set(RosterLoadState.Failed, FindResource("RosterStatusFailed") as string ?? "Player statistics could not be loaded.");
+        }
+
+        private void SetRosterStatus(BattleRosterLoadResult result)
+        {
+            string stateResource = result.IsFailed ? "RosterStatusFailed" : result.IsPartial ? "RosterStatusPartial" : "RosterStatusComplete";
+            RosterStatus.Set(result.IsFailed ? RosterLoadState.Failed : result.IsPartial ? RosterLoadState.Partial : RosterLoadState.Complete,
+                FindResource(stateResource) as string ?? "Player data loaded.");
         }
 
         private void ApplyBattlefieldToUI(Battlefield battlefield, bool loadCompleted = true)
@@ -1083,62 +902,36 @@ namespace ApeRadar
             _ => ServerExt.GetNameByServer(server)
         };
 
-        //re-fetch expired cached players in the background, then update the UI in place
-        private async Task RefreshStalePlayersInBackground(BattleRosterRequest request, Battlefield currentBattlefield, long generation, CancellationToken cancellationToken)
+        private async Task ApplyBackgroundRefreshAsync(Task<RosterBackgroundRefreshResult?> refreshTask, Battlefield currentBattlefield)
         {
             try
             {
-                BattleRosterLoadResult refreshResult = await battleRosterCoordinator.LoadAsync(request, cancellationToken);
-                if (refreshResult.IsFailed)
+                RosterBackgroundRefreshResult? refresh = await refreshTask;
+                if (refresh == null || !ReferenceEquals(DataContext, currentBattlefield)) return;
+
+                switch (refresh.State)
                 {
-                    if (generation == Interlocked.Read(ref rosterLoadGeneration))
-                    {
+                    case RosterBackgroundRefreshState.Failed:
                         RosterStatus.Set(RosterLoadState.Partial, FindResource("RosterStatusPartial") as string ?? "Some player data is unavailable.");
-                    }
-                    return;
+                        break;
+                    case RosterBackgroundRefreshState.Refreshed when refresh.RefreshedPlayers != null && refresh.RosterResult != null:
+                        Battlefield battlefield = new(currentBattlefield.BattleType, currentBattlefield.BattleStartTime, refresh.RefreshedPlayers.ToList());
+                        ApplyBattlefieldToUI(battlefield);
+                        statsCache.Save();
+                        RosterStatus.Set(refresh.RosterResult.IsPartial ? RosterLoadState.Partial : RosterLoadState.Complete,
+                            FindResource(refresh.RosterResult.IsPartial ? "RosterStatusPartial" : "RosterStatusComplete") as string ?? "Player data loaded.");
+                        NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageBackgroundUpdateComplete") as string);
+                        break;
+                    case RosterBackgroundRefreshState.Error:
+                        throw refresh.Error ?? new InvalidOperationException("Background roster refresh failed.");
                 }
-                List<Player> refreshedList = refreshResult.Players.ToList();
-
-                //only apply the result if the user is still viewing the same battle
-                if (generation != Interlocked.Read(ref rosterLoadGeneration) || !ReferenceEquals(this.DataContext, currentBattlefield))
-                {
-                    return;
-                }
-
-                int updatedCount = 0;
-                foreach (Player newP in refreshedList)
-                {
-                    Player? old = currentBattlefield.Allies.FirstOrDefault(x => x.Server == newP.Server && x.ID == newP.ID);
-                    old ??= currentBattlefield.Enemies.FirstOrDefault(x => x.Server == newP.Server && x.ID == newP.ID);
-                    if (old != null)
-                    {
-                        old.CopyFrom(newP);
-                        updatedCount++;
-                    }
-                }
-
-                if (updatedCount > 0)
-                {
-                    List<Player> combinedPlayerList = currentBattlefield.Allies.Concat(currentBattlefield.Enemies).ToList();
-                    Battlefield battlefield = new(currentBattlefield.BattleType, currentBattlefield.BattleStartTime, combinedPlayerList);
-                    ApplyBattlefieldToUI(battlefield);
-                    PlayerDataCache.Save();
-                    RosterStatus.Set(refreshResult.IsPartial ? RosterLoadState.Partial : RosterLoadState.Complete,
-                        FindResource(refreshResult.IsPartial ? "RosterStatusPartial" : "RosterStatusComplete") as string ?? "Player data loaded.");
-                    NotificationMessageUtils.CreateMessage(MessageType.INFO, FindResource("NotificationMessageBackgroundUpdateComplete") as string);
-                }
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
             }
             catch (Exception ex)
             {
                 LogUtils.WriteError("background data refresh failed", ex);
-                if (generation == Interlocked.Read(ref rosterLoadGeneration))
-                {
-                    RosterStatus.Set(RosterLoadState.Partial, FindResource("RosterStatusPartial") as string ?? "Some player data is unavailable.");
-                    NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageOtherError") as string);
-                }
+                if (!ReferenceEquals(DataContext, currentBattlefield)) return;
+                RosterStatus.Set(RosterLoadState.Partial, FindResource("RosterStatusPartial") as string ?? "Some player data is unavailable.");
+                NotificationMessageUtils.CreateMessage(MessageType.ERROR, FindResource("NotificationMessageOtherError") as string);
             }
         }
 
@@ -1179,7 +972,7 @@ namespace ApeRadar
 
         private void BtnHistory_Click(object sender, RoutedEventArgs e)
         {
-            HistoryWindow window = new() { Owner = this };
+            HistoryWindow window = new(historyServices, initializeOnLoaded: true) { Owner = this };
             window.Show();
         }
 
@@ -1189,8 +982,8 @@ namespace ApeRadar
         {
             try
             {
-                await HistoryServices.InitializeAsync(Properties.Settings.Default.GamePath);
-                LogUtils.WriteInfo($"Battle history database: {HistoryServices.Repository.DatabasePath}");
+                await historyServices.InitializeAsync(Properties.Settings.Default.GamePath);
+                LogUtils.WriteInfo($"Battle history database: {historyServices.Repository.DatabasePath}");
                 await RefreshSessionSummaryAsync();
             }
             catch (Exception ex)
@@ -1200,29 +993,11 @@ namespace ApeRadar
             }
         }
 
-        private async Task CaptureHistoryAsync(string battleKey, string mode, DateTimeOffset startedAt, string mapName, Server server, List<Player> players)
+        private async Task CaptureHistoryAsync(RosterHistoryCaptureRequest request)
         {
             try
             {
-                Player? self = players.FirstOrDefault(x => x.Relation == "0");
-                if (self == null) return;
-                BattleRecord battle = new()
-                {
-                    BattleKey = battleKey,
-                    StartedAt = startedAt,
-                    Server = ServerExt.GetNameByServer(server),
-                    Mode = mode,
-                    MapName = mapName,
-                    AccountId = self.ID,
-                    AccountName = self.Name,
-                    ShipId = self.ShipID,
-                    ShipName = self.ShipName,
-                    ShipType = self.ShipType,
-                    Completeness = BattleCompleteness.Pending,
-                    Source = BattleMetricSource.MetadataOnly,
-                    StatusMessage = "WaitingForReplay"
-                };
-                await HistoryServices.Coordinator.CapturePreBattleAsync(battle, players.Select(BattlePlayerRecord.FromPlayer).ToList(), null);
+                await rosterHistoryCaptureService.CaptureAsync(request);
                 await RefreshSessionSummaryAsync();
             }
             catch (Exception ex) { LogUtils.WriteError("Unable to save the pre-battle history snapshot.", ex); }
@@ -1234,7 +1009,7 @@ namespace ApeRadar
             sessionSummaryRefreshing = true;
             try
             {
-                BattleSession? session = await HistoryServices.Repository.GetLatestSessionAsync();
+                BattleSession? session = await historyServices.Repository.GetLatestSessionAsync();
                 if (session == null)
                 {
                     TxtMainSessionBattles.Text = TxtMainSessionWinrate.Text = TxtMainSessionDamage.Text = TxtMainSessionPr.Text = "-";
@@ -1242,9 +1017,9 @@ namespace ApeRadar
                     DashboardView.UpdateSessionSummary("—", FindResource("MainSessionOpenHint") as string ?? "Open battle history");
                     return;
                 }
-                IReadOnlyList<BattleRecord> battles = await HistoryServices.Repository.GetSessionBattlesAsync(session.Id);
-                IReadOnlyDictionary<long, BattleAdvancedMetrics> advanced = await HistoryServices.Repository.GetAdvancedMetricsAsync(battles.Select(x => x.Id));
-                SessionSummary summary = HistoryServices.SessionAnalysis.CalculateSession(session, battles, advanced);
+                IReadOnlyList<BattleRecord> battles = await historyServices.Repository.GetSessionBattlesAsync(session.Id);
+                IReadOnlyDictionary<long, BattleAdvancedMetrics> advanced = await historyServices.Repository.GetAdvancedMetricsAsync(battles.Select(x => x.Id));
+                SessionSummary summary = historyServices.SessionAnalysis.CalculateSession(session, battles, advanced);
                 int total = summary.Metrics.RecordedBattles;
                 int resolved = battles.Where(x => x.WinCount.HasValue).Sum(x => Math.Max(1, x.BattleCount));
                 int wins = (int)Math.Round(battles.Where(x => x.WinCount.HasValue).Sum(x => x.WinCount ?? 0), MidpointRounding.AwayFromZero);
@@ -1257,8 +1032,8 @@ namespace ApeRadar
                 TxtMainSessionWinrate.Text = total is > 0 and < 5
                     ? string.Format(FindResource("HistorySessionSmallResultFormat") as string ?? "{0} wins · {1} non-wins · {2} pending", wins, nonWins, pending)
                     : summary.Metrics.Winrate?.ToString("P1") ?? "-";
-                TxtMainSessionDamage.Text = summary.Metrics.AverageDamage?.ToString("N0") ?? "-";
-                TxtMainSessionPr.Text = summary.Metrics.AveragePr?.ToString("N0") ?? "-";
+                TxtMainSessionDamage.Text = summary.Metrics.AverageDamage?.ToString("0") ?? "-";
+                TxtMainSessionPr.Text = summary.Metrics.AveragePr?.ToString("0") ?? "-";
                 string dashboardSessionText = $"{total} {FindResource("MainSessionBattles") ?? "battles"} · {TxtMainSessionWinrate.Text}";
                 string dashboardSessionTip = $"{dashboardSessionText}{Environment.NewLine}{FindResource("HistoryAverageDamage") ?? "Average damage"} {TxtMainSessionDamage.Text} · PR {TxtMainSessionPr.Text}";
                 DashboardView.UpdateSessionSummary(dashboardSessionText, dashboardSessionTip);
@@ -1266,11 +1041,6 @@ namespace ApeRadar
             catch (Exception ex) { LogUtils.WriteError("Unable to refresh the current session summary.", ex); }
             finally { sessionSummaryRefreshing = false; }
         }
-
-        private static bool IsRandomBattle(string mode) =>
-            mode.Equals("pvp", StringComparison.OrdinalIgnoreCase) ||
-            mode.Equals("random", StringComparison.OrdinalIgnoreCase) ||
-            mode.Equals("RandomBattle", StringComparison.OrdinalIgnoreCase);
 
         private static async Task CheckForStartupUpdates()
         {
@@ -1563,11 +1333,9 @@ namespace ApeRadar
 
         protected override void OnClosed(EventArgs e)
         {
-            playerDetailOpenTimer.Stop();
-            playerDetailCloseTimer.Stop();
-            rosterLoadCancellation?.Cancel();
-            rosterLoadCancellation?.Dispose();
-            rosterLoadCancellation = null;
+            detailPopup.Close();
+            rosterLoadUseCase.Dispose();
+            if (ownsHistoryServices) historyServices.DisposeAsync().AsTask().GetAwaiter().GetResult();
             base.OnClosed(e);
         }
     }

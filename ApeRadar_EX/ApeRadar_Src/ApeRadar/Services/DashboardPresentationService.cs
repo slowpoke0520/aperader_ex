@@ -82,11 +82,15 @@ namespace ApeRadar.Services
                 Ally = ally,
                 Enemy = enemy,
                 ContextWinrate = DashboardComparisonMetric.Percentage(ally.ContextWinrate, enemy.ContextWinrate,
-                    context == DashboardRosterContext.Account ? Text("DashboardMetricAccountWinrate", "Account win rate") : Text("DashboardMetricTierWinrate", "Tier win rate")),
+                    context == DashboardRosterContext.Account ? Text("DashboardMetricAccountWinrate", "Account win rate") : Text("DashboardMetricTierWinrate", "Tier win rate"))
+                    .WithCoverage(ally.ContextValidCount, ally.TeamSize, enemy.ContextValidCount, enemy.TeamSize),
                 ContextPr = DashboardComparisonMetric.Integer(ally.ContextPr, enemy.ContextPr,
-                    context == DashboardRosterContext.Account ? Text("DashboardMetricAccountPr", "Account PR") : Text("DashboardMetricTierPr", "Tier PR")),
-                ShipWinrate = DashboardComparisonMetric.Percentage(ally.ShipWinrate, enemy.ShipWinrate, Text("DashboardMetricShipWinrate", "Ship win rate")),
-                ShipPr = DashboardComparisonMetric.Integer(ally.ShipPr, enemy.ShipPr, Text("DashboardMetricShipPr", "Ship PR")),
+                    context == DashboardRosterContext.Account ? Text("DashboardMetricAccountPr", "Account PR") : Text("DashboardMetricTierPr", "Tier PR"))
+                    .WithCoverage(ally.ContextPrValidCount, ally.TeamSize, enemy.ContextPrValidCount, enemy.TeamSize),
+                ShipWinrate = DashboardComparisonMetric.Percentage(ally.ShipWinrate, enemy.ShipWinrate, Text("DashboardMetricShipWinrate", "Ship win rate"))
+                    .WithCoverage(ally.ShipValidCount, ally.TeamSize, enemy.ShipValidCount, enemy.TeamSize),
+                ShipPr = DashboardComparisonMetric.Integer(ally.ShipPr, enemy.ShipPr, Text("DashboardMetricShipPr", "Ship PR"))
+                    .WithCoverage(ally.ShipPrValidCount, ally.TeamSize, enemy.ShipPrValidCount, enemy.TeamSize),
                 Carrier = BuildShipClass(Text("DashboardShipClassCarrier", "Carrier"), "AirCarrier", allies, enemies),
                 Destroyer = BuildShipClass(Text("DashboardShipClassDestroyer", "Destroyer"), "Destroyer", allies, enemies)
             };
@@ -94,20 +98,23 @@ namespace ApeRadar.Services
 
         private static DashboardTeamSummary BuildTeamSummary(IReadOnlyList<DashboardPlayerRowViewModel> rows, DashboardRosterContext context)
         {
-            DashboardPlayerRowViewModel[] contextValid = rows.Where(row =>
-                context == DashboardRosterContext.Account ? row.HasValidAccount : row.HasValidTier).ToArray();
+            DashboardPlayerRowViewModel[] contextValid = rows.Where(row => row.HasContextWinrate).ToArray();
+            DashboardPlayerRowViewModel[] contextPrValid = rows.Where(row => row.HasContextPr).ToArray();
             DashboardPlayerRowViewModel[] shipValid = rows.Where(row => row.HasValidShip).ToArray();
+            DashboardPlayerRowViewModel[] shipPrValid = rows.Where(row => row.HasShipPr).ToArray();
             return new()
             {
                 TeamSize = rows.Count,
                 ContextValidCount = contextValid.Length,
                 ShipValidCount = shipValid.Length,
-                ShipLowSampleCount = shipValid.Count(row => row.IsShipLowSample),
+                ContextPrValidCount = contextPrValid.Length,
+                ShipPrValidCount = shipPrValid.Length,
+                ShipLowSampleCount = rows.Count(row => row.IsShipLowSample),
                 AnomalyCount = rows.Count(row => row.IsAnomaly),
                 ContextWinrate = Average(contextValid, row => context == DashboardRosterContext.Account ? row.Player.AccountWinrate : row.Player.TierWinrate),
-                ContextPr = Average(contextValid, row => context == DashboardRosterContext.Account ? row.Player.PR : row.Player.TierPR),
+                ContextPr = Average(contextPrValid, row => context == DashboardRosterContext.Account ? row.Player.PR : row.Player.TierPR),
                 ShipWinrate = Average(shipValid, row => row.Player.ShipWinrate),
-                ShipPr = Average(shipValid, row => row.Player.ShipPR)
+                ShipPr = Average(shipPrValid, row => row.Player.ShipPR)
             };
         }
 
@@ -129,11 +136,11 @@ namespace ApeRadar.Services
                 Winrate = DashboardComparisonMetric.Percentage(
                     Average(allyValid, row => row.Player.ShipWinrate),
                     Average(enemyValid, row => row.Player.ShipWinrate),
-                    Text("DashboardMetricShipWinrate", "Ship win rate")),
+                    Text("DashboardMetricShipWinrate", "Ship win rate")).WithCoverage(allyValid.Length, allyClass.Length, enemyValid.Length, enemyClass.Length),
                 Pr = DashboardComparisonMetric.Integer(
-                    Average(allyValid, row => row.Player.ShipPR),
-                    Average(enemyValid, row => row.Player.ShipPR),
-                    Text("DashboardMetricShipPr", "Ship PR"))
+                    Average(allyClass.Where(row => row.HasShipPr).ToArray(), row => row.Player.ShipPR),
+                    Average(enemyClass.Where(row => row.HasShipPr).ToArray(), row => row.Player.ShipPR),
+                    Text("DashboardMetricShipPr", "Ship PR")).WithCoverage(allyClass.Count(row => row.HasShipPr), allyClass.Length, enemyClass.Count(row => row.HasShipPr), enemyClass.Length)
             };
         }
 

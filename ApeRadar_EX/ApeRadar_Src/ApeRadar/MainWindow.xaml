@@ -415,7 +415,8 @@
             <Border ToolTip="{Binding Performance.ToolTip}" Background="{Binding Performance.BackgroundColor}"
                     AutomationProperties.Name="{Binding Performance.AccessibleName}">
                 <TextBlock Text="{Binding Performance.Icon}" TextAlignment="Center" VerticalAlignment="Center"
-                           FontSize="22" Foreground="{Binding Performance.ForegroundColor}" Opacity="{Binding Performance.IconOpacity}"/>
+                           FontFamily="Segoe UI Emoji, Segoe UI Symbol" FontSize="28" FontWeight="Normal"
+                           Foreground="{Binding Performance.ForegroundColor}" Opacity="{Binding Performance.IconOpacity}"/>
             </Border>
         </DataTemplate>
 
@@ -639,8 +640,8 @@
                     <DockPanel>
                         <TextBlock Text="{DynamicResource LabelAllies}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
                         <WrapPanel HorizontalAlignment="Right">
-                            <TextBlock Text="{DynamicResource LabelAverageAccountWinrate}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding AllyAvgAccountWinrate, StringFormat={}{0:p1}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
-                            <TextBlock Text="{DynamicResource LabelAverageBattleCount}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding AllyAvgBattleCount, StringFormat={}{0:f0}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                            <TextBlock Text="{DynamicResource LabelAverageAccountWinrate}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding AllyAvgAccountWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p1}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                            <TextBlock Text="{DynamicResource LabelAverageBattleCount}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding AllyAvgBattleCount, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
                             <TextBlock Text="PR " Foreground="{StaticResource TextSecondaryBrush}"/><TextBlock Text="{Binding AllyAvgPR, StringFormat={}{0:f0}}" FontWeight="SemiBold"/>
                         </WrapPanel>
                     </DockPanel>
@@ -649,8 +650,8 @@
                     <DockPanel>
                         <TextBlock Text="{DynamicResource LabelEnemies}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
                         <WrapPanel HorizontalAlignment="Right">
-                            <TextBlock Text="{DynamicResource LabelAverageAccountWinrate}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding EnemyAvgAccountWinrate, StringFormat={}{0:p1}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
-                            <TextBlock Text="{DynamicResource LabelAverageBattleCount}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding EnemyAvgBattleCount, StringFormat={}{0:f0}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                            <TextBlock Text="{DynamicResource LabelAverageAccountWinrate}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding EnemyAvgAccountWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p1}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                            <TextBlock Text="{DynamicResource LabelAverageBattleCount}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding EnemyAvgBattleCount, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
                             <TextBlock Text="PR " Foreground="{StaticResource TextSecondaryBrush}"/><TextBlock Text="{Binding EnemyAvgPR, StringFormat={}{0:f0}}" FontWeight="SemiBold"/>
                         </WrapPanel>
                     </DockPanel>
@@ -752,7 +753,7 @@
         </Border>
 
         <Popup x:Name="NotificationPopup" PlacementTarget="{Binding ElementName=BtnToggleNotifications}" Placement="Top" StaysOpen="False" AllowsTransparency="True" Closed="NotificationPopup_Closed">
-            <Border Width="560" Height="150" Style="{StaticResource SurfaceCardStyle}" Padding="6" Margin="0,0,0,5">
+            <Border Width="560" Height="150" Style="{StaticResource SurfaceCardStyle}" Padding="6" Margin="0,0,0,5" PreviewKeyDown="MainWindowGrid_PreviewKeyDown">
                 <Border.Effect><DropShadowEffect Color="#29415F" BlurRadius="14" ShadowDepth="2" Opacity="0.20"/></Border.Effect>
                 <DataGrid x:Name="DataGridNotificationHistory" HeadersVisibility="Column" RowHeight="27" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" ItemsSource="{Binding Source={x:Static utils:NotificationMessageUtils.NotificationMessageCollection}}">
                     <DataGrid.Columns>
@@ -764,7 +765,7 @@
         </Popup>
 
         <Popup x:Name="PlayerDetailPopup" Placement="Custom" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade"
-               Closed="PlayerDetailPopup_Closed" MouseEnter="PlayerDetailPopup_MouseEnter" MouseLeave="PlayerDetailPopup_MouseLeave">
+               MouseEnter="PlayerDetailPopup_MouseEnter" MouseLeave="PlayerDetailPopup_MouseLeave">
             <Border x:Name="PlayerDetailCardBorder" Width="560" MaxWidth="560" MaxHeight="720" Style="{StaticResource SurfaceCardStyle}" Padding="10" Margin="6">
                 <Border.Effect><DropShadowEffect Color="#29415F" BlurRadius="18" ShadowDepth="3" Opacity="0.24"/></Border.Effect>
                 <Grid>

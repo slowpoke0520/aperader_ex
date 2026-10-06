@@ -107,7 +107,8 @@ namespace ApeRadar.ViewModels
         LowTierBias,
         Loading,
         LowSample,
-        FetchFailed
+        FetchFailed,
+        PartialData
     }
 
     internal enum RosterBadgeSeverity
@@ -150,7 +151,10 @@ namespace ApeRadar.ViewModels
         string CompactText,
         string DisplayText,
         string ToolTip,
-        double Opacity = 1);
+        double Opacity = 1)
+    {
+        public string NoteText { get; init; } = "";
+    }
 
     internal sealed record PerformanceCellViewModel(
         RosterPerformanceMetric Metric,

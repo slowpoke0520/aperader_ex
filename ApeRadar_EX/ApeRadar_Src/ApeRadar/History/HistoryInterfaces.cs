@@ -15,6 +15,7 @@ namespace ApeRadar.History
         Task RecordReplayFailureAsync(ReplayParseResult replay, string replayPath, CancellationToken cancellationToken = default);
         Task<bool> HasReplayAsync(string replayHash, string parserVersion, CancellationToken cancellationToken = default);
         Task<BattleRecord?> GetBattleAsync(long battleId, CancellationToken cancellationToken = default);
+        Task<int> CountBattlesAsync(HistoryQuery query, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<BattleRecord>> GetBattlesAsync(HistoryQuery query, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<HistoryFilterOption>> GetServersAsync(CancellationToken cancellationToken = default);
         Task<IReadOnlyList<HistoryFilterOption>> GetAccountsAsync(string? server, CancellationToken cancellationToken = default);
@@ -69,7 +70,7 @@ namespace ApeRadar.History
     internal interface IHistoryAnalysisService
     {
         HistorySummary CalculateSummary(IReadOnlyList<BattleRecord> battles);
-        IReadOnlyList<HistoryTrendPoint> CalculateTrend(IReadOnlyList<BattleRecord> battles, string metric, int rollingWindow);
+        IReadOnlyList<HistoryTrendPoint> CalculateTrend(IReadOnlyList<BattleRecord> battles, string metric, int rollingWindow, CancellationToken cancellationToken = default);
         double? CalculateBattlePr(BattleRecord battle);
         double? CalculateBattleDamageRating(BattleRecord battle);
         double? CalculateBattleFragsRating(BattleRecord battle);
@@ -78,7 +79,7 @@ namespace ApeRadar.History
     internal interface ISessionAnalysisService
     {
         SessionSummary CalculateSession(BattleSession session, IReadOnlyList<BattleRecord> battles, IReadOnlyDictionary<long, BattleAdvancedMetrics> advancedMetrics, bool includeExperimental = false);
-        IReadOnlyList<HistoryTrendPoint> CalculateAdvancedTrend(IReadOnlyList<BattleRecord> battles, IReadOnlyDictionary<long, BattleAdvancedMetrics> advancedMetrics, string metric, int rollingWindow, bool includeExperimental);
+        IReadOnlyList<HistoryTrendPoint> CalculateAdvancedTrend(IReadOnlyList<BattleRecord> battles, IReadOnlyDictionary<long, BattleAdvancedMetrics> advancedMetrics, string metric, int rollingWindow, bool includeExperimental, CancellationToken cancellationToken = default);
     }
 
     internal interface IImprovementInsightService

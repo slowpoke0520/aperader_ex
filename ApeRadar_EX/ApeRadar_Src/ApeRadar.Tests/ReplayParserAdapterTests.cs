@@ -65,6 +65,25 @@ public sealed class ReplayParserAdapterTests : IDisposable
         Assert.Equal(firstResult.BattleKey, secondResult.BattleKey);
     }
 
+    [Theory]
+    [InlineData("arenaUniqueId")]
+    [InlineData("arenaUniqueID")]
+    [InlineData("arenaId")]
+    public async Task ArenaIdentifierAliases_UseThePublishedStableBattleKey(string propertyName)
+    {
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, $"{propertyName}.wowsreplay");
+        string header = $$"""
+            {"matchGroup":"pvp","playerName":"Tester","mapName":"ocean","{{propertyName}}":"18446744073709551615","vehicles":[{"name":"Tester","shipId":101}]}
+            """;
+        await WriteReplayStubAsync(path, header);
+
+        using NodsoftReplayParserAdapter parser = new();
+        ReplayParseResult result = await parser.ParseAsync(path);
+
+        Assert.Equal("arena:18446744073709551615", result.BattleKey);
+    }
+
     [Fact]
     public void DamageStats_KeepEnemyPotentialAndExperimentalReceivedDamageSeparate()
     {
