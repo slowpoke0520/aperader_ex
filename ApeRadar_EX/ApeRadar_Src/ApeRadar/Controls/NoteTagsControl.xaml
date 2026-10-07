@@ -7,7 +7,7 @@
         <ItemsPanelTemplate x:Key="WrappingTags"><WrapPanel/></ItemsPanelTemplate>
         <ItemsPanelTemplate x:Key="CompactTags"><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
     </UserControl.Resources>
-    <Grid>
+    <Grid x:Name="RootLayout">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
         <ItemsControl x:Name="TagItems">
             <ItemsControl.Style>
@@ -17,12 +17,33 @@
                         <DataTrigger Binding="{Binding Compact, ElementName=Root}" Value="True">
                             <Setter Property="ItemsPanel" Value="{StaticResource CompactTags}"/>
                         </DataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding Compact, ElementName=Root}" Value="True"/>
+                                <Condition Binding="{Binding CompactRows, ElementName=Root}" Value="2"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="ItemsPanel" Value="{StaticResource WrappingTags}"/>
+                        </MultiDataTrigger>
                     </Style.Triggers>
                 </Style>
             </ItemsControl.Style>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Border Background="{Binding BackgroundColor}" CornerRadius="4" Padding="5,2" Margin="0,1,4,1" ToolTip="{Binding Text}">
+                    <Border Background="{Binding BackgroundColor}" CornerRadius="4" Margin="0,1,4,1" ToolTip="{Binding Text}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Padding" Value="5,2"/>
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding Compact, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True"/>
+                                            <Condition Binding="{Binding CompactRows, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="2"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Padding" Value="3,0"/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <TextBlock Foreground="{Binding ForegroundColor}" FontWeight="SemiBold">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
@@ -44,6 +65,26 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <TextBlock x:Name="OverflowText" Grid.Column="1" FontWeight="SemiBold" Foreground="#455468" VerticalAlignment="Center" Margin="1,0,0,0" Visibility="Collapsed"/>
+        <TextBlock x:Name="OverflowText" FontWeight="SemiBold" Foreground="#455468" Visibility="Collapsed">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Grid.Column" Value="1"/>
+                    <Setter Property="VerticalAlignment" Value="Center"/>
+                    <Setter Property="Margin" Value="1,0,0,0"/>
+                    <Style.Triggers>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding Compact, ElementName=Root}" Value="True"/>
+                                <Condition Binding="{Binding CompactRows, ElementName=Root}" Value="2"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Grid.Column" Value="0"/>
+                            <Setter Property="HorizontalAlignment" Value="Right"/>
+                            <Setter Property="VerticalAlignment" Value="Bottom"/>
+                            <Setter Property="Margin" Value="1,0,0,1"/>
+                        </MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
     </Grid>
 </UserControl>

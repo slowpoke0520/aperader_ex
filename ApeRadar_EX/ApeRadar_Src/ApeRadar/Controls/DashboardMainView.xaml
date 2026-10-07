@@ -102,6 +102,13 @@
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         </Style>
+        <Style x:Key="DashboardMetricCell" TargetType="DataGridCell" BasedOn="{StaticResource DashboardRosterCell}">
+            <Setter Property="BorderBrush" Value="{StaticResource RosterCellDivider}"/>
+            <Setter Property="BorderThickness" Value="1,0,0,0"/>
+        </Style>
+        <Style x:Key="DashboardMetricHeader" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DashboardRosterHeader}">
+            <Setter Property="BorderThickness" Value="1,0,0,1"/>
+        </Style>
         <Style x:Key="RosterGrid" TargetType="DataGrid">
             <Setter Property="AutoGenerateColumns" Value="False"/>
             <Setter Property="CanUserAddRows" Value="False"/>
@@ -117,7 +124,7 @@
             <Setter Property="CellStyle" Value="{StaticResource DashboardRosterCell}"/>
             <Setter Property="ColumnHeaderStyle" Value="{StaticResource DashboardRosterHeader}"/>
             <Setter Property="RowHeight" Value="56"/>
-            <Setter Property="ColumnHeaderHeight" Value="28"/>
+            <Setter Property="ColumnHeaderHeight" Value="44"/>
             <Setter Property="AlternatingRowBackground" Value="#F8FAFD"/>
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
@@ -137,6 +144,32 @@
             <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Foreground" Value="{StaticResource DashboardText}"/>
+        </Style>
+        <Style x:Key="ShipWinrateSubcolumn" TargetType="ColumnDefinition">
+            <Setter Property="Width" Value="0.9*"/>
+            <Setter Property="MinWidth" Value="56"/>
+        </Style>
+        <Style x:Key="ShipBattlesSubcolumn" TargetType="ColumnDefinition">
+            <Setter Property="Width" Value="0.75*"/>
+            <Setter Property="MinWidth" Value="46"/>
+        </Style>
+        <Style x:Key="ShipDamageSubcolumn" TargetType="ColumnDefinition">
+            <Setter Property="Width" Value="*"/>
+            <Setter Property="MinWidth" Value="62"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgDmgVisibility}" Value="2">
+                    <Setter Property="Width" Value="0"/>
+                    <Setter Property="MinWidth" Value="0"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="ShipMetricText" TargetType="TextBlock" BasedOn="{StaticResource CellText}">
+            <Setter Property="FontFamily" Value="{StaticResource NumericFontFamily}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+            <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
         </Style>
 
         <DataTemplate x:Key="BadgeTemplate">
@@ -162,6 +195,25 @@
         </DataTemplate>
         <DataTemplate x:Key="PlayerTemplate">
             <Grid x:Name="PlayerIdentityHost" Margin="8,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.3*" MinWidth="140"/>
+                    <ColumnDefinition>
+                        <ColumnDefinition.Style>
+                            <Style TargetType="ColumnDefinition">
+                                <Setter Property="Width" Value="6"/>
+                                <Style.Triggers><DataTrigger Binding="{Binding HasNotes}" Value="False"><Setter Property="Width" Value="0"/></DataTrigger></Style.Triggers>
+                            </Style>
+                        </ColumnDefinition.Style>
+                    </ColumnDefinition>
+                    <ColumnDefinition>
+                        <ColumnDefinition.Style>
+                            <Style TargetType="ColumnDefinition">
+                                <Setter Property="Width" Value="*"/>
+                                <Style.Triggers><DataTrigger Binding="{Binding HasNotes}" Value="False"><Setter Property="Width" Value="0"/></DataTrigger></Style.Triggers>
+                            </Style>
+                        </ColumnDefinition.Style>
+                    </ColumnDefinition>
+                </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
                 <TextBlock Style="{StaticResource CellText}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding PlayerDisplayName}">
                     <Run Text="{Binding PlayerDisplayName, Mode=OneWay}"/><Run Text=" "/><Run Text="{Binding KarmaText, Mode=OneWay}" BaselineAlignment="Superscript" FontSize="12" FontWeight="Normal" Foreground="{StaticResource DashboardMuted}"/>
@@ -170,23 +222,40 @@
                     <Grid.ColumnDefinitions><ColumnDefinition Width="22"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <TextBlock Text="{Binding Player.ShipTier, Converter={StaticResource ShipTier}}" FontSize="12" Foreground="{StaticResource DashboardMuted}"/>
                     <TextBlock Grid.Column="1" Text="{Binding Player.ShipName}" FontSize="12" Foreground="{StaticResource DashboardMuted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Player.ShipName}"/>
-                    <ItemsControl Grid.Column="2" ItemsSource="{Binding VisibleStatusBadges}" ItemTemplate="{StaticResource BadgeTemplate}" Visibility="{Binding ActualWidth, ElementName=PlayerIdentityHost, Converter={StaticResource BadgeVisibility}}">
+                    <ItemsControl Grid.Column="2" ItemsSource="{Binding VisibleIdentityStatusBadges}" ItemTemplate="{StaticResource BadgeTemplate}" Visibility="{Binding ActualWidth, ElementName=PlayerIdentityHost, Converter={StaticResource BadgeVisibility}}">
                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     </ItemsControl>
                     <TextBlock Grid.Column="3" FontSize="12" Margin="4,0,0,0" Foreground="{StaticResource DashboardMuted}" VerticalAlignment="Center" ToolTip="{Binding AllStatusToolTip}">
-                        <TextBlock.Text><MultiBinding Converter="{StaticResource BadgeOverflow}"><Binding Path="StatusBadges.Count"/><Binding Path="ActualWidth" ElementName="PlayerIdentityHost"/><Binding Path="VisibleStatusBadges.Count"/></MultiBinding></TextBlock.Text>
+                        <TextBlock.Text><MultiBinding Converter="{StaticResource BadgeOverflow}"><Binding Path="IdentityStatusBadgeCount"/><Binding Path="ActualWidth" ElementName="PlayerIdentityHost"/><Binding Path="VisibleIdentityStatusBadges.Count"/></MultiBinding></TextBlock.Text>
                     </TextBlock>
                 </Grid>
+                <Border x:Name="NoteTagsHost" Grid.Column="2" Grid.RowSpan="2" VerticalAlignment="Center" ToolTip="{Binding Player.Note}">
+                    <controls:NoteTagsControl Note="{Binding Player.Note}" Compact="True" CompactRows="2" MaximumVisibleTags="6" FontSize="11"/>
+                </Border>
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="ContextHeaderTemplate">
             <TextBlock Text="{Binding}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"/>
         </DataTemplate>
         <DataTemplate x:Key="ShipHeaderTemplate">
-            <TextBlock Text="{DynamicResource DashboardColumnCurrentShip}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <Grid VerticalAlignment="Center">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <TextBlock Text="{DynamicResource DashboardColumnCurrentShip}" HorizontalAlignment="Center" FontWeight="SemiBold"/>
+                <Grid Grid.Row="1" Margin="0,3,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Style="{StaticResource ShipWinrateSubcolumn}"/>
+                        <ColumnDefinition Style="{StaticResource ShipBattlesSubcolumn}"/>
+                        <ColumnDefinition Style="{StaticResource ShipDamageSubcolumn}"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{DynamicResource RosterMetricWinrate}" Style="{StaticResource ShipMetricText}" Foreground="{StaticResource DashboardMuted}" FontWeight="Normal"/>
+                    <TextBlock Grid.Column="1" Text="{DynamicResource RosterMetricBattles}" Style="{StaticResource ShipMetricText}" Foreground="{StaticResource DashboardMuted}" FontWeight="Normal"/>
+                    <TextBlock Grid.Column="2" Text="{DynamicResource RosterMetricAvgDamage}" Style="{StaticResource ShipMetricText}" Foreground="{StaticResource DashboardMuted}" FontWeight="Normal"
+                               Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgDmgVisibility, Converter={StaticResource ColumnVisibility}}"/>
+                </Grid>
+            </Grid>
         </DataTemplate>
         <DataTemplate x:Key="ContextTemplate">
-            <StackPanel VerticalAlignment="Center" Margin="4,3" ToolTip="{Binding ContextToolTip}">
+            <StackPanel VerticalAlignment="Center" Margin="10,3" ToolTip="{Binding ContextToolTip}" Typography.NumeralAlignment="Tabular">
                 <TextBlock Text="{Binding ContextWinrateMetric.DisplayValue}" Foreground="{Binding ContextWinrateMetric, Converter={StaticResource MetricBrush}}" FontSize="14" FontWeight="SemiBold" FontFamily="{StaticResource NumericFontFamily}" TextAlignment="Right"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <TextBlock Style="{StaticResource CellText}" FontSize="12"><Run Text="{Binding ContextBattlesText, Mode=OneWay}"/><Run Text=" "/><Run Text="{DynamicResource RosterMetricBattlesShort}"/></TextBlock>
@@ -195,17 +264,20 @@
             </StackPanel>
         </DataTemplate>
         <DataTemplate x:Key="ShipTemplate">
-            <StackPanel VerticalAlignment="Center" Margin="4,3">
-                <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding ShipWinrateMetric.DisplayValue}" Foreground="{Binding ShipWinrateMetric, Converter={StaticResource MetricBrush}}" FontSize="14" FontWeight="SemiBold" FontFamily="{StaticResource NumericFontFamily}"/>
-                    <TextBlock Grid.Column="1" Style="{StaticResource CellText}" FontSize="12" TextAlignment="Right" Margin="3,0,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding ShipBattlesText}"><Run Text="{Binding ShipBattlesText, Mode=OneWay}"/><Run Text="{DynamicResource DashboardBattlesCompact}"/></TextBlock>
-                </Grid>
-                <TextBlock Style="{StaticResource CellText}" FontSize="12" TextAlignment="Right" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgDmgVisibility, Converter={StaticResource ColumnVisibility}}"><Run Text="{DynamicResource RosterMetricAvgDamageShort}"/><Run Text=" "/><Run Text="{Binding ShipDamageText, Mode=OneWay}"/></TextBlock>
-            </StackPanel>
+            <Grid VerticalAlignment="Center" Margin="6,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Style="{StaticResource ShipWinrateSubcolumn}"/>
+                    <ColumnDefinition Style="{StaticResource ShipBattlesSubcolumn}"/>
+                    <ColumnDefinition Style="{StaticResource ShipDamageSubcolumn}"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding ShipWinrateMetric.DisplayValue}" Style="{StaticResource ShipMetricText}" Foreground="{Binding ShipWinrateMetric, Converter={StaticResource MetricBrush}}" FontSize="14" FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="1" Text="{Binding ShipBattlesText}" Style="{StaticResource ShipMetricText}"/>
+                <TextBlock Grid.Column="2" Text="{Binding ShipDamageText}" Style="{StaticResource ShipMetricText}"
+                           Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgDmgVisibility, Converter={StaticResource ColumnVisibility}}"/>
+            </Grid>
         </DataTemplate>
         <DataTemplate x:Key="PrTemplate">
-            <StackPanel VerticalAlignment="Center" Margin="5">
+            <StackPanel VerticalAlignment="Center" Margin="10,3" Typography.NumeralAlignment="Tabular">
                 <TextBlock FontSize="12" TextAlignment="Right" Foreground="{Binding ContextPrMetric, Converter={StaticResource MetricBrush}}"><Run Text="{Binding ContextPrLabel, Mode=OneWay}"/><Run Text=" "/><Run Text="{Binding ContextPrMetric.DisplayValue, Mode=OneWay}"/></TextBlock>
                 <TextBlock FontSize="12" TextAlignment="Right" Foreground="{Binding ShipPrMetric, Converter={StaticResource MetricBrush}}"><Run Text="{DynamicResource RosterPrShipShort}"/><Run Text=" "/><Run Text="{Binding ShipPrMetric.DisplayValue, Mode=OneWay}"/></TextBlock>
             </StackPanel>
@@ -320,11 +392,11 @@
                         <Border Background="{StaticResource DashboardAllySurface}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"><Grid Margin="10,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Foreground="{StaticResource DashboardBlue}" FontSize="14.5" FontWeight="Bold" VerticalAlignment="Center"><Run Text="{DynamicResource LabelAllies}"/><Run Text=" ("/><Run Text="{Binding AllyTotalCount, Mode=OneWay}"/><Run Text=")"/></TextBlock><StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><Button x:Name="AllyAll" Tag="Ally:All" Style="{StaticResource FilterButtonActive}" Click="Filter_Click"/><Button x:Name="AllyMarked" Tag="Ally:Marked" Style="{StaticResource FilterButton}" Click="Filter_Click"/><Button x:Name="AllyLow" Tag="Ally:LowSample" Style="{StaticResource FilterButton}" Click="Filter_Click"/><Button x:Name="AllyAnomaly" Tag="Ally:Anomaly" Style="{StaticResource FilterButton}" Click="Filter_Click"/></StackPanel></Grid></Border>
                         <DataGrid x:Name="AlliesGrid" Grid.Row="1" Style="{StaticResource RosterGrid}" RowStyle="{StaticResource RosterRowStyle}" ItemsSource="{Binding Allies}" LoadingRow="RosterGrid_LoadingRow">
                             <DataGrid.Columns>
-                                <DataGridTemplateColumn Header="{DynamicResource DashboardColumnPlayer}" CellTemplate="{StaticResource PlayerTemplate}" Width="*" MinWidth="210"/>
-                                <DataGridTemplateColumn x:Name="AllyContextColumn" Header="{DynamicResource DashboardContextAccount}" HeaderTemplate="{StaticResource ContextHeaderTemplate}" CellTemplate="{StaticResource ContextTemplate}" Width="90" MinWidth="90"/>
-                                <DataGridTemplateColumn x:Name="AllyShipColumn" Header="{DynamicResource DashboardColumnCurrentShip}" HeaderTemplate="{StaticResource ShipHeaderTemplate}" CellTemplate="{StaticResource ShipTemplate}" Width="112" MinWidth="112"/>
-                                <DataGridTemplateColumn x:Name="AllyPrColumn" Header="PR" CellTemplate="{StaticResource PrTemplate}" Width="94" MinWidth="94" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource ColumnVisibility}}"/>
-                                <DataGridTemplateColumn x:Name="AllyPerformanceColumn" Header="{DynamicResource DashboardColumnPerformance}" CellTemplate="{StaticResource PerformanceTemplate}" Width="86" MinWidth="86"/>
+                                <DataGridTemplateColumn Header="{DynamicResource DashboardColumnPlayer}" CellTemplate="{StaticResource PlayerTemplate}" Width="2.2*" MinWidth="210" MaxWidth="340"/>
+                                <DataGridTemplateColumn x:Name="AllyContextColumn" Header="{DynamicResource DashboardContextAccount}" HeaderTemplate="{StaticResource ContextHeaderTemplate}" CellTemplate="{StaticResource ContextTemplate}" CellStyle="{StaticResource DashboardMetricCell}" HeaderStyle="{StaticResource DashboardMetricHeader}" Width="0.8*" MinWidth="90"/>
+                                <DataGridTemplateColumn x:Name="AllyShipColumn" Header="{DynamicResource DashboardColumnCurrentShip}" HeaderTemplate="{StaticResource ShipHeaderTemplate}" CellTemplate="{StaticResource ShipTemplate}" CellStyle="{StaticResource DashboardMetricCell}" HeaderStyle="{StaticResource DashboardMetricHeader}" Width="1.2*" MinWidth="180"/>
+                                <DataGridTemplateColumn x:Name="AllyPrColumn" Header="PR" CellTemplate="{StaticResource PrTemplate}" CellStyle="{StaticResource DashboardMetricCell}" HeaderStyle="{StaticResource DashboardMetricHeader}" Width="0.9*" MinWidth="94" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource ColumnVisibility}}"/>
+                                <DataGridTemplateColumn x:Name="AllyPerformanceColumn" Header="{DynamicResource DashboardColumnPerformance}" CellTemplate="{StaticResource PerformanceTemplate}" CellStyle="{StaticResource DashboardMetricCell}" HeaderStyle="{StaticResource DashboardMetricHeader}" Width="86" MinWidth="86"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid></Border>
@@ -332,11 +404,11 @@
                         <Border Background="{StaticResource DashboardEnemySurface}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"><Grid Margin="10,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Foreground="{StaticResource DashboardRed}" FontSize="14.5" FontWeight="Bold" VerticalAlignment="Center"><Run Text="{DynamicResource LabelEnemies}"/><Run Text=" ("/><Run Text="{Binding EnemyTotalCount, Mode=OneWay}"/><Run Text=")"/></TextBlock><StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><Button x:Name="EnemyAll" Tag="Enemy:All" Style="{StaticResource FilterButtonActive}" Click="Filter_Click"/><Button x:Name="EnemyMarked" Tag="Enemy:Marked" Style="{StaticResource FilterButton}" Click="Filter_Click"/><Button x:Name="EnemyLow" Tag="Enemy:LowSample" Style="{StaticResource FilterButton}" Click="Filter_Click"/><Button x:Name="EnemyAnomaly" Tag="Enemy:Anomaly" Style="{StaticResource FilterButton}" Click="Filter_Click"/></StackPanel></Grid></Border>
                         <DataGrid x:Name="EnemiesGrid" Grid.Row="1" Style="{StaticResource RosterGrid}" RowStyle="{StaticResource RosterRowStyle}" ItemsSource="{Binding Enemies}" LoadingRow="RosterGrid_LoadingRow">
                             <DataGrid.Columns>
-                                <DataGridTemplateColumn Header="{DynamicResource DashboardColumnPlayer}" CellTemplate="{StaticResource PlayerTemplate}" Width="*" MinWidth="210"/>
-                                <DataGridTemplateColumn x:Name="EnemyContextColumn" Header="{DynamicResource DashboardContextAccount}" HeaderTemplate="{StaticResource ContextHeaderTemplate}" CellTemplate="{StaticResource ContextTemplate}" Width="90" MinWidth="90"/>
-                                <DataGridTemplateColumn x:Name="EnemyShipColumn" Header="{DynamicResource DashboardColumnCurrentShip}" HeaderTemplate="{StaticResource ShipHeaderTemplate}" CellTemplate="{StaticResource ShipTemplate}" Width="112" MinWidth="112"/>
-                                <DataGridTemplateColumn x:Name="EnemyPrColumn" Header="PR" CellTemplate="{StaticResource PrTemplate}" Width="94" MinWidth="94" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource ColumnVisibility}}"/>
-                                <DataGridTemplateColumn x:Name="EnemyPerformanceColumn" Header="{DynamicResource DashboardColumnPerformance}" CellTemplate="{StaticResource PerformanceTemplate}" Width="86" MinWidth="86"/>
+                                <DataGridTemplateColumn Header="{DynamicResource DashboardColumnPlayer}" CellTemplate="{StaticResource PlayerTemplate}" Width="2.2*" MinWidth="210" MaxWidth="340"/>
+                                <DataGridTemplateColumn x:Name="EnemyContextColumn" Header="{DynamicResource DashboardContextAccount}" HeaderTemplate="{StaticResource ContextHeaderTemplate}" CellTemplate="{StaticResource ContextTemplate}" CellStyle="{StaticResource DashboardMetricCell}" HeaderStyle="{StaticResource DashboardMetricHeader}" Width="0.8*" MinWidth="90"/>
+                                <DataGridTemplateColumn x:Name="EnemyShipColumn" Header="{DynamicResource DashboardColumnCurrentShip}" HeaderTemplate="{StaticResource ShipHeaderTemplate}" CellTemplate="{StaticResource ShipTemplate}" CellStyle="{StaticResource DashboardMetricCell}" HeaderStyle="{StaticResource DashboardMetricHeader}" Width="1.2*" MinWidth="180"/>
+                                <DataGridTemplateColumn x:Name="EnemyPrColumn" Header="PR" CellTemplate="{StaticResource PrTemplate}" CellStyle="{StaticResource DashboardMetricCell}" HeaderStyle="{StaticResource DashboardMetricHeader}" Width="0.9*" MinWidth="94" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource ColumnVisibility}}"/>
+                                <DataGridTemplateColumn x:Name="EnemyPerformanceColumn" Header="{DynamicResource DashboardColumnPerformance}" CellTemplate="{StaticResource PerformanceTemplate}" CellStyle="{StaticResource DashboardMetricCell}" HeaderStyle="{StaticResource DashboardMetricHeader}" Width="86" MinWidth="86"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid></Border>

@@ -83,10 +83,15 @@ namespace ApeRadar.ViewModels
         public bool LoadCompleted { get; }
         public IReadOnlyList<RosterStatusBadgeViewModel> StatusBadges { get; }
         public IReadOnlyList<RosterStatusBadgeViewModel> VisibleStatusBadges { get; }
+        public IReadOnlyList<RosterStatusBadgeViewModel> VisibleIdentityStatusBadges { get; }
+        public bool HasNotes => StatusBadges.Any(badge => badge.Kind == RosterBadgeKind.Note);
+        public int IdentityStatusBadgeCount => StatusBadges.Count(badge => badge.Kind != RosterBadgeKind.Note);
         public int OverflowBadgeCount { get; }
         public string OverflowBadgeText => OverflowBadgeCount > 0 ? $"+{OverflowBadgeCount}" : "";
         public string AllStatusToolTip { get; }
-        public string PlayerDisplayName => string.IsNullOrWhiteSpace(Player.ClanTag) ? Player.Name : $"[{Player.ClanTag}] {Player.Name}";
+        public string PlayerDisplayName => string.IsNullOrWhiteSpace(Player.ClanTag)
+            ? Player.Name
+            : $"[{Player.ClanTag.Trim().Trim('[', ']')}] {Player.Name}";
         public bool HasKarma => Player.Karma >= 0;
         public string KarmaText => HasKarma
             ? Player.Karma.ToString("0", CultureInfo.CurrentCulture)
@@ -157,6 +162,7 @@ namespace ApeRadar.ViewModels
             StatusBadges = badges;
             VisibleStatusBadges = badges.Take(VisibleBadgeLimit)
                 .Concat(badges.Where(badge => badge.Kind == RosterBadgeKind.Note)).Distinct().ToArray();
+            VisibleIdentityStatusBadges = VisibleStatusBadges.Where(badge => badge.Kind != RosterBadgeKind.Note).ToArray();
             OverflowBadgeCount = Math.Max(0, badges.Count - VisibleStatusBadges.Count);
             AllStatusToolTip = string.Join(Environment.NewLine, badges.Select(badge => badge.ToolTip));
         }

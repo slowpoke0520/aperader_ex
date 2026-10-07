@@ -423,7 +423,7 @@ public sealed class HistoryWindowSmokeTests
             AssertSelectorText(window.DashboardView.LanguageCombo);
             double expectedSidebarWidth = window.DashboardView.ActualWidth < 1400 ? 64 : 208;
             Assert.Equal(new GridLength(expectedSidebarWidth), window.DashboardView.SidebarColumn.Width);
-            Assert.Equal(28, window.DashboardView.AlliesGrid.ColumnHeaderHeight);
+            Assert.Equal(44, window.DashboardView.AlliesGrid.ColumnHeaderHeight);
             Assert.True(window.DashboardView.AllyContextColumn.ActualWidth > 0);
             Assert.True(window.DashboardView.AllyShipColumn.ActualWidth > 0);
             Rect comparisonBounds = window.DashboardView.ComparisonPanel.TransformToAncestor(window.DashboardView.ComparisonCard)
@@ -434,11 +434,12 @@ public sealed class HistoryWindowSmokeTests
                 1);
             Assert.True(window.DashboardView.RosterToolbar.ActualHeight >= 30);
             Assert.Equal(90, window.DashboardView.AllyContextColumn.MinWidth);
-            Assert.Equal(112, window.DashboardView.AllyShipColumn.MinWidth);
+            Assert.Equal(180, window.DashboardView.AllyShipColumn.MinWidth);
             if (window.DashboardView.ActualWidth >= 1400)
             {
-                Assert.Equal(90, window.DashboardView.AllyContextColumn.ActualWidth, 1);
-                Assert.InRange(window.DashboardView.AllyShipColumn.ActualWidth, 108, 118);
+                Assert.InRange(window.DashboardView.AlliesGrid.Columns[0].ActualWidth, 210, 340);
+                Assert.True(window.DashboardView.AllyContextColumn.ActualWidth >= 90);
+                Assert.True(window.DashboardView.AllyShipColumn.ActualWidth >= 180);
             }
             Assert.NotNull(window.DashboardView.AllyContextColumn.HeaderTemplate);
             Assert.NotNull(window.DashboardView.AllyShipColumn.HeaderTemplate);
@@ -1178,7 +1179,7 @@ public sealed class HistoryWindowSmokeTests
                     Assert.True(view.AlliesGrid.ActualHeight >= 46, $"No readable row: {width}x{height}/{scale}");
                     Assert.Equal(view.AlliesGrid.RowHeight, view.EnemiesGrid.RowHeight);
                     Assert.True(view.AllyContextColumn.ActualWidth >= 90);
-                    Assert.True(view.AllyShipColumn.ActualWidth >= 112);
+                    Assert.True(view.AllyShipColumn.ActualWidth >= 180);
                     Assert.True(view.AlliesGrid.Columns[0].ActualWidth >= 210);
                     Assert.True(view.HelpNavButton.IsVisible);
                     Assert.True(view.UpdateNavButton.IsVisible);

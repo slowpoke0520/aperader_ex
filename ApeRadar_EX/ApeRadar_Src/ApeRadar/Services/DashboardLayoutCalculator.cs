@@ -8,7 +8,7 @@ namespace ApeRadar.Services
         public const double MinimumRowHeight = 46;
         public const double PreferredRowHeight = 56;
         public const double TeamHeaderHeight = 36;
-        public const double ColumnHeaderHeight = 28;
+        public const double ColumnHeaderHeight = 44;
         public const double TopBarHeight = 40;
         public const double HeadingHeight = 36;
         public const double SummaryHeight = 70;

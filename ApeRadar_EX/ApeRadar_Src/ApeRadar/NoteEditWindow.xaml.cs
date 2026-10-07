@@ -46,7 +46,8 @@ namespace ApeRadar
         private void QuickOption_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button { Tag: string option }) return;
-            TxtNote.Text = option;
+            string existing = TxtNote.Text.TrimEnd();
+            TxtNote.Text = existing.Length == 0 ? option : $"{existing} {option}";
             TxtNote.CaretIndex = TxtNote.Text.Length;
             TxtNote.Focus();
         }

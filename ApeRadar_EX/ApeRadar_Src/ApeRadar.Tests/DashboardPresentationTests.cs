@@ -7,6 +7,19 @@ namespace ApeRadar.Tests;
 
 public sealed class DashboardPresentationTests
 {
+    [Theory]
+    [InlineData("[VKS]", "[VKS] huaj_block")]
+    [InlineData("VKS", "[VKS] huaj_block")]
+    [InlineData("", "huaj_block")]
+    [InlineData("  ", "huaj_block")]
+    public void PlayerName_UsesOnePairOfClanBrackets(string clanTag, string expected)
+    {
+        Player player = CreatePlayer("huaj_block", "1", 3231, 0.544, 1456, 348, 0.532, 1487);
+        player.ClanTag = clanTag;
+
+        Assert.Equal(expected, CreateRow(player, true).PlayerDisplayName);
+    }
+
     [Fact]
     public void ContextSwitch_ChangesOnlyContextStatisticsAndKeepsBothPrValues()
     {

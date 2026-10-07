@@ -35,7 +35,7 @@ internal static class NoteTagsLayoutAssertions
         SettingsSnapshot before = new(settings);
         try
         {
-            settings.NoteQuickOptions = NoteQuickOptionUtils.Serialize(new[] { "Quick replacement" });
+            settings.NoteQuickOptions = NoteQuickOptionUtils.Serialize(new[] { "Quick addition" });
             settings.PlayerNamesVisibility = true;
             settings.RosterDisplayDensity = "Standard";
             settings.PlayerColumnFontSize = 18;
@@ -49,6 +49,7 @@ internal static class NoteTagsLayoutAssertions
 
             VerifyEditor(language);
             VerifyCompactOverflow(language);
+            VerifyTwoRowCompact(language);
             VerifyDetail(language);
             VerifyRoster("Dashboard", language, historyServices);
             VerifyRoster("Legacy", language, historyServices);
@@ -91,12 +92,29 @@ internal static class NoteTagsLayoutAssertions
             Assert.Equal(Visibility.Collapsed, window.NoteTagsPreview.Visibility);
             Assert.Empty(Tags(window.NoteTagsPreview));
 
-            window.NoteText = "Old note that must be replaced";
             Button quickOption = Assert.Single(window.QuickOptionsPanel.Children.OfType<Button>());
+            foreach ((string existing, string expected) in new[]
+            {
+                ("", "Quick addition"),
+                (" \t\r\n ", "Quick addition"),
+                ("可靠队友 输出稳定", "可靠队友 输出稳定 Quick addition"),
+                ("可靠队友 输出稳定 \t\r\n  ", "可靠队友 输出稳定 Quick addition"),
+                ("可靠队友\n输出稳定", "可靠队友\n输出稳定 Quick addition")
+            })
+            {
+                window.NoteText = existing;
+                window.TxtNote.SelectAll();
+                quickOption.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Layout(window);
+                Assert.Equal(expected, window.NoteText);
+                Assert.Equal(expected, window.NoteTagsPreview.Note);
+                Assert.Equal(expected.Length, window.TxtNote.CaretIndex);
+            }
+            AssertTags(window.NoteTagsPreview, new[] { "可靠队友", "输出稳定", "Quick", "addition" }, $"{language} quick option appends tags");
+
             quickOption.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Layout(window);
-            Assert.Equal("Quick replacement", window.NoteText);
-            AssertTags(window.NoteTagsPreview, new[] { "Quick", "replacement" }, $"{language} quick replacement");
+            Assert.Equal("可靠队友\n输出稳定 Quick addition Quick addition", window.NoteText);
             Assert.Equal(Visibility.Collapsed, window.QuickOptionsEditor.Visibility);
         }
         finally { window.Close(); }
@@ -126,6 +144,50 @@ internal static class NoteTagsLayoutAssertions
         LayoutDetached(host);
         Assert.Equal(3, Tags(tags).Length);
         Assert.Equal("+2", tags.OverflowText.Text);
+    }
+
+    private static void VerifyTwoRowCompact(string language)
+    {
+        const string note = "可靠队友 输出稳定 支援及时 偏好远程";
+        NoteTagsControl tags = new() { Note = note, Compact = true, CompactRows = 2, FontSize = 11, MaximumVisibleTags = 6 };
+        Border host = new() { Width = 98, Height = 38, Child = tags };
+        LayoutDetached(host);
+        AssertTags(tags, new[] { "可靠队友", "输出稳定" }, $"{language} two-row compact tags", requireVisible: false);
+        Assert.Equal("+2", tags.OverflowText.Text);
+        Assert.Equal(2, TagBorders(tags).Select(border => Math.Round(Bounds(border, tags).Top)).Distinct().Count());
+        AssertInside(tags.OverflowText, tags, $"{language} two-row overflow");
+        Assert.Equal(38, host.ActualHeight);
+
+        host.Height = 18;
+        LayoutDetached(host);
+        AssertTags(tags, new[] { "可靠队友" }, $"{language} one-row height budget", requireVisible: false);
+        Assert.Equal("+3", tags.OverflowText.Text);
+
+        host.Width = 60;
+        host.Height = 38;
+        LayoutDetached(host);
+        AssertTags(tags, new[] { "可靠队友" }, $"{language} narrow two-row note area", requireVisible: false);
+        Assert.Equal("+3", tags.OverflowText.Text);
+        AssertInside(tags.OverflowText, tags, $"{language} narrow two-row overflow");
+        AssertNoOverlap(Assert.Single(TagBorders(tags)), tags.OverflowText, tags, $"{language} narrow two-row overflow");
+        Assert.Equal(38, host.ActualHeight);
+
+        host.Width = 122;
+        host.Height = 38;
+        tags.MaximumVisibleTags = 3;
+        LayoutDetached(host);
+        AssertTags(tags, new[] { "可靠队友", "输出稳定", "支援及时" }, $"{language} counter shares last tag row", requireVisible: false);
+        Assert.Equal("+1", tags.OverflowText.Text);
+        Assert.Equal(2, TagBorders(tags).Select(border => Math.Round(Bounds(border, tags).Top)).Distinct().Count());
+        foreach (Border badge in TagBorders(tags)) AssertNoOverlap(badge, tags.OverflowText, tags, $"{language} inline overflow counter");
+
+        host.Width = 220;
+        host.Height = 38;
+        tags.MaximumVisibleTags = 6;
+        LayoutDetached(host);
+        AssertTags(tags, new[] { "可靠队友", "输出稳定", "支援及时", "偏好远程" }, $"{language} expanded tag width", requireVisible: false);
+        Assert.Equal(Visibility.Collapsed, tags.OverflowText.Visibility);
+        Assert.Equal(note, tags.Note);
     }
 
     private static void VerifyDetail(string language)

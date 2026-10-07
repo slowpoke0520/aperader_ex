@@ -111,7 +111,7 @@ namespace ApeRadar.Controls
                 weighted ? Find("RosterPerformanceWeightedWinrate", "Weighted win rate") :
                 Find("RosterPerformanceAccountWinrate", "Account win rate");
             AllyPerformanceColumn.Header = EnemyPerformanceColumn.Header = $"{Find("DashboardColumnPerformance", "Skill")} · {basis}";
-            Style skillHeader = new(typeof(System.Windows.Controls.Primitives.DataGridColumnHeader), (Style)FindResource("DashboardRosterHeader"));
+            Style skillHeader = new(typeof(System.Windows.Controls.Primitives.DataGridColumnHeader), (Style)FindResource("DashboardMetricHeader"));
             skillHeader.Setters.Add(new Setter(FrameworkElement.ToolTipProperty, fullBasis));
             AllyPerformanceColumn.HeaderStyle = EnemyPerformanceColumn.HeaderStyle = skillHeader;
         }

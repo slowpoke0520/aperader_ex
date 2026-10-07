@@ -1,10 +1,10 @@
 {
-  "version": "15.8",
-  "date": "20260910",
+  "version": "15.9",
+  "date": "20261006",
   "source": {
     "repository": "wowsinfo/data",
-    "tag": "15.8.0.0.13187581",
-    "commit": "4871902d15fae98c6241546eb43e4aa412528b1a"
+    "tag": "15.9.0.0.13357625",
+    "commit": "49aaf3fccf84ebd48e4cb70d6a3b91c7351aa220"
   },
   "ships": {
     "3246831056": {
@@ -315,6 +315,13 @@
       "tier": 8,
       "type": "Cruiser"
     },
+    "3331274160": {
+      "name_en-us": "Victoria B",
+      "name_zh-cn": "维多利亚B",
+      "nation": "spain",
+      "tier": 9,
+      "type": "Battleship"
+    },
     "3331274736": {
       "name_en-us": "Iowa 2",
       "name_zh-cn": "依阿华2",
@@ -350,12 +357,26 @@
       "tier": 8,
       "type": "Battleship"
     },
+    "3332323152": {
+      "name_en-us": "Flandre B",
+      "name_zh-cn": "弗兰德尔B",
+      "nation": "france",
+      "tier": 8,
+      "type": "Battleship"
+    },
     "3332323312": {
       "name_en-us": "AL Massachusetts",
       "name_zh-cn": "AL马萨诸塞",
       "nation": "usa",
       "tier": 8,
       "type": "Battleship"
+    },
+    "3332356080": {
+      "name_en-us": "Hornet B",
+      "name_zh-cn": "大黄蜂B",
+      "nation": "usa",
+      "tier": 8,
+      "type": "AirCarrier"
     },
     "3333371888": {
       "name_en-us": "[Montana]",
@@ -440,6 +461,13 @@
       "nation": "germany",
       "tier": 10,
       "type": "Destroyer"
+    },
+    "3340678352": {
+      "name_en-us": "Incheon B",
+      "name_zh-cn": "仁川B",
+      "nation": "pan_asia",
+      "tier": 10,
+      "type": "Cruiser"
     },
     "3340678608": {
       "name_en-us": "[Moskva]",
@@ -1057,6 +1085,13 @@
       "tier": 5,
       "type": "Battleship"
     },
+    "3488528080": {
+      "name_en-us": "Ōta",
+      "name_zh-cn": "太田",
+      "nation": "japan",
+      "tier": 9,
+      "type": "Cruiser"
+    },
     "3499013840": {
       "name_en-us": "Suzuya VL",
       "name_zh-cn": "铃谷VL",
@@ -1344,6 +1379,13 @@
       "tier": 10,
       "type": "Battleship"
     },
+    "3539940816": {
+      "name_en-us": "Rodina",
+      "name_zh-cn": "故土",
+      "nation": "russia",
+      "tier": 10,
+      "type": "Battleship"
+    },
     "3539941072": {
       "name_en-us": "Aki",
       "name_zh-cn": "安艺",
@@ -1624,6 +1666,13 @@
       "tier": 8,
       "type": "Battleship"
     },
+    "3542070992": {
+      "name_en-us": "Akagi",
+      "name_zh-cn": "赤城",
+      "nation": "japan",
+      "tier": 8,
+      "type": "AirCarrier"
+    },
     "3542071248": {
       "name_en-us": "Theseus",
       "name_zh-cn": "忒修斯",
@@ -1684,6 +1733,13 @@
       "name_en-us": "Nürnberg '44",
       "name_zh-cn": "纽伦堡44",
       "nation": "germany",
+      "tier": 7,
+      "type": "Cruiser"
+    },
+    "3543054320": {
+      "name_en-us": "Honolulu",
+      "name_zh-cn": "火奴鲁鲁",
+      "nation": "usa",
       "tier": 7,
       "type": "Cruiser"
     },
@@ -7035,6 +7091,13 @@
       "tier": 5,
       "type": "Destroyer"
     },
+    "4279153968": {
+      "name_en-us": "Kralj Petar I",
+      "name_zh-cn": "彼得一世",
+      "nation": "europe",
+      "tier": 5,
+      "type": "Cruiser"
+    },
     "4279154032": {
       "name_en-us": "Delhi",
       "name_zh-cn": "德里",
@@ -7090,6 +7153,13 @@
       "nation": "usa",
       "tier": 5,
       "type": "Destroyer"
+    },
+    "4280202544": {
+      "name_en-us": "Dragon",
+      "name_zh-cn": "龙骑兵",
+      "nation": "europe",
+      "tier": 4,
+      "type": "Cruiser"
     },
     "4280202608": {
       "name_en-us": "Dunedin",
