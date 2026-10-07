@@ -142,6 +142,7 @@ namespace ApeRadar.Controls
         {
             GamePathStatusText.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
             suppressSelectors = true;
+            UpdateCompactMetricWidths();
             LanguageCombo.Items.Clear();
             LanguageCombo.Items.Add(new ListItem { Content = Find("ComboBoxItemLanguageAuto", "Auto"), Value = "AUTO" });
             LanguageCombo.Items.Add(new ListItem { Content = Find("ComboBoxItemLanguageEnglish", "English"), Value = "EN_US" });
@@ -209,6 +210,26 @@ namespace ApeRadar.Controls
                 UpdateResponsiveLayout();
         }
 
+        private void UpdateCompactMetricWidths()
+        {
+            double Measure(string value, string fontResource)
+            {
+                TextBlock text = new() { Text = value, FontFamily = (System.Windows.Media.FontFamily)FindResource(fontResource), FontSize = 12 };
+                System.Windows.Media.TextOptions.SetTextFormattingMode(text, System.Windows.Media.TextFormattingMode.Display);
+                text.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                return Math.Ceiling(text.DesiredSize.Width) + 13; // Cell border and two 6 DIP margins.
+            }
+
+            string Label(string key, string fallback) => Application.Current?.TryFindResource(key) as string ?? Find(key, fallback);
+            double contextWidth = Math.Max(80, Measure($"999999 {Label("RosterMetricBattlesShort", "Games")}", "NumericFontFamily"));
+            double prWidth = Math.Max(84, new[] { "DashboardContextAccount", "DashboardContextTier", "RosterPrShipShort" }
+                .Max(key => Measure($"{Label(key, "Account")} 99999", "AppFontFamily")));
+            AllyContextColumn.MinWidth = EnemyContextColumn.MinWidth = contextWidth;
+            AllyPrColumn.MinWidth = EnemyPrColumn.MinWidth = prWidth;
+            AllyContextColumn.Width = EnemyContextColumn.Width = new DataGridLength(contextWidth);
+            AllyPrColumn.Width = EnemyPrColumn.Width = new DataGridLength(prWidth);
+        }
+
         private void UpdateContextHeader()
         {
             if (DataContext is not BattleDashboardViewModel dashboard) return;
@@ -259,6 +280,7 @@ namespace ApeRadar.Controls
 
         private void UpdateResponsiveLayout()
         {
+            UpdateCompactMetricWidths();
             DashboardLayout layout = DashboardLayoutCalculator.Calculate(ActualWidth, ActualHeight);
             bool compactSidebar = layout.CompactSidebar;
             SidebarColumn.Width = new GridLength(layout.SidebarWidth);

@@ -433,12 +433,12 @@ public sealed class HistoryWindowSmokeTests
                 0,
                 1);
             Assert.True(window.DashboardView.RosterToolbar.ActualHeight >= 30);
-            Assert.Equal(90, window.DashboardView.AllyContextColumn.MinWidth);
+            Assert.True(window.DashboardView.AllyContextColumn.MinWidth >= 80);
             Assert.Equal(180, window.DashboardView.AllyShipColumn.MinWidth);
             if (window.DashboardView.ActualWidth >= 1400)
             {
-                Assert.InRange(window.DashboardView.AlliesGrid.Columns[0].ActualWidth, 210, 340);
-                Assert.True(window.DashboardView.AllyContextColumn.ActualWidth >= 90);
+                Assert.InRange(window.DashboardView.AlliesGrid.Columns[0].ActualWidth, 210, window.DashboardView.AlliesGrid.ActualWidth);
+                Assert.True(window.DashboardView.AllyContextColumn.ActualWidth >= 80);
                 Assert.True(window.DashboardView.AllyShipColumn.ActualWidth >= 180);
             }
             Assert.NotNull(window.DashboardView.AllyContextColumn.HeaderTemplate);
@@ -1178,7 +1178,7 @@ public sealed class HistoryWindowSmokeTests
                     var view = window.DashboardView;
                     Assert.True(view.AlliesGrid.ActualHeight >= 46, $"No readable row: {width}x{height}/{scale}");
                     Assert.Equal(view.AlliesGrid.RowHeight, view.EnemiesGrid.RowHeight);
-                    Assert.True(view.AllyContextColumn.ActualWidth >= 90);
+                    Assert.True(view.AllyContextColumn.ActualWidth >= 80);
                     Assert.True(view.AllyShipColumn.ActualWidth >= 180);
                     Assert.True(view.AlliesGrid.Columns[0].ActualWidth >= 210);
                     Assert.True(view.HelpNavButton.IsVisible);
