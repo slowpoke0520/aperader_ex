@@ -12,7 +12,7 @@ namespace ApeRadar.Utils.Converters
         {
             return (value as string) switch
             {
-                "" => new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FE0E00")),
+                "" => new SolidColorBrush((Color)ColorConverter.ConvertFromString("#B42318")),
                 _ => new SolidColorBrush((Color)ColorConverter.ConvertFromString("#318000")),
             };
         }

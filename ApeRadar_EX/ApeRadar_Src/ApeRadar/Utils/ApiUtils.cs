@@ -1,29 +1,54 @@
-﻿using ApeRadar.Models;
+using ApeRadar.Models;
+using ApeRadar.Services;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace ApeRadar.Utils
 {
     static internal class ApiUtils
     {
-        private static double CalcWeightedWinrate(double accountWinrateSolo, double accountBattlesSolo, double accountWinrateDiv2, double accountBattlesDiv2, double accountWinrateDiv3, double accountBattlesDiv3, double shipWinrate, double shipBattles)
+        private const string VortexNotFoundResponse = "{\"status\":\"error\",\"error\":\"Not Found\"}";
+
+        internal static async Task<string> VortexHttpGetAllowNotFoundAsync(
+            Func<Task<string>> request,
+            CancellationToken cancellationToken = default)
         {
-            double accountSoloWeight = accountBattlesSolo * Properties.Settings.Default.WeightedWinrateAccountSoloWeightMultiplier;
-            double accountDiv2Weight = accountBattlesDiv2 * Properties.Settings.Default.WeightedWinrateAccountDiv2WeightMultiplier;
-            double accountDiv3Weight = accountBattlesDiv3 * Properties.Settings.Default.WeightedWinrateAccountDiv3WeightMultiplier;
-            double accountWeightedWinrate = (accountWinrateSolo * accountSoloWeight + accountWinrateDiv2 * accountDiv2Weight + accountWinrateDiv3 * accountDiv3Weight) / (accountSoloWeight + accountDiv2Weight + accountDiv3Weight);
-            double shipWeight = ((shipBattles >= Properties.Settings.Default.WeightedWinrateShipBattlesAtMaxWeight) ? Properties.Settings.Default.WeightedWinrateShipMaxWeight : Properties.Settings.Default.WeightedWinrateShipMaxWeight * shipBattles / Properties.Settings.Default.WeightedWinrateShipBattlesAtMaxWeight) / 100;
-            return accountWeightedWinrate * (1 - shipWeight) + shipWinrate * shipWeight;
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                return await request().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (NetworkRequestException ex) when (ex.FailureKind == ApiFailureKind.NotFound)
+            {
+                // A missing account/ship/mode is a player-level absence, not a
+                // roster-level outage.  Keep the Vortex JSON contract so the
+                // caller can leave just that metric unavailable while the other
+                // players and endpoints continue to load.
+                return VortexNotFoundResponse;
+            }
         }
 
-        public async static Task<List<Player>> WgPublicApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool useYuyukoProxy, bool forceRefresh = false, string? forceRefreshPlayerID = null)
+        internal static Task<string> VortexHttpGetAllowNotFoundAsync(
+            string url,
+            CancellationToken cancellationToken = default) =>
+            VortexHttpGetAllowNotFoundAsync(() => NetworkUtils.HttpGet(url, cancellationToken), cancellationToken);
+
+        public async static Task<List<Player>> WgPublicApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool useYuyukoProxy, bool forceRefresh = false, string? forceRefreshPlayerID = null, CancellationToken cancellationToken = default, PlayerStatisticsOptions? statisticsOptions = null, IStatsCache? cache = null)
         {
-            string wgPublicApiApplicationId = string.IsNullOrWhiteSpace(Properties.Settings.Default.WgApplicationId)
+            cancellationToken.ThrowIfCancellationRequested();
+            statisticsOptions ??= PlayerStatisticsOptions.Capture();
+            cache ??= new PersistentStatsCache();
+            string wgPublicApiApplicationId = string.IsNullOrWhiteSpace(statisticsOptions.WgApplicationId)
                 ? "447ec579e994976e39dec0e7d0bac644"
-                : Properties.Settings.Default.WgApplicationId.Trim();
+                : statisticsOptions.WgApplicationId.Trim();
             const string YUYUKO_PROXY_URL = "dev-proxy.wows.shinoaki.com:7700/dev";
 
             LogUtils.WriteInfo("WG Public API");
@@ -53,6 +78,7 @@ namespace ApeRadar.Utils
 
             foreach (Player p in playerList)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (p.Name[..1] != ":")
                 {
                     playerNameList = playerNameList + p.Name + "%2C";
@@ -71,7 +97,7 @@ namespace ApeRadar.Utils
                 requestUrl = $"https://api.{serverUrlString}/wows/account/list/?application_id={wgPublicApiApplicationId}&type=exact&search={playerNameList}";
             }
 
-            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl);
+            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl, cancellationToken);
 
             LogUtils.WriteDebug($"WgPublicApiGetPlayersID Response:{responseBodyAsText}");
             JObject JObjectWgPublicApiPlayersIDList = JsonUtils.Parse(responseBodyAsText);
@@ -105,7 +131,7 @@ namespace ApeRadar.Utils
             HashSet<string> playersToFetch = new();
             foreach (Player p in playerList)
             {
-                if (!forceRefresh && p.ID != forceRefreshPlayerID && p.ID != "-1" && PlayerDataCache.TryGet(server, p.ID, p.ShipID, out PlayerDataSnapshot? snapshot))
+                if (!forceRefresh && p.ID != forceRefreshPlayerID && p.ID != "-1" && cache.TryGet(server, p.ID, p.ShipID, out PlayerDataSnapshot? snapshot))
                 {
                     snapshot!.ApplyTo(p);
                     LogUtils.WriteInfo($"PlayerDataCache hit: Name={p.Name}, ID={p.ID}, Server={ServerExt.GetNameByServer(server)}, ShipID={p.ShipID}, FetchedAt={snapshot.FetchedAt:O}, Expired={snapshot.IsExpired()}");
@@ -144,7 +170,7 @@ namespace ApeRadar.Utils
                 requestUrl = $"https://api.{serverUrlString}/wows/account/info/?application_id={wgPublicApiApplicationId}&extra=statistics.pvp_solo%2Cstatistics.pvp_div2%2Cstatistics.pvp_div3&fields=hidden_profile%2Cstatistics.pvp.wins%2Cstatistics.pvp.battles%2Cstatistics.pvp_solo.wins%2Cstatistics.pvp_solo.battles%2Cstatistics.pvp_div2.wins%2Cstatistics.pvp_div2.battles%2Cstatistics.pvp_div3.wins%2Cstatistics.pvp_div3.battles&account_id={playerIdList}";
             }
 
-            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl);
+            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl, cancellationToken);
             LogUtils.WriteDebug($"WgPublicApiGetPlayersAccountData Response:{responseBodyAsText}");
             JObject JObjectWgPublicApiPlayersAccountDataList = JsonUtils.Parse(responseBodyAsText);
 
@@ -156,7 +182,7 @@ namespace ApeRadar.Utils
             {
                 requestUrl = $"https://api.{serverUrlString}/wows/clans/accountinfo/?application_id={wgPublicApiApplicationId}&extra=clan&fields=clan_id%2Cclan.tag&account_id={playerIdList}";
             }
-            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl);
+            responseBodyAsText = await NetworkUtils.HttpGet(requestUrl, cancellationToken);
             LogUtils.WriteDebug($"WgPublicApiGetPlayersClanData Response:{responseBodyAsText}");
             JObject JObjectWgPublicApiPlayersClanDataList = JsonUtils.Parse(responseBodyAsText);
 
@@ -284,8 +310,8 @@ namespace ApeRadar.Utils
                         requestUrlPvpOnly = $"https://api.{serverUrlString}/wows/ships/stats/?application_id={wgPublicApiApplicationId}&fields=ship_id%2Cpvp.wins%2Cpvp.battles%2Cpvp.damage_dealt%2Cpvp.frags&account_id={p.ID}";
                         requestUrlModesOnly = $"https://api.{serverUrlString}/wows/ships/stats/?application_id={wgPublicApiApplicationId}&extra=pvp_solo%2Cpvp_div2%2Cpvp_div3&fields=pvp_solo.wins%2Cpvp_solo.battles%2Cpvp_solo.damage_dealt%2Cpvp_solo.frags%2Cpvp_div2.wins%2Cpvp_div2.battles%2Cpvp_div2.damage_dealt%2Cpvp_div2.frags%2Cpvp_div3.wins%2Cpvp_div3.battles%2Cpvp_div3.damage_dealt%2Cpvp_div3.frags&account_id={p.ID}&ship_id={p.ShipID}";
                     }
-                    taskListWgPublicApiGetPlayersShipsPvpData.Add(NetworkUtils.HttpGet(requestUrlPvpOnly));
-                    taskListWgPublicApiGetPlayersShipsModesData.Add(NetworkUtils.HttpGet(requestUrlModesOnly));
+                    taskListWgPublicApiGetPlayersShipsPvpData.Add(NetworkUtils.HttpGet(requestUrlPvpOnly, cancellationToken));
+                    taskListWgPublicApiGetPlayersShipsModesData.Add(NetworkUtils.HttpGet(requestUrlModesOnly, cancellationToken));
                 }
             }
 
@@ -333,7 +359,7 @@ namespace ApeRadar.Utils
                             {
                                 p.ShipWinrate = p.ShipWins / p.ShipBattles;
                                 p.ShipAvgDmgPerBattle = p.ShipTotalDmg / p.ShipBattles;
-                                p.WeightedWinrate = CalcWeightedWinrate(p.AccountWinrate_Solo, p.Battles_Solo, p.AccountWinrate_Div2, p.Battles_Div2, p.AccountWinrate_Div3, p.Battles_Div3, p.ShipWinrate, p.ShipBattles);
+                                p.WeightedWinrate = WeightedWinrateCalculator.Calculate(statisticsOptions, p.AccountWinrate_Solo, p.Battles_Solo, p.AccountWinrate_Div2, p.Battles_Div2, p.AccountWinrate_Div3, p.Battles_Div3, p.ShipWinrate, p.ShipBattles);
                             }
                         }
                     }
@@ -354,6 +380,7 @@ namespace ApeRadar.Utils
                     if (JObjectWgPublicApiPlayerShipsPvpData["status"]!.Value<string>() == "ok" && JArrayWgPublicApiPlayerShipsData != null)
                     {
                         List<(string, double, double, double, double)> playerShipsForPR = new();
+                        List<TierShipStatistics> playerShipsByTier = new();
                         foreach (JToken JTokenShip in JArrayWgPublicApiPlayerShipsData)
                         {
                             string shipId = JTokenShip["ship_id"]?.Value<string>() ?? "-1";
@@ -366,8 +393,10 @@ namespace ApeRadar.Utils
                             double frags = JTokenShip["pvp"]!["frags"]?.Value<double>() ?? 0;
                             double wins = JTokenShip["pvp"]!["wins"]?.Value<double>() ?? 0;
                             playerShipsForPR.Add((shipId, battles, damageDealt, frags, wins));
+                            playerShipsByTier.Add(new TierShipStatistics(shipId, ShipInfoUtils.GetShipTierByID(shipId), battles, wins, damageDealt, frags));
                         }
                         p.PR = PRUtils.CalculateAccountPR(playerShipsForPR);
+                        TierPerformanceUtils.ApplyTo(p, playerShipsByTier);
                     }
 
                     //current ship solo/div2/div3 data from the modes response
@@ -437,15 +466,18 @@ namespace ApeRadar.Utils
                         p.ShipWinrate_Div3 = 0;
                     }
 
-                    PlayerDataCache.Set(server, p.ID, p.ShipID, PlayerDataSnapshot.FromPlayer(p));
+                    cache.Set(server, p.ID, p.ShipID, PlayerDataSnapshot.FromPlayer(p));
                     LogUtils.WriteDebug($"player:{p}");
                 }
             }
             return playerList;
         }
 
-        public async static Task<List<Player>> VortexApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool forceRefresh = false, string? forceRefreshPlayerID = null)
+        public async static Task<List<Player>> VortexApiGetPlayersStatistics(int playerCount, int relationFilter, JObject JObjectPlayers, Server server, bool forceRefresh = false, string? forceRefreshPlayerID = null, CancellationToken cancellationToken = default, PlayerStatisticsOptions? statisticsOptions = null, IStatsCache? cache = null)
         {
+            statisticsOptions ??= PlayerStatisticsOptions.Capture();
+            cache ??= new PersistentStatsCache();
+            cancellationToken.ThrowIfCancellationRequested();
             LogUtils.WriteInfo("Vortex API");
             string serverUrlString = ServerExt.GetFullUrlStringByServer(server);
             List<Player> playerList = new();
@@ -467,6 +499,7 @@ namespace ApeRadar.Utils
             //resolve player IDs from the persistent cache first
             foreach (Player p in playerList)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (p.Name[..1] != ":")
                 {
                     if (PlayerIDCache.TryGetID(server, p.Name, out string cachedID))
@@ -475,7 +508,7 @@ namespace ApeRadar.Utils
                     }
                     else
                     {
-                        taskListVortexApiGetPlayerID.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/search/{Uri.EscapeDataString(p.Name)}"));
+                        taskListVortexApiGetPlayerID.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/search/{Uri.EscapeDataString(p.Name)}", cancellationToken));
                     }
                 }
             }
@@ -511,7 +544,7 @@ namespace ApeRadar.Utils
             HashSet<string> playersToFetch = new();
             foreach (Player p in playerList)
             {
-                if (!forceRefresh && p.ID != forceRefreshPlayerID && p.ID != "-1" && PlayerDataCache.TryGet(server, p.ID, p.ShipID, out PlayerDataSnapshot? snapshot))
+                if (!forceRefresh && p.ID != forceRefreshPlayerID && p.ID != "-1" && cache.TryGet(server, p.ID, p.ShipID, out PlayerDataSnapshot? snapshot))
                 {
                     snapshot!.ApplyTo(p);
                     LogUtils.WriteInfo($"PlayerDataCache hit: Name={p.Name}, ID={p.ID}, Server={ServerExt.GetNameByServer(server)}, ShipID={p.ShipID}, FetchedAt={snapshot.FetchedAt:O}, Expired={snapshot.IsExpired()}");
@@ -541,12 +574,12 @@ namespace ApeRadar.Utils
             {
                 if (p.Name[..1] != ":" && p.ID != "-1" && playersToFetch.Contains(p.ID))
                 {
-                    taskListVortexApiGetPlayersAccountData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/"));
-                    taskListVortexApiGetPlayersClanData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/clans/"));
-                    taskListVortexApiGetPlayersShipsAllData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/pvp/"));
-                    taskListVortexApiGetPlayersShipsSoloData.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_solo/"));
-                    taskListVortexApiGetPlayersShipsDiv2Data.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div2/"));
-                    taskListVortexApiGetPlayersShipsDiv3Data.Add(NetworkUtils.HttpGet($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div3/"));
+                    taskListVortexApiGetPlayersAccountData.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/", cancellationToken));
+                    taskListVortexApiGetPlayersClanData.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/clans/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsAllData.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/pvp/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsSoloData.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_solo/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsDiv2Data.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div2/", cancellationToken));
+                    taskListVortexApiGetPlayersShipsDiv3Data.Add(VortexHttpGetAllowNotFoundAsync($"https://vortex.{serverUrlString}/api/accounts/{p.ID}/ships/{p.ShipID}/pvp_div3/", cancellationToken));
                 }
             }
 
@@ -583,7 +616,8 @@ namespace ApeRadar.Utils
 
                     JToken? accountData = JObjectVortexApiPlayerAccountData["data"]?[p.ID];
                     JToken? accountStatistics = accountData?["statistics"];
-                    if (JObjectVortexApiPlayerAccountData["status"]?.Value<string>() == "ok" && accountData?.HasValues == true && accountData?["hidden_profile"] == null && accountStatistics?.HasValues == true)
+                    bool accountRequestSucceeded = JObjectVortexApiPlayerAccountData["status"]?.Value<string>() == "ok";
+                    if (accountRequestSucceeded && accountData?.HasValues == true && accountData?["hidden_profile"] == null && accountStatistics?.HasValues == true)
                     {
                         JToken? karma = accountStatistics["basic"]?["karma"];
                         p.Karma = karma?.Value<double>() ?? 0;
@@ -693,12 +727,17 @@ namespace ApeRadar.Utils
                             p.AvgExpPerBattle_Div3 = 0;
                         }
                     }
-                    else
+                    else if (accountRequestSucceeded)
                     {
                         p.IsHidden = true;
                     }
+                    else
+                    {
+                        p.IsDataFetchFailed = true;
+                        LogUtils.WriteInfo($"Vortex account statistics unavailable; preserving the rest of the roster. Name={p.Name}, ID={p.ID}, Server={ServerExt.GetNameByServer(server)}");
+                    }
 
-                    if (JObjectVortexApiPlayerClanData["status"]!.Value<string>() == "ok" && JObjectVortexApiPlayerClanData["data"]!["clan"]!.HasValues)
+                    if (JObjectVortexApiPlayerClanData["status"]?.Value<string>() == "ok" && JObjectVortexApiPlayerClanData["data"]?["clan"]?.HasValues == true)
                     {
                         p.ClanID = JObjectVortexApiPlayerClanData["data"]!["clan_id"]!.Value<string>()!;
                         p.ClanTag = $"[{JObjectVortexApiPlayerClanData["data"]!["clan"]!["tag"]!.Value<string>()}]";
@@ -726,7 +765,7 @@ namespace ApeRadar.Utils
                                 p.ShipWinrate = p.ShipWins / p.ShipBattles;
                                 p.ShipAvgDmgPerBattle = p.ShipTotalDmg / p.ShipBattles;
                                 p.ShipAvgExpPerBattle = p.ShipTotalExp / p.ShipBattles;
-                                p.WeightedWinrate = CalcWeightedWinrate(p.AccountWinrate_Solo, p.Battles_Solo, p.AccountWinrate_Div2, p.Battles_Div2, p.AccountWinrate_Div3, p.Battles_Div3, p.ShipWinrate, p.ShipBattles);
+                                p.WeightedWinrate = WeightedWinrateCalculator.Calculate(statisticsOptions, p.AccountWinrate_Solo, p.Battles_Solo, p.AccountWinrate_Div2, p.Battles_Div2, p.AccountWinrate_Div3, p.Battles_Div3, p.ShipWinrate, p.ShipBattles);
                             }
                         }
                         else
@@ -833,6 +872,7 @@ namespace ApeRadar.Utils
                     if (JObjectVortexApiPlayerShipsAllData["status"]!.Value<string>() == "ok" && JObjectVortexApiPlayerShipsAllData["data"]![p.ID] != null && JObjectVortexApiPlayerShipsAllData["data"]![p.ID]!["statistics"] is JObject JObjectVortexPlayerShipsStatistics)
                     {
                         List<(string, double, double, double, double)> playerShipsForPR = new();
+                        List<TierShipStatistics> playerShipsByTier = new();
                         foreach (JProperty JPropertyShip in JObjectVortexPlayerShipsStatistics.Children<JProperty>())
                         {
                             JToken? JTokenPvp = JPropertyShip.Value["pvp"];
@@ -845,11 +885,16 @@ namespace ApeRadar.Utils
                             double frags = JTokenPvp["frags"]?.Value<double>() ?? 0;
                             double wins = JTokenPvp["wins"]?.Value<double>() ?? 0;
                             playerShipsForPR.Add((JPropertyShip.Name, battles, damageDealt, frags, wins));
+                            playerShipsByTier.Add(new TierShipStatistics(JPropertyShip.Name, ShipInfoUtils.GetShipTierByID(JPropertyShip.Name), battles, wins, damageDealt, frags));
                         }
                         p.PR = PRUtils.CalculateAccountPR(playerShipsForPR);
+                        TierPerformanceUtils.ApplyTo(p, playerShipsByTier);
                     }
 
-                    PlayerDataCache.Set(server, p.ID, p.ShipID, PlayerDataSnapshot.FromPlayer(p));
+                    if (!p.IsDataFetchFailed)
+                    {
+                        cache.Set(server, p.ID, p.ShipID, PlayerDataSnapshot.FromPlayer(p));
+                    }
                 }
                 LogUtils.WriteDebug($"player:{p}");
             }

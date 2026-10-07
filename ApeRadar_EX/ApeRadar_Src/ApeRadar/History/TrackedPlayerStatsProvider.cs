@@ -14,7 +14,10 @@ namespace ApeRadar.History
 
         public async Task<ShipStatSnapshot?> GetCurrentShipStatsAsync(BattleRecord battle, CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(battle.AccountId) || battle.AccountId.StartsWith("name:", StringComparison.OrdinalIgnoreCase) || battle.Server == "AUTO") return null;
+            if (string.IsNullOrWhiteSpace(battle.AccountId) ||
+                battle.AccountId.StartsWith("name:", StringComparison.OrdinalIgnoreCase) ||
+                !long.TryParse(battle.AccountId, out long accountId) || accountId <= 0 ||
+                battle.Server == "AUTO") return null;
             Server server = ServerExt.GetServerByName(battle.Server);
             APIType apiType = APITypeExt.GetAPITypeByName(Properties.Settings.Default.APITypeSelection);
             return apiType == APIType.VORTEX || server is Server.RU or Server.CN
@@ -25,7 +28,7 @@ namespace ApeRadar.History
         private static async Task<ShipStatSnapshot?> GetVortexAsync(BattleRecord battle, Server server)
         {
             string domain = ServerExt.GetFullUrlStringByServer(server);
-            JObject response = JsonUtils.Parse(await NetworkUtils.HttpGet($"https://vortex.{domain}/api/accounts/{battle.AccountId}/ships/pvp/"));
+            JObject response = JsonUtils.Parse(await ApiUtils.VortexHttpGetAllowNotFoundAsync($"https://vortex.{domain}/api/accounts/{battle.AccountId}/ships/pvp/"));
             JToken? pvp = response["data"]?[battle.AccountId]?["statistics"]?[battle.ShipId]?["pvp"];
             if (response["status"]?.Value<string>() != "ok" || pvp?.HasValues != true) return null;
             return CreateSnapshot(battle, "VORTEX", pvp, "battles_count");

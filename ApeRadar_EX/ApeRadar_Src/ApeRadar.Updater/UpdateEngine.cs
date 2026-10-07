@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 internal sealed record UpdateRequest(
     int ProcessId,
@@ -310,10 +311,10 @@ internal sealed class UpdateFileTransaction : IDisposable
 {
     private static readonly HashSet<string> PreservedFiles = new(StringComparer.OrdinalIgnoreCase)
     {
-        "WatchList.json", "PlayerDataCache.json", "PlayerIDCache.json", "EncounterHistory.json", "placement.config",
-        Path.Combine("Resources", "Json", "ships.json"),
-        Path.Combine("Resources", "Json", "expected_values.json")
+        "WatchList.json", "PlayerDataCache.json", "PlayerIDCache.json", "EncounterHistory.json", "placement.config"
     };
+    private static readonly string ShipsDataPath = Path.Combine("Resources", "Json", "ships.json");
+    private static readonly string PrDataPath = Path.Combine("Resources", "Json", "expected_values.json");
     private static readonly string[] PreservedDirectories = { "Log", "Screenshot" };
 
     private readonly string installDirectory;
@@ -343,7 +344,7 @@ internal sealed class UpdateFileTransaction : IDisposable
                 string relative = Path.GetRelativePath(sourceDirectory, source);
                 return new FilePlan(source, relative, Path.Combine(this.installDirectory, relative), Path.Combine(this.backupDirectory, relative));
             })
-            .Where(file => !IsPreservedExisting(file.RelativePath, file.DestinationPath))
+            .Where(file => !IsPreservedExisting(file.RelativePath, file.SourcePath, file.DestinationPath))
             .ToList();
 
         BackupExistingFiles();
@@ -422,14 +423,45 @@ internal sealed class UpdateFileTransaction : IDisposable
         }
     }
 
-    private static bool IsPreservedExisting(string relativePath, string destinationPath)
+    private static bool IsPreservedExisting(string relativePath, string sourcePath, string destinationPath)
     {
         if (!File.Exists(destinationPath)) return false;
         string normalized = relativePath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        if (normalized.Equals(ShipsDataPath, StringComparison.OrdinalIgnoreCase))
+            return IsInstalledDataNewer(sourcePath, destinationPath, "date");
+        if (normalized.Equals(PrDataPath, StringComparison.OrdinalIgnoreCase))
+            return IsInstalledDataNewer(sourcePath, destinationPath, "time");
         if (PreservedFiles.Contains(normalized)) return true;
         return PreservedDirectories.Any(directory =>
             normalized.Equals(directory, StringComparison.OrdinalIgnoreCase) ||
             normalized.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsInstalledDataNewer(string releasePath, string installedPath, string propertyName)
+    {
+        if (!TryReadVersion(releasePath, propertyName, out long releaseVersion)) return true;
+        if (!TryReadVersion(installedPath, propertyName, out long installedVersion)) return false;
+        return installedVersion > releaseVersion;
+    }
+
+    private static bool TryReadVersion(string path, string propertyName, out long version)
+    {
+        version = 0;
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
+            if (!document.RootElement.TryGetProperty(propertyName, out JsonElement value)) return false;
+            return value.ValueKind switch
+            {
+                JsonValueKind.Number => value.TryGetInt64(out version),
+                JsonValueKind.String => long.TryParse(value.GetString(), out version),
+                _ => false
+            };
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static void CopyWithRetry(string source, string destination)

@@ -11,7 +11,7 @@
     <ApplicationIcon>Resources\Image\monkey-face-navy.ico</ApplicationIcon>
     <AssemblyVersion>2.1.1.0</AssemblyVersion>
     <FileVersion></FileVersion>
-    <Version>2.1.1-ex.9</Version>
+    <Version>2.1.1-ex.12-dev.21</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -27,6 +27,7 @@
   <ItemGroup>
     <None Remove="Resources\Image\wows-numbers-icon.png" />
     <None Remove="Resources\Image\wows-official-icon.png" />
+    <None Remove="Resources\Image\ShipTypes\*.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,7 +41,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.20" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="Nodsoft.WowsReplaysUnpack" Version="3.0.40-beta" />
+    <PackageReference Include="Nodsoft.WowsReplaysUnpack" Version="3.0.45-beta" />
     <PackageReference Include="Razorvine.Pickle" Version="1.5.0" />
     <PackageReference Include="RestoreWindowPlace" Version="2.1.0" />
   </ItemGroup>
@@ -67,6 +68,9 @@
     <None Update="README.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\..\THIRD_PARTY_NOTICES.md" Link="THIRD_PARTY_NOTICES.md">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Resources\Json\ships.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -77,7 +81,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Resources\Json\expected_values.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\Json\release_data.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="WatchList.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -87,6 +94,7 @@
   <ItemGroup>
     <Resource Include="Resources\Image\wows-numbers-icon.png" />
     <Resource Include="Resources\Image\wows-official-icon.png" />
+    <Resource Include="Resources\Image\ShipTypes\*.png" />
   </ItemGroup>
 
   <ItemGroup>

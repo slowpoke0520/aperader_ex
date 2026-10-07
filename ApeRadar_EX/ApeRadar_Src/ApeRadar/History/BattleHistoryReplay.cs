@@ -20,10 +20,15 @@ namespace ApeRadar.History
         public string DamageStatsError { get; set; } = "";
         public string VehicleDeathsError { get; set; } = "";
         public Dictionary<int, double> EnemyDamageByType { get; } = new();
+        public Dictionary<int, double> PotentialDamageByType { get; } = new();
+        public Dictionary<int, double> ReceivedDamageByType { get; } = new();
+        public HashSet<int> DamageStatisticTypesSeen { get; } = new();
         public List<VehicleDeathEvent> VehicleDeaths { get; } = new();
+        public float LastPacketTime { get; set; }
+        public float? BattleEndTime { get; set; }
     }
 
-    internal readonly record struct VehicleDeathEvent(uint VictimId, uint KillerId, uint Reason);
+    internal readonly record struct VehicleDeathEvent(uint VictimId, uint KillerId, uint Reason, float PacketTime);
 
     internal sealed class BattleHistoryReplayController : ReplayControllerBase<BattleHistoryReplay>
     {
@@ -39,17 +44,19 @@ namespace ApeRadar.History
             Dictionary<string, object?> arguments)
         {
             base.CallSubscription(hash, entity, packetTime, arguments);
+            Replay.LastPacketTime = Math.Max(Replay.LastPacketTime, packetTime);
             switch (hash)
             {
                 case "Avatar_onBattleEnd":
                     Replay.BattleEnded = true;
+                    Replay.BattleEndTime = packetTime;
                     break;
                 case "Avatar_receiveDamageStat":
                     byte[]? payload = arguments.Values.OfType<byte[]>().FirstOrDefault();
                     if (payload != null && payload.Length > 0) ApplyDamageStats(Replay, payload);
                     break;
                 case "Avatar_receiveVehicleDeath":
-                    ApplyVehicleDeath(arguments);
+                    ApplyVehicleDeath(arguments, packetTime);
                     break;
             }
         }
@@ -70,11 +77,18 @@ namespace ApeRadar.History
                         throw new InvalidDataException("Damage statistics entry has an unexpected shape.");
                     int damageType = Convert.ToInt32(key[0], CultureInfo.InvariantCulture);
                     int statisticsType = Convert.ToInt32(key[1], CultureInfo.InvariantCulture);
-                    if (statisticsType != 0) continue; // DAMAGE_STATS_ENEMY
                     double damage = Convert.ToDouble(value[1], CultureInfo.InvariantCulture);
                     if (double.IsNaN(damage) || double.IsInfinity(damage) || damage < 0)
                         throw new InvalidDataException("Damage statistics entry contains an invalid value.");
-                    replay.EnemyDamageByType[damageType] = damage;
+                    replay.DamageStatisticTypesSeen.Add(statisticsType);
+                    Dictionary<int, double>? target = statisticsType switch
+                    {
+                        0 => replay.EnemyDamageByType,
+                        2 => replay.ReceivedDamageByType,
+                        3 => replay.PotentialDamageByType,
+                        _ => null
+                    };
+                    if (target != null) target[damageType] = damage;
                 }
             }
             catch (Exception ex) when (ex is PickleException or InvalidDataException or FormatException or InvalidCastException or OverflowException)
@@ -83,7 +97,7 @@ namespace ApeRadar.History
             }
         }
 
-        private void ApplyVehicleDeath(Dictionary<string, object?> arguments)
+        private void ApplyVehicleDeath(Dictionary<string, object?> arguments, float packetTime)
         {
             try
             {
@@ -92,7 +106,8 @@ namespace ApeRadar.History
                 Replay.VehicleDeaths.Add(new VehicleDeathEvent(
                     Convert.ToUInt32(values[0]),
                     Convert.ToUInt32(values[1]),
-                    Convert.ToUInt32(values[2])));
+                    Convert.ToUInt32(values[2]),
+                    packetTime));
             }
             catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
             {

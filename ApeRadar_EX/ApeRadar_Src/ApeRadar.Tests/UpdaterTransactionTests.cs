@@ -20,10 +20,10 @@ public sealed class UpdaterTransactionTests : IDisposable
         Write(install, "ApeRadar.dll", "old managed file");
         Write(source, "WatchList.json", "release default");
         Write(install, "WatchList.json", "user watch list");
-        Write(source, Path.Combine("Resources", "Json", "ships.json"), "release ships");
-        Write(install, Path.Combine("Resources", "Json", "ships.json"), "newer user ships");
-        Write(source, Path.Combine("Resources", "Json", "expected_values.json"), "release PR data");
-        Write(install, Path.Combine("Resources", "Json", "expected_values.json"), "newer user PR data");
+        Write(source, Path.Combine("Resources", "Json", "ships.json"), "{\"date\":\"20260910\",\"ships\":{}}");
+        Write(install, Path.Combine("Resources", "Json", "ships.json"), "{\"date\":\"20260911\",\"ships\":{}}");
+        Write(source, Path.Combine("Resources", "Json", "expected_values.json"), "{\"time\":200,\"data\":{}}");
+        Write(install, Path.Combine("Resources", "Json", "expected_values.json"), "{\"time\":201,\"data\":{}}");
         Write(source, "PlayerDataCache.json", "release cache default");
 
         using UpdateFileTransaction transaction = new(source, install, backup, new UpdateStrings("ZH_CN"));
@@ -32,9 +32,28 @@ public sealed class UpdaterTransactionTests : IDisposable
 
         Assert.Equal("new managed file", Read(install, "ApeRadar.dll"));
         Assert.Equal("user watch list", Read(install, "WatchList.json"));
-        Assert.Equal("newer user ships", Read(install, Path.Combine("Resources", "Json", "ships.json")));
-        Assert.Equal("newer user PR data", Read(install, Path.Combine("Resources", "Json", "expected_values.json")));
+        Assert.Contains("20260911", Read(install, Path.Combine("Resources", "Json", "ships.json")));
+        Assert.Contains("201", Read(install, Path.Combine("Resources", "Json", "expected_values.json")));
         Assert.Equal("release cache default", Read(install, "PlayerDataCache.json"));
+    }
+
+    [Fact]
+    public void Apply_ReplacesOlderInstalledShipAndPrData()
+    {
+        string source = Directory.CreateDirectory(Path.Combine(root, "source")).FullName;
+        string install = Directory.CreateDirectory(Path.Combine(root, "install")).FullName;
+        string backup = Path.Combine(root, "backup");
+        Write(source, Path.Combine("Resources", "Json", "ships.json"), "{\"date\":\"20260910\",\"marker\":\"release\"}");
+        Write(install, Path.Combine("Resources", "Json", "ships.json"), "{\"date\":\"20260901\",\"marker\":\"installed\"}");
+        Write(source, Path.Combine("Resources", "Json", "expected_values.json"), "{\"time\":200,\"marker\":\"release\"}");
+        Write(install, Path.Combine("Resources", "Json", "expected_values.json"), "{\"time\":199,\"marker\":\"installed\"}");
+
+        using UpdateFileTransaction transaction = new(source, install, backup, new UpdateStrings("ZH_CN"));
+        transaction.Apply();
+        transaction.Commit();
+
+        Assert.Contains("release", Read(install, Path.Combine("Resources", "Json", "ships.json")));
+        Assert.Contains("release", Read(install, Path.Combine("Resources", "Json", "expected_values.json")));
     }
 
     [Fact]
@@ -114,6 +133,45 @@ public sealed class UpdaterTransactionTests : IDisposable
         Assert.False(UpdateRequest.TryParse(badHash, out _));
     }
 
+    [Fact]
+    public void UpdateRequest_AcceptsUppercaseHashAndCanonicalizesPublicArguments()
+    {
+        string install = Directory.CreateDirectory(Path.Combine(root, "public-contract-install")).FullName;
+        string updater = Environment.ProcessPath!;
+        string[] args =
+        {
+            "--apply-update", "123", "https://example.test/releases/ApeRadar-win-x64.zip", new string('A', 64),
+            install, updater, "2.1.1-ex.12-dev.19", "EN_US"
+        };
+
+        Assert.True(UpdateRequest.TryParse(args, out UpdateRequest? request));
+        Assert.Equal(Path.GetFullPath(install), request!.InstallDirectory);
+        Assert.Equal(Path.GetFullPath(updater), request.UpdaterPath);
+        Assert.Equal("https://example.test/releases/ApeRadar-win-x64.zip", request.DownloadUrl);
+        Assert.Equal(new string('A', 64), request.ExpectedSha256);
+        Assert.Equal("EN_US", request.Language);
+    }
+
+    [Fact]
+    public void UpdateRequest_RejectsInvalidBoundaryArgumentsWithoutThrowing()
+    {
+        string install = Directory.CreateDirectory(Path.Combine(root, "invalid-contract-install")).FullName;
+        string[] valid =
+        {
+            "--apply-update", "123", "https://example.test/ApeRadar.zip", new string('a', 64),
+            install, Environment.ProcessPath!, "2.1.1-ex.12-dev.19", "ZH_CN"
+        };
+
+        Assert.False(UpdateRequest.TryParse(Array.Empty<string>(), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 0, "--inspect-update"), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 1, "0"), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 2, "http://example.test/ApeRadar.zip"), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 3, new string('g', 64)), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 4, Path.Combine(root, "missing-install")), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 5, Path.Combine(root, "different-updater.exe")), out _));
+        Assert.False(UpdateRequest.TryParse(Replace(valid, 6, "   "), out _));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(root)) Directory.Delete(root, true);
@@ -127,4 +185,11 @@ public sealed class UpdaterTransactionTests : IDisposable
     }
 
     private static string Read(string directory, string relativePath) => File.ReadAllText(Path.Combine(directory, relativePath));
+
+    private static string[] Replace(string[] source, int index, string value)
+    {
+        string[] copy = (string[])source.Clone();
+        copy[index] = value;
+        return copy;
+    }
 }

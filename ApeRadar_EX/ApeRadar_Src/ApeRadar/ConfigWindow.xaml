@@ -6,10 +6,11 @@
         xmlns:local="clr-namespace:ApeRadar"
         xmlns:cvt="clr-namespace:ApeRadar.Utils.Converters"
         xmlns:model="clr-namespace:ApeRadar.Models"
+        xmlns:controls="clr-namespace:ApeRadar.Controls"
         xmlns:p="clr-namespace:ApeRadar.Properties"
         xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
         mc:Ignorable="d"
-        Title="{DynamicResource WindowTitleConfig}" ResizeMode="CanResize" WindowStartupLocation="CenterOwner" Width="1100" Height="700" MinWidth="900" MinHeight="560" Closing="ConfigWindow_Closing">
+        Title="{DynamicResource WindowTitleConfig}" ResizeMode="CanResize" WindowStartupLocation="CenterOwner" Width="1100" Height="700" MinWidth="600" MinHeight="360" Closing="ConfigWindow_Closing">
     <Window.Resources>
         <cvt:ComboBoxSecondaryServerVisibilityConverter x:Key="CvtSecondaryServer"/>
         <cvt:ContextMenuItemCheckOnWoWSNumbersIsEnabledConverter x:Key="CvtContextMenuItemWoWSNumbersIsEnabled"/>
@@ -23,28 +24,28 @@
         <cvt:WatchStatusColorConverter x:Key="CvtWatchStatusColor"/>
         <cvt:WeightedWinratePieChartWeightConverter x:Key="CvtWeightedWinratePieChartWeight"/>
         <DataTemplate x:Key="ServerHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderServer}" FontSize="10"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderServer}" FontSize="12"/>
         </DataTemplate>
         <DataTemplate x:Key="IDHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderID}" FontSize="10"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderID}" FontSize="12"/>
         </DataTemplate>
         <DataTemplate x:Key="NameHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderName}" FontSize="10"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderName}" FontSize="12"/>
         </DataTemplate>
         <DataTemplate x:Key="ServerTemplate">
-            <TextBlock Text="{Binding Server,Converter={StaticResource CvtServerName}}" FontSize="10" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+            <TextBlock Text="{Binding Server,Converter={StaticResource CvtServerName}}" FontSize="12" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
         </DataTemplate>
         <DataTemplate x:Key="IDTemplate">
-            <TextBlock Text="{Binding ID}" FontSize="10" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+            <TextBlock Text="{Binding ID}" FontSize="12" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
         </DataTemplate>
         <DataTemplate x:Key="NameTemplate">
-            <TextBlock Text="{Binding Name}" FontSize="10" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+            <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{Binding WatchStatus,Converter={StaticResource CvtWatchStatusColor}}" VerticalAlignment="Center" Margin="2,0,0,0"/>
         </DataTemplate>
         <DataTemplate x:Key="NoteHeaderTemplate">
-            <TextBlock Text="{DynamicResource DataGridHeaderNote}" FontSize="10"/>
+            <TextBlock Text="{DynamicResource DataGridHeaderNote}" FontSize="12"/>
         </DataTemplate>
         <DataTemplate x:Key="NoteTemplate">
-            <TextBlock Text="{Binding Note}" FontSize="10" TextWrapping="Wrap" VerticalAlignment="Center" Margin="2,0,0,0" ToolTip="{Binding Note}"/>
+            <controls:NoteTagsControl Note="{Binding Note}" Compact="True" MaximumVisibleTags="3" VerticalAlignment="Center" Margin="2,0,0,0"/>
         </DataTemplate>
         <ContextMenu x:Key="RowMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
             <MenuItem x:Name="ContextMenuAddToWatchListPositive" Header="{DynamicResource ContextMenuAddToWatchListPositive}" Click="ContextMenuAddToWatchListPositive_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemAddToWatchListPositiveIsEnabled}}"/>
@@ -71,22 +72,17 @@
             <Setter Property="ContextMenu" Value="{StaticResource RowMenu}"/>
         </Style>
     </Window.Resources>
-    <Viewbox Stretch="Uniform">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="50"/>
-                <RowDefinition Height="500"/>
-                <RowDefinition Height="80"/>
-                <RowDefinition Height="50"/>
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="50"/>
-                <ColumnDefinition Width="1100"/>
-                <ColumnDefinition Width="50"/>
-            </Grid.ColumnDefinitions>
-            <Grid Grid.Row="1" Grid.Column="1">
-                <TabControl TabStripPlacement="Left">
-                    <TabItem Header="{DynamicResource TabHeaderGeneral}" Height="60" Width="180">
+    <Grid Margin="12">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="{DynamicResource WindowTitleConfig}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="4,0,4,12"/>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
+            <Grid MinWidth="900" MinHeight="500">
+                <TabControl x:Name="ConfigTabs" TabStripPlacement="Left" SelectionChanged="ConfigTabs_SelectionChanged">
+                    <TabItem Header="{DynamicResource TabHeaderGeneral}" MinHeight="46" Width="168">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
@@ -174,7 +170,7 @@
                                 <Label Content="{DynamicResource LabelSoftwareVersion}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5"/>
                             </Grid>
                             <Grid Grid.Row="10" Grid.Column="3">
-                                <TextBlock VerticalAlignment="Center" Margin="5">
+                                <TextBlock VerticalAlignment="Center" Margin="5,0" TextWrapping="Wrap">
                                     <Run Text="{Binding Source={x:Static p:Settings.Default},Mode=OneWay,Path=SoftwareVersion}"/>
                                     <Run Text="Build"/>
                                     <Run Text="{Binding Source={x:Static p:Settings.Default},Mode=OneWay,Path=SoftwareDate}"/>
@@ -203,7 +199,7 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="{DynamicResource TabHeaderAppearance}"  Height="60" Width="180">
+                    <TabItem Header="{DynamicResource TabHeaderAppearance}"  MinHeight="46" Width="168">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
@@ -240,33 +236,29 @@
                                     <ComboBoxItem Content="{DynamicResource ComboBoxItemRainbow}"/>
                                 </ComboBox>
                             </Grid>
-                            <Grid Grid.Row="3" Grid.Column="1">
-                                <Label Content="{DynamicResource LabelIcon}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5"/>
-                            </Grid>
-                            <Grid Grid.Row="3" Grid.Column="3">
-                                <StackPanel Orientation="Vertical">
-                                    <Label Content="{DynamicResource LabelApeIcon}"/>
-                                    <TextBox x:Name="TxtApeIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="3" Grid.Column="4">
-                                <StackPanel Orientation="Vertical">
-                                    <Label Content="{DynamicResource LabelUnicumIcon}"/>
-                                    <TextBox x:Name="TxtUnicumIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="3" Grid.Column="5">
-                                <StackPanel Orientation="Vertical">
-                                    <Label Content="{DynamicResource LabelHiddenIcon}"/>
-                                    <TextBox x:Name="TxtHiddenIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="3" Grid.Column="6">
-                                <StackPanel Orientation="Vertical">
-                                    <Label Content="{DynamicResource LabelWatchIcon}"/>
-                                    <TextBox x:Name="TxtWatchIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
-                                </StackPanel>
-                            </Grid>
+                            <Expander Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="7" Header="{DynamicResource ExpanderLegacyDisplay}" Margin="5,2">
+                                <Grid Margin="145,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="145"/><ColumnDefinition Width="145"/><ColumnDefinition Width="145"/><ColumnDefinition Width="145"/><ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <Label Content="{DynamicResource LabelApeIcon}"/>
+                                        <TextBox x:Name="TxtApeIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <Label Content="{DynamicResource LabelUnicumIcon}"/>
+                                        <TextBox x:Name="TxtUnicumIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <Label Content="{DynamicResource LabelHiddenIcon}"/>
+                                        <TextBox x:Name="TxtHiddenIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3">
+                                        <Label Content="{DynamicResource LabelWatchIcon}"/>
+                                        <TextBox x:Name="TxtWatchIcon" TextWrapping="Wrap" FontSize="20" Width="50" Margin="5" MaxLines="1" Padding="0,3,0,3" HorizontalAlignment="Left"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Expander>
                             <Grid Grid.Row="5" Grid.Column="1">
                                 <Label Content="{DynamicResource LabelColumnVisibility}" Margin="5" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                             </Grid>
@@ -377,9 +369,41 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Grid>
+                            <Grid Grid.Row="8" Grid.Column="1">
+                                <Label Content="{DynamicResource LabelRosterDisplay}" Margin="5" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid Grid.Row="8" Grid.Column="3" Grid.ColumnSpan="5">
+                                <StackPanel VerticalAlignment="Top" Margin="0,5,0,0">
+                                    <WrapPanel>
+                                        <ComboBox x:Name="ComboBoxRosterDisplayDensity" SelectedValuePath="Tag" Width="125" Margin="5">
+                                            <ComboBoxItem Tag="Standard" Content="{DynamicResource RosterDensityStandard}"/>
+                                            <ComboBoxItem Tag="Compact" Content="{DynamicResource RosterDensityCompact}"/>
+                                            <ComboBoxItem Tag="Comfortable" Content="{DynamicResource RosterDensityComfortable}"/>
+                                        </ComboBox>
+                                        <CheckBox x:Name="ChkBoxShowShipTypeIcon" Content="{DynamicResource ChkBoxShowShipTypeIcon}" VerticalAlignment="Center" Margin="5"/>
+                                        <CheckBox x:Name="ChkBoxShowLegacyPerformanceTag" Content="{DynamicResource ChkBoxShowLegacyPerformanceTag}" VerticalAlignment="Center" Margin="12,5,5,5"/>
+                                    </WrapPanel>
+                                    <WrapPanel>
+                                        <CheckBox x:Name="ChkBoxShowAccountRosterColumn" Content="{DynamicResource ChkBoxShowAccountRosterColumn}" Margin="5"/>
+                                        <CheckBox x:Name="ChkBoxShowShipRosterColumn" Content="{DynamicResource ChkBoxShowShipRosterColumn}" Margin="12,5,5,5"/>
+                                        <CheckBox x:Name="ChkBoxShowTierPerformanceStats" Content="{DynamicResource ChkBoxShowTierPerformanceStats}" Margin="12,5,5,5"/>
+                                        <CheckBox x:Name="ChkBoxShowPerformanceRosterColumn" Content="{DynamicResource ChkBoxShowPerformanceRosterColumn}" Margin="12,5,5,5"/>
+                                    </WrapPanel>
+                                    <WrapPanel>
+                                        <CheckBox x:Name="ChkBoxShowRecentEncounterBadges" Content="{DynamicResource ChkBoxShowRecentEncounterBadges}" Margin="5"/>
+                                        <CheckBox x:Name="ChkBoxShowFixedTeammateBadges" Content="{DynamicResource ChkBoxShowFixedTeammateBadges}" Margin="12,5,5,5"/>
+                                        <CheckBox x:Name="ChkBoxShowCachedDataBadges" Content="{DynamicResource ChkBoxShowCachedDataBadges}" Margin="12,5,5,5"/>
+                                        <TextBlock Text="{DynamicResource LabelRosterPerformanceMetric}" VerticalAlignment="Center" Margin="14,5,4,5"/>
+                                        <ComboBox x:Name="ComboBoxRosterPerformanceMetric" SelectedValuePath="Tag" Width="118" Margin="4,2,5,2">
+                                            <ComboBoxItem Tag="PR" Content="{DynamicResource RosterPerformancePR}"/>
+                                            <ComboBoxItem Tag="Winrate" Content="{DynamicResource RosterPerformanceWinrate}"/>
+                                        </ComboBox>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="{DynamicResource TabHeaderWinrateAndTag}" Height="60" Width="180">
+                    <TabItem Header="{DynamicResource TabHeaderWinrateAndTag}" MinHeight="46" Width="168">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
@@ -535,8 +559,8 @@
                             </Grid>
                             <Grid Grid.Row="11" Grid.Column="5">
                                 <StackPanel Orientation="Vertical">
-                                    <Label Content="{DynamicResource LabelWeightedWinratePieChartDescriptionLine1}" FontSize="10" HorizontalAlignment="Center"/>
-                                    <Label Content="{DynamicResource LabelWeightedWinratePieChartDescriptionLine2}" FontSize="10" HorizontalAlignment="Center"/>
+                                    <Label Content="{DynamicResource LabelWeightedWinratePieChartDescriptionLine1}" FontSize="12" HorizontalAlignment="Center"/>
+                                    <Label Content="{DynamicResource LabelWeightedWinratePieChartDescriptionLine2}" FontSize="12" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
                             <Grid Grid.Row="9" Grid.Column="3">
@@ -566,7 +590,7 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Height="60" Width="180">
+                    <TabItem MinHeight="46" Width="168">
                         <TabItem.Header>
                             <TextBlock TextAlignment="Center">
                                 <Run Text="{DynamicResource TabHeaderTextOutput}"/>
@@ -600,15 +624,6 @@
                             </Grid>
                             <Grid Grid.Row="2" Grid.Column="1">
                                 <TextBox x:Name="TxtOutputTextTemplateGeneralStatistics" HorizontalAlignment="Stretch" TextWrapping="Wrap" VerticalAlignment="Stretch" Margin="5,5,10,5"/>
-                            </Grid>
-                            <Grid Grid.Row="1" Grid.Column="1">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                    <Label Content="{DynamicResource LabelWgApplicationId}" VerticalAlignment="Center"/>
-                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipWgApplicationId}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="1" Grid.Column="3">
-                                <TextBox x:Name="TxtWgApplicationId" Width="280" Margin="5" MaxLength="64" HorizontalAlignment="Left" VerticalAlignment="Center"/>
                             </Grid>
                             <Grid Grid.Row="2" Grid.Column="2">
                                 <StackPanel Orientation="Vertical">
@@ -676,7 +691,7 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Height="60" Width="180">
+                    <TabItem MinHeight="46" Width="168">
                         <TabItem.Header>
                             <TextBlock TextAlignment="Center">
                                 <Run Text="{DynamicResource TabHeaderTextOutput}"/>
@@ -733,7 +748,7 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="{DynamicResource TabHeaderWatchList}" Height="60" Width="180">
+                    <TabItem Header="{DynamicResource TabHeaderWatchList}" MinHeight="46" Width="168">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
@@ -810,10 +825,13 @@
                               </Grid>
                           </Grid>
                     </TabItem>
-                    <TabItem Header="{DynamicResource TabHeaderAdvanced}" Height="60" Width="180">
-                        <Grid>
+                    <TabItem Header="{DynamicResource TabHeaderAdvanced}" MinHeight="46" Width="168">
+                        <Grid x:Name="AdvancedOptionsGrid">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
+                                <RowDefinition Height="72"/>
+                                <RowDefinition Height="50"/>
+                                <RowDefinition Height="50"/>
                                 <RowDefinition Height="50"/>
                                 <RowDefinition Height="50"/>
                                 <RowDefinition Height="50"/>
@@ -829,6 +847,23 @@
                                 <ColumnDefinition Width="550"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
+                            <Grid Grid.Row="1" Grid.Column="1">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Label Content="{DynamicResource LabelSoftwareUpdateChannel}" VerticalAlignment="Center"/>
+                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipSoftwareUpdateChannel}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid Grid.Row="1" Grid.Column="3">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <ComboBox x:Name="ComboBoxSoftwareUpdateChannel" Grid.Row="0" DisplayMemberPath="Content" SelectedValuePath="Value" Width="200" Margin="5,4,5,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                    <model:ListItem Content="{DynamicResource ComboBoxItemSoftwareUpdateChannelStable}" Value="STABLE"/>
+                                    <model:ListItem Content="{DynamicResource ComboBoxItemSoftwareUpdateChannelDevelopment}" Value="DEVELOPMENT"/>
+                                </ComboBox>
+                                <TextBlock x:Name="TxtSoftwareUpdateStatus" Grid.Row="1" Margin="6,1,5,4" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                            </Grid>
                             <Grid Grid.Row="2" Grid.Column="1">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                     <Label Content="{DynamicResource LabelAPIType}" VerticalAlignment="Center"/>
@@ -842,31 +877,58 @@
                                         <model:ListItem Content="{DynamicResource ComboBoxItemAPITypeWGPublicWithYuyukoProxy}" Value="WG_PUBLIC_WITH_YUYUKO_PROXY"/>
                                     </ComboBox>
                             </Grid>
+                            <Grid x:Name="WgApplicationIdLabelPanel" Grid.Row="3" Grid.Column="1">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Label Content="{DynamicResource LabelWgApplicationId}" VerticalAlignment="Center"/>
+                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipWgApplicationId}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
                             <Grid Grid.Row="3" Grid.Column="3">
+                                <TextBox x:Name="TxtWgApplicationId" Width="280" Margin="5" MaxLength="64" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid Grid.Row="4" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <CheckBox x:Name="ChkBoxEnableYuyukoAPIPush" Content="{DynamicResource ChkBoxEnableYuyukoAPIPush}" VerticalAlignment="Center" Margin="5"/>
                                     <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipEnableYuyukoAPIPush}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="4" Grid.Column="3">
+                            <Grid Grid.Row="5" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <CheckBox x:Name="ChkBoxEnableDebugMode" Content="{DynamicResource ChkBoxEnableDebugMode}" VerticalAlignment="Center" Margin="5"/>
                                     <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipDebugMode}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="5" Grid.Column="3">
+                            <Grid Grid.Row="6" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <CheckBox x:Name="ChkBoxCheckForUpdatesOnStartup" Content="{DynamicResource ChkBoxCheckForUpdatesOnStartup}" VerticalAlignment="Center" Margin="5"/>
                                     <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipCheckForUpdatesOnStartup}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="6" Grid.Column="3">
+                            <Grid Grid.Row="7" Grid.Column="3">
+                                <StackPanel Orientation="Horizontal">
+                                    <CheckBox x:Name="ChkBoxShowExperimentalReplayMetrics" Content="{DynamicResource ChkBoxShowExperimentalReplayMetrics}" VerticalAlignment="Center" Margin="5"/>
+                                    <Label Content="(?)" Margin="0,3,5,5" ToolTip="{DynamicResource ToolTipShowExperimentalReplayMetrics}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid Grid.Row="8" Grid.Column="1">
+                                <Label Content="{DynamicResource LabelMainInterfaceStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5"/>
+                            </Grid>
+                            <Grid Grid.Row="8" Grid.Column="3">
+                                <StackPanel Orientation="Horizontal">
+                                    <ComboBox x:Name="ComboBoxMainInterfaceStyle" SelectedValuePath="Tag" Width="200" Margin="5" HorizontalAlignment="Left">
+                                        <ComboBoxItem Tag="Dashboard" Content="{DynamicResource MainInterfaceDashboard}"/>
+                                        <ComboBoxItem Tag="Legacy" Content="{DynamicResource MainInterfaceLegacy}"/>
+                                    </ComboBox>
+                                    <TextBlock Text="{DynamicResource MainInterfaceRestartHint}" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" Margin="5"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid Grid.Row="9" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <Button x:Name="BtnViewChangelog" Content="{DynamicResource BtnViewChangelog}" Width="120" Height="30" HorizontalAlignment="Left" Margin="5" Click="BtnViewChangelog_Click"/>
                                     <TextBlock Text="{DynamicResource TextViewChangelogHint}" VerticalAlignment="Center" Margin="5"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Grid.Row="7" Grid.Column="3">
+                            <Grid Grid.Row="10" Grid.Column="3">
                                 <StackPanel Orientation="Horizontal">
                                     <Button x:Name="BtnClearCache" Content="{DynamicResource BtnClearCache}" Width="120" Height="30" HorizontalAlignment="Left" Margin="5" Click="BtnClearCache_Click"/>
                                 </StackPanel>
@@ -875,13 +937,13 @@
                     </TabItem>
                 </TabControl>
             </Grid>
-            <Grid Grid.Row="2" Grid.Column="1">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                    <Button x:Name="BtnSave" Content="{DynamicResource BtnSave}" HorizontalAlignment="Left" Height="50" VerticalAlignment="Center" Width="100" Click="BtnSave_Click" Margin="330,5,5,5"/>
-                    <Button x:Name="BtnCancel" Content="{DynamicResource BtnCancel}" HorizontalAlignment="Left" Height="50" VerticalAlignment="Center" Width="100" Click="BtnCancel_Click" Margin="5"/>
-                    <Button x:Name="BtnDefault" Content="{DynamicResource BtnDefault}" HorizontalAlignment="Left" Height="50" VerticalAlignment="Center" Width="100" Click="BtnDefault_Click" Margin="100,5,5,5"/>
-                </StackPanel>
-            </Grid>
-        </Grid>
-    </Viewbox>
+        </ScrollViewer>
+            <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,1,1,0" Padding="10" Margin="0,8,0,0">
+                <DockPanel LastChildFill="False">
+                    <Button x:Name="BtnDefault" DockPanel.Dock="Right" Content="{DynamicResource BtnDefault}" MinWidth="100" Click="BtnDefault_Click"/>
+                    <Button x:Name="BtnSave" Content="{DynamicResource BtnSave}" MinWidth="100" Click="BtnSave_Click" Style="{StaticResource PrimaryButtonStyle}"/>
+                    <Button x:Name="BtnCancel" Content="{DynamicResource BtnCancel}" MinWidth="100" Click="BtnCancel_Click"/>
+                </DockPanel>
+            </Border>
+    </Grid>
 </Window>

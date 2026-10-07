@@ -8,9 +8,11 @@
         xmlns:cvt="clr-namespace:ApeRadar.Utils.Converters"
         xmlns:model="clr-namespace:ApeRadar.Models"
         xmlns:p="clr-namespace:ApeRadar.Properties"
+        xmlns:controls="clr-namespace:ApeRadar.Controls"
         xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
         mc:Ignorable="d"
-        Tag="{DynamicResource WindowTitleApeRadar}" ResizeMode="CanResize" AllowDrop="True" Drop="Window_Drop" WindowStartupLocation="CenterScreen" WindowState="Maximized" UseLayoutRounding="True">
+        Tag="{DynamicResource WindowTitleApeRadar}" ResizeMode="CanResize" AllowDrop="True" Drop="Window_Drop" WindowStartupLocation="CenterScreen" WindowState="Maximized"
+        MinWidth="640" MinHeight="360" UseLayoutRounding="True" SizeChanged="MainWindow_SizeChanged">
     <Window.Title>
         <MultiBinding StringFormat="{}{0} {1} Build {2}">
             <Binding RelativeSource="{RelativeSource Self}" Path="Tag"/>
@@ -20,6 +22,7 @@
     </Window.Title>
     <Window.Resources>
         <cvt:ShipTierConverter x:Key="CvtShipTier"/>
+        <utils:ShipRelationBrushConverter x:Key="CvtShipRelationBrush"/>
         <cvt:BattleDataAvailabilityConverter x:Key="CvtBattleData"/>
         <cvt:TagDataConverter x:Key="CvtTagData"/>
         <cvt:TagBackgroundColorConverter x:Key="CvtBackgroundColor"/>
@@ -41,12 +44,19 @@
         <cvt:NoteIconConverter x:Key="CvtNoteIcon"/>
         <cvt:NoteVisibilityConverter x:Key="CvtNoteVisibility"/>
         <cvt:PRColorConverter x:Key="CvtPRColor"/>
+        <cvt:WinrateColorConverter x:Key="CvtWinrateColor"/>
+        <cvt:RosterBadgeBrushConverter x:Key="CvtRosterBadgeBrush"/>
+        <utils:ShipTypeIconConverter x:Key="CvtShipTypeIcon"/>
+        <utils:ShipTypeIconVisibilityConverter x:Key="CvtShipTypeIconVisibility"/>
+        <utils:ShipTypeDisplayNameConverter x:Key="CvtShipTypeDisplayName"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <cvt:ContextMenuItemEditNoteIsEnabledConverter x:Key="CvtContextMenuItemEditNoteIsEnabled"/>
         <cvt:ContextMenuItemClearNoteIsEnabledConverter x:Key="CvtContextMenuItemClearNoteIsEnabled"/>
         
-        <ToolTip x:Key="ToolTipStatisticsLegend" LayoutTransform="{Binding Source={x:Reference ViewboxPlayerList}, Path=Tag}">
+        <ToolTip x:Key="ToolTipStatisticsLegend">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
@@ -77,6 +87,14 @@
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Row="0" Grid.Column="3">
+                    <StackPanel Orientation="Vertical" Width="90" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShowTierPerformanceStats, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{DynamicResource DataGridToolTipTier}" HorizontalAlignment="Center" FontSize="15" Margin="5"/>
+                        <TextBlock Text="{DynamicResource DataGridToolTipBattles}" HorizontalAlignment="Center" FontSize="15" Margin="5,5,5,0"/>
+                        <TextBlock Text="{DynamicResource DataGridToolTipWinrate}" HorizontalAlignment="Center" FontSize="15" Margin="5,0,5,0"/>
+                        <TextBlock Text="PR" HorizontalAlignment="Center" FontSize="15" Margin="5,0,5,5"/>
+                    </StackPanel>
+                </Grid>
+                <Grid Grid.Row="0" Grid.Column="4">
                     <StackPanel Orientation="Vertical" Width="90" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{DynamicResource DataGridToolTipAccountPR}" HorizontalAlignment="Center" FontSize="15" Margin="5"/>
                         <TextBlock Text="{DynamicResource DataGridToolTipShipPR}" HorizontalAlignment="Center" FontSize="15" Margin="5,0,5,5"/>
@@ -88,9 +106,10 @@
             <Setter Property="ToolTip" Value="{StaticResource ToolTipStatisticsLegend}"/>
         </Style>
 
-        <ToolTip x:Key="ToolTipStatisticsLegendMirrored" LayoutTransform="{Binding Source={x:Reference ViewboxPlayerList}, Path=Tag}">
+        <ToolTip x:Key="ToolTipStatisticsLegendMirrored">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
@@ -113,6 +132,14 @@
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Row="0" Grid.Column="2">
+                    <StackPanel Orientation="Vertical" Width="90" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShowTierPerformanceStats, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{DynamicResource DataGridToolTipTier}" HorizontalAlignment="Center" FontSize="15" Margin="5"/>
+                        <TextBlock Text="{DynamicResource DataGridToolTipBattles}" HorizontalAlignment="Center" FontSize="15" Margin="5,5,5,0"/>
+                        <TextBlock Text="{DynamicResource DataGridToolTipWinrate}" HorizontalAlignment="Center" FontSize="15" Margin="5,0,5,0"/>
+                        <TextBlock Text="PR" HorizontalAlignment="Center" FontSize="15" Margin="5,0,5,5"/>
+                    </StackPanel>
+                </Grid>
+                <Grid Grid.Row="0" Grid.Column="3">
                     <StackPanel Orientation="Vertical" Width="90" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{DynamicResource DataGridToolTipAccount}" HorizontalAlignment="Center" FontSize="15" Margin="5"/>
                         <TextBlock Text="{DynamicResource DataGridToolTipBattles}" HorizontalAlignment="Center" FontSize="15" Margin="5,5,5,0"/>
@@ -120,7 +147,7 @@
                         <TextBlock Text="{DynamicResource DataGridToolTipAvgExp}" HorizontalAlignment="Center" FontSize="15" Margin="5,0,5,5" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/>
                     </StackPanel>
                 </Grid>
-                <Grid Grid.Row="0" Grid.Column="3">
+                <Grid Grid.Row="0" Grid.Column="4">
                     <StackPanel Orientation="Vertical" Width="90" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{DynamicResource DataGridToolTipAccountPR}" HorizontalAlignment="Center" FontSize="15" Margin="5"/>
                         <TextBlock Text="{DynamicResource DataGridToolTipShipPR}" HorizontalAlignment="Center" FontSize="15" Margin="5,0,5,5"/>
@@ -136,14 +163,17 @@
             <TextBlock Text="{DynamicResource DataGridHeaderPlayer}" FontSize="15"/>
         </DataTemplate>
         <DataTemplate x:Key="NameTemplate">
-            <StackPanel Orientation="Vertical" VerticalAlignment="Center" >
-                <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,-5,0,0" Foreground="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusColor}}">
+            <Grid VerticalAlignment="Center" ClipToBounds="True">
+                <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}" Margin="5,0" Foreground="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusColor}}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap">
                     <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run BaselineAlignment="Superscript" FontSize="12" Text="{Binding Karma, Converter={StaticResource CvtBattleData}}"/><Run Text="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusIcon}}"/><Run Text="{Binding Note, Converter={StaticResource CvtNoteIcon}}"/><Run Foreground="#FFD700" Text="{Binding CustomMarkerIcon, Mode=OneWay}"/><Run Foreground="#FF8C00" Text="{Binding RecentEncounterIcon, Mode=OneWay}"/>
                 </TextBlock>
-                <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,0,0,-5" Foreground="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusColor}}">
-                    <Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/>
-                </TextBlock>
-            </StackPanel>
+                <Grid Grid.Row="1" Margin="5,0" ClipToBounds="True">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}" Foreground="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusColor}}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"><Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/></TextBlock>
+                    <utils:ShipTypeIconBadge Grid.Column="1" ShipType="{Binding ShipType}" TintBrush="{Binding Relation, Converter={StaticResource CvtShipRelationBrush}}" Margin="4,0,0,0"/>
+                </Grid>
+            </Grid>
         </DataTemplate>
         <DataTemplate x:Key="StatisticsHeaderTemplate">
             <Grid Margin="-4,0,0,0">
@@ -152,64 +182,49 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <Grid Grid.Row="0" Grid.Column="0">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
+                    <StackPanel Orientation="Vertical" Width="110" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{DynamicResource DataGridHeaderStatisticsAccount}" HorizontalAlignment="Center" FontSize="15"/>
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Row="0" Grid.Column="1">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
+                    <StackPanel Orientation="Vertical" Width="64" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{DynamicResource DataGridHeaderStatisticsWeighted}" HorizontalAlignment="Center" FontSize="15"/>
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Row="0" Grid.Column="2">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
+                    <StackPanel Orientation="Vertical" Width="114" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{DynamicResource DataGridHeaderStatisticsShip}" HorizontalAlignment="Center" FontSize="15"/>
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Row="0" Grid.Column="3">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
+                    <StackPanel Orientation="Vertical" Width="132" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShowTierPerformanceStats, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{DynamicResource DataGridHeaderStatisticsTier}" HorizontalAlignment="Center" FontSize="15"/>
+                    </StackPanel>
+                </Grid>
+                <Grid Grid.Row="0" Grid.Column="4">
+                    <StackPanel Orientation="Vertical" Width="54" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{DynamicResource DataGridHeaderStatisticsPR}" HorizontalAlignment="Center" FontSize="15" ToolTip="{DynamicResource ToolTipPR}"/>
                     </StackPanel>
                 </Grid>
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="StatisticsTemplate">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Grid Grid.Row="0" Grid.Column="0">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
-                        <TextBlock Text="{Binding Battles, Converter={StaticResource CvtBattleData}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding AccountWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding AvgExpPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=AccountAvgExpVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/>
-                    </StackPanel>
-                </Grid>
-                <Grid Grid.Row="0" Grid.Column="1">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
-                        <TextBlock Text="" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding WeightedWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                    </StackPanel>
-                </Grid>
-                <Grid Grid.Row="0" Grid.Column="2">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
-                        <TextBlock Text="{Binding ShipBattles, Converter={StaticResource CvtBattleData}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding ShipWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding ShipAvgExpPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgExpVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/>
-                        <TextBlock Text="{Binding ShipAvgDmgPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgDmgVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgDmgVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/>
-                    </StackPanel>
-                </Grid>
-                <Grid Grid.Row="0" Grid.Column="3">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
-                        <TextBlock Text="{Binding PR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding PR, Converter={StaticResource CvtPRColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding ShipPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding ShipPR, Converter={StaticResource CvtPRColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                    </StackPanel>
-                </Grid>
+            <Grid VerticalAlignment="Center" ClipToBounds="True">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="64"/><ColumnDefinition Width="114"/><ColumnDefinition Width="132"/><ColumnDefinition Width="54"/></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" ClipToBounds="True" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
+                    <TextBlock Text="{Binding Battles, Converter={StaticResource CvtBattleData}}" TextAlignment="Center" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock Text="{Binding AccountWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}"/><TextBlock Text=" · " Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/><TextBlock Text="{Binding AvgExpPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=AccountAvgExpVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/></StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1" ClipToBounds="True" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"><TextBlock Text=" "/><TextBlock Text="{Binding WeightedWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" TextAlignment="Center" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}"/></StackPanel>
+                <StackPanel Grid.Column="2" ClipToBounds="True" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}" TextElement.FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}" TextElement.Foreground="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock Text="{Binding ShipBattles, Converter={StaticResource CvtBattleData}}"/><TextBlock Text=" · "/><TextBlock Text="{Binding ShipWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}"/></StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock Text="{Binding ShipAvgDmgPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgDmgVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/><TextBlock Text=" · " Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/><TextBlock Text="{Binding ShipAvgExpPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/></StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="3" ClipToBounds="True" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShowTierPerformanceStats, Converter={StaticResource BoolToVisibility}}" TextElement.FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}"><TextBlock TextAlignment="Center" TextTrimming="CharacterEllipsis"><Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/><Run Text=" · "/><Run Text="{Binding TierBattles, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}"/><Run Text="{Binding TierSampleMarker, Mode=OneWay}" Foreground="#D97706"/></TextBlock><TextBlock TextAlignment="Center" TextTrimming="CharacterEllipsis"><Run Text="{Binding TierWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" Foreground="{Binding TierWinrate, Converter={StaticResource CvtWinrateColor}}"/><Run Text=" · PR "/><Run Text="{Binding TierPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding TierPR, Converter={StaticResource CvtPRColor}}"/></TextBlock></StackPanel>
+                <StackPanel Grid.Column="4" ClipToBounds="True" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}" TextElement.FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}"><TextBlock Text="{Binding PR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding PR, Converter={StaticResource CvtPRColor}}" TextAlignment="Center" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ShipPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding ShipPR, Converter={StaticResource CvtPRColor}}" TextAlignment="Center" TextTrimming="CharacterEllipsis"/></StackPanel>
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="TagHeaderTemplate">
@@ -233,14 +248,17 @@
         </DataTemplate>
 
         <DataTemplate x:Key="NameTemplateMirrored">
-            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,-5,0,0" HorizontalAlignment="Right">
+            <Grid VerticalAlignment="Center" ClipToBounds="True">
+                <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}" Margin="5,0" TextAlignment="Right" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap">
                     <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run BaselineAlignment="Superscript" FontSize="12" Text="{Binding Karma, Converter={StaticResource CvtBattleData}}"/><Run Text="{Binding WatchStatus, Converter={StaticResource CvtWatchStatusIcon}}"/><Run Text="{Binding Note, Converter={StaticResource CvtNoteIcon}}"/><Run Foreground="#FFD700" Text="{Binding CustomMarkerIcon, Mode=OneWay}"/><Run Foreground="#FF8C00" Text="{Binding RecentEncounterIcon, Mode=OneWay}"/>
                 </TextBlock>
-                <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=PlayerColumnFontSize}" Margin="5,0,5,0" Padding="0,0,0,-5" HorizontalAlignment="Right">
-                    <Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/>
-                </TextBlock>
-            </StackPanel>
+                <Grid Grid.Row="1" Margin="5,0" ClipToBounds="True">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectivePlayerFontSize}" TextAlignment="Right" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"><Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/></TextBlock>
+                    <utils:ShipTypeIconBadge Grid.Column="1" ShipType="{Binding ShipType}" TintBrush="{Binding Relation, Converter={StaticResource CvtShipRelationBrush}}" Margin="4,0,0,0"/>
+                </Grid>
+            </Grid>
         </DataTemplate>
         <DataTemplate x:Key="StatisticsHeaderTemplateMirrored">
             <Grid Margin="-4,0,0,0">
@@ -249,65 +267,69 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <Grid Grid.Row="0" Grid.Column="0">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
+                    <StackPanel Orientation="Vertical" Width="114" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{DynamicResource DataGridHeaderStatisticsShip}" HorizontalAlignment="Center" FontSize="15"/>
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Row="0" Grid.Column="1">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
+                    <StackPanel Orientation="Vertical" Width="64" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{DynamicResource DataGridHeaderStatisticsWeighted}" HorizontalAlignment="Center" FontSize="15"/>
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Row="0" Grid.Column="2">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
-                        <TextBlock Text="{DynamicResource DataGridHeaderStatisticsAccount}" HorizontalAlignment="Center" FontSize="15"/>
+                    <StackPanel Orientation="Vertical" Width="132" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShowTierPerformanceStats, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{DynamicResource DataGridHeaderStatisticsTier}" HorizontalAlignment="Center" FontSize="15"/>
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Row="0" Grid.Column="3">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
+                    <StackPanel Orientation="Vertical" Width="110" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
+                        <TextBlock Text="{DynamicResource DataGridHeaderStatisticsAccount}" HorizontalAlignment="Center" FontSize="15"/>
+                    </StackPanel>
+                </Grid>
+                <Grid Grid.Row="0" Grid.Column="4">
+                    <StackPanel Orientation="Vertical" Width="54" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
                         <TextBlock Text="{DynamicResource DataGridHeaderStatisticsPR}" HorizontalAlignment="Center" FontSize="15" ToolTip="{DynamicResource ToolTipPR}"/>
                     </StackPanel>
                 </Grid>
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="StatisticsTemplateMirrored">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Grid Grid.Row="0" Grid.Column="0">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
-                        <TextBlock Text="{Binding ShipBattles, Converter={StaticResource CvtBattleData}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding ShipWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding ShipAvgExpPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgExpVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/>
-                        <TextBlock Text="{Binding ShipAvgDmgPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgDmgVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgDmgVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/>
-                    </StackPanel>
-                </Grid>
-                <Grid Grid.Row="0" Grid.Column="1">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
-                        <TextBlock Text="" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding WeightedWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                    </StackPanel>
-                </Grid>
-                <Grid Grid.Row="0" Grid.Column="2">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
-                        <TextBlock Text="{Binding Battles, Converter={StaticResource CvtBattleData}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding AccountWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding AvgExpPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=AccountAvgExpVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/>
-                    </StackPanel>
-                </Grid>
-                <Grid Grid.Row="0" Grid.Column="3">
-                    <StackPanel Orientation="Vertical" Width="80" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}">
-                        <TextBlock Text="{Binding PR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding PR, Converter={StaticResource CvtPRColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                        <TextBlock Text="{Binding ShipPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding ShipPR, Converter={StaticResource CvtPRColor}}" HorizontalAlignment="Center" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=StatisticsColumnFontSize}" Margin="5,0,5,0"/>
-                    </StackPanel>
-                </Grid>
+            <Grid VerticalAlignment="Center" ClipToBounds="True">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="114"/><ColumnDefinition Width="64"/><ColumnDefinition Width="132"/><ColumnDefinition Width="110"/><ColumnDefinition Width="54"/></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" ClipToBounds="True" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}" TextElement.FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}" TextElement.Foreground="{Binding Source={x:Static p:Settings.Default}, Path=ShipWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock Text="{Binding ShipBattles, Converter={StaticResource CvtBattleData}}"/><TextBlock Text=" · "/><TextBlock Text="{Binding ShipWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}"/></StackPanel><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock Text="{Binding ShipAvgDmgPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgDmgVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/><TextBlock Text=" · " Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/><TextBlock Text="{Binding ShipAvgExpPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/></StackPanel></StackPanel>
+                <StackPanel Grid.Column="1" ClipToBounds="True" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"><TextBlock Text=" "/><TextBlock Text="{Binding WeightedWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" TextAlignment="Center" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=WeightedWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}" FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}"/></StackPanel>
+                <StackPanel Grid.Column="2" ClipToBounds="True" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShowTierPerformanceStats, Converter={StaticResource BoolToVisibility}}" TextElement.FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}"><TextBlock TextAlignment="Center" TextTrimming="CharacterEllipsis"><Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/><Run Text=" · "/><Run Text="{Binding TierBattles, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}"/><Run Text="{Binding TierSampleMarker, Mode=OneWay}" Foreground="#D97706"/></TextBlock><TextBlock TextAlignment="Center" TextTrimming="CharacterEllipsis"><Run Text="{Binding TierWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" Foreground="{Binding TierWinrate, Converter={StaticResource CvtWinrateColor}}"/><Run Text=" · PR "/><Run Text="{Binding TierPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding TierPR, Converter={StaticResource CvtPRColor}}"/></TextBlock></StackPanel>
+                <StackPanel Grid.Column="3" ClipToBounds="True" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}" TextElement.FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}" TextElement.Foreground="{Binding Source={x:Static p:Settings.Default}, Path=AccountWinrateVisibility, Converter={StaticResource CvtDataGridColumnFadedColor}}"><TextBlock Text="{Binding Battles, Converter={StaticResource CvtBattleData}}" TextAlignment="Center"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock Text="{Binding AccountWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}"/><TextBlock Text=" · " Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/><TextBlock Text="{Binding AvgExpPerBattle, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=AccountAvgExpVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}"/></StackPanel></StackPanel>
+                <StackPanel Grid.Column="4" ClipToBounds="True" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=PRVisibility, Converter={StaticResource CvtDataGridColumnVisibility}}" TextElement.FontSize="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveStatisticsFontSize}"><TextBlock Text="{Binding PR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding PR, Converter={StaticResource CvtPRColor}}" TextAlignment="Center" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ShipPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding ShipPR, Converter={StaticResource CvtPRColor}}" TextAlignment="Center" TextTrimming="CharacterEllipsis"/></StackPanel>
             </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="CompactStatisticsHeaderTemplate">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Text="{DynamicResource DataGridHeaderStatisticsShip}" Width="60" TextAlignment="Center" FontSize="13"/>
+                <TextBlock Text="{DynamicResource DataGridHeaderStatisticsTier}" Width="68" TextAlignment="Center" FontSize="13"
+                           Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShowTierPerformanceStats, Converter={StaticResource BoolToVisibility}}"/>
+                <TextBlock Text="PR" Width="54" TextAlignment="Center" FontSize="13"/>
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="CompactStatisticsTemplate">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <StackPanel Width="60" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ShipBattles, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" TextAlignment="Center"/>
+                    <TextBlock Text="{Binding ShipWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p1}}" TextAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Width="68" VerticalAlignment="Center" Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShowTierPerformanceStats, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock TextAlignment="Center"><Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/><Run Text=" · "/><Run Text="{Binding TierBattles, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}"/><Run Text="{Binding TierSampleMarker, Mode=OneWay}" Foreground="#D97706"/></TextBlock>
+                    <TextBlock Text="{Binding TierWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p1}}" Foreground="{Binding TierWinrate, Converter={StaticResource CvtWinrateColor}}" TextAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Width="54" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding PR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding PR, Converter={StaticResource CvtPRColor}}" TextAlignment="Center"/>
+                    <TextBlock Text="{Binding ShipPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding ShipPR, Converter={StaticResource CvtPRColor}}" TextAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
         </DataTemplate>
 
         <Style x:Key="TagCellStyle" TargetType="DataGridCell">
@@ -322,23 +344,111 @@
             </Setter>
         </Style>
 
-        <DataGridTemplateColumn x:Key="AlliesNameColumn" HeaderTemplate="{StaticResource NameHeaderTemplate}" CellTemplate="{StaticResource NameTemplate}" MinWidth="340" MaxWidth="340"/>
-        <DataGridTemplateColumn x:Key="AlliesStatisticsColumn" HeaderTemplate="{StaticResource StatisticsHeaderTemplate}" HeaderStyle="{StaticResource DataGridStatisticsColumnHeaderStyle}" CellTemplate="{StaticResource StatisticsTemplate}" MinWidth="0" MaxWidth="320"/>
-        <DataGridTemplateColumn x:Key="AlliesTagColumn" HeaderTemplate="{StaticResource TagHeaderTemplate}" CellTemplate="{StaticResource TagTemplate}" CellStyle="{StaticResource TagCellStyle}" MinWidth="0" MaxWidth="60"/>
-        <DataGridTemplateColumn x:Key="EnemiesNameColumn" HeaderTemplate="{StaticResource NameHeaderTemplate}" CellTemplate="{StaticResource NameTemplate}" MinWidth="340" MaxWidth="340"/>
-        <DataGridTemplateColumn x:Key="EnemiesStatisticsColumn" HeaderTemplate="{StaticResource StatisticsHeaderTemplate}" HeaderStyle="{StaticResource DataGridStatisticsColumnHeaderStyle}" CellTemplate="{StaticResource StatisticsTemplate}" MinWidth="0" MaxWidth="320"/>
-        <DataGridTemplateColumn x:Key="EnemiesTagColumn" HeaderTemplate="{StaticResource TagHeaderTemplate}" CellTemplate="{StaticResource TagTemplate}" CellStyle="{StaticResource TagCellStyle}" MinWidth="0" MaxWidth="60"/>
+        <DataGridTemplateColumn x:Key="AlliesNameColumn" x:Shared="False" HeaderTemplate="{StaticResource NameHeaderTemplate}" CellTemplate="{StaticResource NameTemplate}" Width="2*" MinWidth="165"/>
+        <DataGridTemplateColumn x:Key="AlliesStatisticsColumn" x:Shared="False" HeaderTemplate="{StaticResource StatisticsHeaderTemplate}" HeaderStyle="{StaticResource DataGridStatisticsColumnHeaderStyle}" CellTemplate="{StaticResource StatisticsTemplate}" Width="474" MinWidth="474" MaxWidth="474"/>
+        <DataGridTemplateColumn x:Key="AlliesTagColumn" x:Shared="False" HeaderTemplate="{StaticResource TagHeaderTemplate}" CellTemplate="{StaticResource TagTemplate}" CellStyle="{StaticResource TagCellStyle}" Width="44"/>
+        <DataGridTemplateColumn x:Key="EnemiesNameColumn" x:Shared="False" HeaderTemplate="{StaticResource NameHeaderTemplate}" CellTemplate="{StaticResource NameTemplate}" Width="2*" MinWidth="165"/>
+        <DataGridTemplateColumn x:Key="EnemiesStatisticsColumn" x:Shared="False" HeaderTemplate="{StaticResource StatisticsHeaderTemplate}" HeaderStyle="{StaticResource DataGridStatisticsColumnHeaderStyle}" CellTemplate="{StaticResource StatisticsTemplate}" Width="474" MinWidth="474" MaxWidth="474"/>
+        <DataGridTemplateColumn x:Key="EnemiesTagColumn" x:Shared="False" HeaderTemplate="{StaticResource TagHeaderTemplate}" CellTemplate="{StaticResource TagTemplate}" CellStyle="{StaticResource TagCellStyle}" Width="44"/>
 
-        <DataGridTemplateColumn x:Key="EnemiesNameColumnMirrored" HeaderTemplate="{StaticResource NameHeaderTemplate}" CellTemplate="{StaticResource NameTemplateMirrored}" MinWidth="340" MaxWidth="340">
+        <DataGridTemplateColumn x:Key="EnemiesNameColumnMirrored" x:Shared="False" HeaderTemplate="{StaticResource NameHeaderTemplate}" CellTemplate="{StaticResource NameTemplateMirrored}" Width="2*" MinWidth="165">
             <DataGridTemplateColumn.HeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
                     <Setter Property="HorizontalContentAlignment" Value="Right"/>
                 </Style>
             </DataGridTemplateColumn.HeaderStyle>
         </DataGridTemplateColumn>
-        <DataGridTemplateColumn x:Key="EnemiesStatisticsColumnMirrored" HeaderTemplate="{StaticResource StatisticsHeaderTemplateMirrored}" HeaderStyle="{StaticResource DataGridStatisticsColumnHeaderMirroredStyle}" CellTemplate="{StaticResource StatisticsTemplateMirrored}" MinWidth="0" MaxWidth="320"/>
+        <DataGridTemplateColumn x:Key="EnemiesStatisticsColumnMirrored" x:Shared="False" HeaderTemplate="{StaticResource StatisticsHeaderTemplateMirrored}" HeaderStyle="{StaticResource DataGridStatisticsColumnHeaderMirroredStyle}" CellTemplate="{StaticResource StatisticsTemplateMirrored}" Width="474" MinWidth="474" MaxWidth="474"/>
+        <DataGridTemplateColumn x:Key="AlliesNameColumnCompact" x:Shared="False" HeaderTemplate="{StaticResource NameHeaderTemplate}" CellTemplate="{StaticResource NameTemplate}" Width="*" MinWidth="108"/>
+        <DataGridTemplateColumn x:Key="AlliesStatisticsColumnCompact" x:Shared="False" HeaderTemplate="{StaticResource CompactStatisticsHeaderTemplate}" CellTemplate="{StaticResource CompactStatisticsTemplate}" Width="182" MinWidth="182" MaxWidth="182"/>
+        <DataGridTemplateColumn x:Key="EnemiesNameColumnCompact" x:Shared="False" HeaderTemplate="{StaticResource NameHeaderTemplate}" CellTemplate="{StaticResource NameTemplate}" Width="*" MinWidth="108"/>
+        <DataGridTemplateColumn x:Key="EnemiesNameColumnCompactMirrored" x:Shared="False" HeaderTemplate="{StaticResource NameHeaderTemplate}" CellTemplate="{StaticResource NameTemplateMirrored}" Width="*" MinWidth="108"/>
+        <DataGridTemplateColumn x:Key="EnemiesStatisticsColumnCompact" x:Shared="False" HeaderTemplate="{StaticResource CompactStatisticsHeaderTemplate}" CellTemplate="{StaticResource CompactStatisticsTemplate}" Width="182" MinWidth="182" MaxWidth="182"/>
 
-        <ContextMenu x:Key="RowMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+        <DataTemplate x:Key="RosterPlayerHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderPlayer}" FontSize="13" FontWeight="SemiBold"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterPlayerHeaderTemplateMirrored">
+            <TextBlock Text="{DynamicResource DataGridHeaderPlayer}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterAccountHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsAccount}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterWeightedHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsWeighted}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterShipHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsShip}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterPersonalRatingHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsPR}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterTierHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderStatisticsTier}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterPerformanceHeaderTemplate">
+            <TextBlock Text="{DynamicResource DataGridHeaderPerformance}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        </DataTemplate>
+
+        <DataTemplate x:Key="RosterPlayerTemplate">
+            <controls:PlayerRosterRow/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterPlayerTemplateMirrored">
+            <controls:PlayerRosterRow IsMirrored="True"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterAccountTemplate">
+            <controls:PlayerMetricGroup DataContext="{Binding AccountMetrics}"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterWeightedTemplate">
+            <controls:PlayerMetricGroup DataContext="{Binding WeightedMetrics}"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterShipTemplate">
+            <controls:PlayerMetricGroup DataContext="{Binding ShipMetrics}"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterPersonalRatingTemplate">
+            <controls:PlayerMetricGroup DataContext="{Binding PersonalRatingMetrics}"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterTierTemplate">
+            <controls:PlayerMetricGroup DataContext="{Binding TierMetrics}"/>
+        </DataTemplate>
+        <DataTemplate x:Key="RosterPerformanceTemplate">
+            <Border ToolTip="{Binding Performance.ToolTip}" Background="{Binding Performance.BackgroundColor}"
+                    AutomationProperties.Name="{Binding Performance.AccessibleName}">
+                <TextBlock Text="{Binding Performance.Icon}" TextAlignment="Center" VerticalAlignment="Center"
+                           FontFamily="Segoe UI Emoji, Segoe UI Symbol" FontSize="28" FontWeight="Normal"
+                           Foreground="{Binding Performance.ForegroundColor}" Opacity="{Binding Performance.IconOpacity}"/>
+            </Border>
+        </DataTemplate>
+
+        <Style x:Key="RosterCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="BorderBrush" Value="#B9C3CF"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style x:Key="RosterPerformanceCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource RosterCellStyle}">
+            <Setter Property="BorderBrush" Value="#8795A6"/>
+            <Setter Property="BorderThickness" Value="1,0,0,1"/>
+        </Style>
+        <Style x:Key="RosterColumnHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+            <Setter Property="BorderBrush" Value="#8E9AAA"/>
+            <Setter Property="BorderThickness" Value="0,0,1,2"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style x:Key="RosterPerformanceHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource RosterColumnHeaderStyle}">
+            <Setter Property="BorderBrush" Value="#738196"/>
+            <Setter Property="BorderThickness" Value="1,0,0,2"/>
+        </Style>
+
+        <DataGridTemplateColumn x:Key="RosterPlayerColumn" x:Shared="False" SortMemberPath="Player" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterPlayerTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="250" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterPlayerColumnMirrored" x:Shared="False" SortMemberPath="Player" HeaderTemplate="{StaticResource RosterPlayerHeaderTemplateMirrored}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterPlayerTemplateMirrored}" CellStyle="{StaticResource RosterCellStyle}" Width="250" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterAccountColumn" x:Shared="False" SortMemberPath="Account" HeaderTemplate="{StaticResource RosterAccountHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterAccountTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="92" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterWeightedColumn" x:Shared="False" SortMemberPath="Weighted" HeaderTemplate="{StaticResource RosterWeightedHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterWeightedTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="72" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterShipColumn" x:Shared="False" SortMemberPath="Ship" HeaderTemplate="{StaticResource RosterShipHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterShipTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="112" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterPersonalRatingColumn" x:Shared="False" SortMemberPath="PersonalRating" HeaderTemplate="{StaticResource RosterPersonalRatingHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterPersonalRatingTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="86" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterTierColumn" x:Shared="False" SortMemberPath="Tier" HeaderTemplate="{StaticResource RosterTierHeaderTemplate}" HeaderStyle="{StaticResource RosterColumnHeaderStyle}" CellTemplate="{StaticResource RosterTierTemplate}" CellStyle="{StaticResource RosterCellStyle}" Width="96" CanUserResize="False"/>
+        <DataGridTemplateColumn x:Key="RosterPerformanceColumn" x:Shared="False" SortMemberPath="Performance" HeaderTemplate="{StaticResource RosterPerformanceHeaderTemplate}" HeaderStyle="{StaticResource RosterPerformanceHeaderStyle}" CellTemplate="{StaticResource RosterPerformanceTemplate}" CellStyle="{StaticResource RosterPerformanceCellStyle}" Width="48" CanUserResize="False"/>
+
+        <ContextMenu x:Key="RowMenu" DataContext="{Binding PlacementTarget.DataContext.Player, RelativeSource={RelativeSource Self}}">
             <MenuItem x:Name="ContextMenuCopyPlayerStatistics" Header="{DynamicResource ContextMenuCopyPlayerStatistics}" Click="ContextMenuCopyPlayerStatistics_Click" IsEnabled="{Binding Path=., Converter={StaticResource CvtContextMenuItemCopyPlayerStatisticsIsEnabled}}"/>
             <MenuItem x:Name="ContextMenuRefreshPlayer" Header="{DynamicResource ContextMenuRefreshPlayer}" Click="ContextMenuRefreshPlayer_Click" IsEnabled="{Binding CanRefreshData}"/>
             <MenuItem x:Name="ContextMenuFixedTeammate" Header="{DynamicResource ContextMenuFixedTeammate}" Click="ContextMenuFixedTeammate_Click" IsCheckable="True" IsChecked="{Binding IsFixedTeammate, Mode=OneWay}" IsEnabled="{Binding CanBeFixedTeammate}"/>
@@ -363,15 +473,16 @@
             </MenuItem>
         </ContextMenu>
 
-        <ToolTip x:Key="ToolTipPlayerDetails" LayoutTransform="{Binding Source={x:Reference ViewboxPlayerList}, Path=Tag}">
-            <StackPanel Orientation="Vertical">
+        <ToolTip x:Key="ToolTipPlayerDetails">
+            <StackPanel Orientation="Vertical" DataContext="{Binding Player}">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock Margin="5,5,20,5" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}">
                     <Run Text="{Binding ClanTag, Converter={StaticResource CvtPlayerNamesVisibility}}"/> <Run Text="{Binding Name, Converter={StaticResource CvtPlayerNamesVisibility}}"/>
                     </TextBlock>
-                    <TextBlock Margin="20,5,5,5" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}">
-                    <Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/>
-                    </TextBlock>
+                    <StackPanel Orientation="Horizontal" Margin="20,5,5,5">
+                        <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}"><Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}"/> <Run Text="{Binding ShipName}"/></TextBlock>
+                        <utils:ShipTypeIconBadge ShipType="{Binding ShipType}" TintBrush="{Binding Relation, Converter={StaticResource CvtShipRelationBrush}}" Margin="4,0,0,0"/>
+                    </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock Margin="5,0,5,5" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}">
@@ -440,6 +551,38 @@
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
+                <Border BorderBrush="#B8C2CC" BorderThickness="1" CornerRadius="4" Padding="10,7" Margin="5,8,5,2" MaxWidth="760"
+                        Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShowTierPerformanceStats, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource TierStatsTitle}" FontWeight="Bold" Margin="0,0,0,4" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}"/>
+                        <TextBlock FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}" TextWrapping="Wrap">
+                            <Run Text="{DynamicResource TierStatsExactPrefix}"/>
+                            <Run Text="{Binding ShipTier, Converter={StaticResource CvtShipTier}}" FontWeight="SemiBold"/>
+                            <Run Text=" · "/><Run Text="{Binding TierBattles, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}"/><Run Text="{DynamicResource TierStatsBattlesSuffix}"/>
+                            <Run Text=" · "/><Run Text="{DynamicResource DataGridToolTipWinrate}"/><Run Text=" "/><Run Text="{Binding TierWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" Foreground="{Binding TierWinrate, Converter={StaticResource CvtWinrateColor}}" FontWeight="SemiBold"/>
+                            <Run Text=" · PR "/><Run Text="{Binding TierPR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding TierPR, Converter={StaticResource CvtPRColor}}" FontWeight="SemiBold"/>
+                        </TextBlock>
+                        <TextBlock Text="{DynamicResource TierStatsSmallSample}" Foreground="#B45309" Margin="0,3,0,0" TextWrapping="Wrap"
+                                   Visibility="{Binding IsTierSampleSmall, Converter={StaticResource BoolToVisibility}}" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}"/>
+                        <TextBlock Margin="0,3,0,0" TextWrapping="Wrap" Visibility="{Binding HasTierReference, Converter={StaticResource BoolToVisibility}}" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}">
+                            <Run Text="{DynamicResource TierStatsReferencePrefix}"/>
+                            <Run Text="{Binding TierReferenceMin, Converter={StaticResource CvtShipTier}}"/><Run Text="–"/><Run Text="{Binding TierReferenceMax, Converter={StaticResource CvtShipTier}}"/>
+                            <Run Text=" · "/><Run Text="{Binding TierReferenceBattles, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}"/><Run Text="{DynamicResource TierStatsBattlesSuffix}"/>
+                            <Run Text=" · "/><Run Text="{DynamicResource DataGridToolTipWinrate}"/><Run Text=" "/><Run Text="{Binding TierReferenceWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p2}}" Foreground="{Binding TierReferenceWinrate, Converter={StaticResource CvtWinrateColor}}" FontWeight="SemiBold"/>
+                            <Run Text=" · PR "/><Run Text="{Binding TierReferencePR, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" Foreground="{Binding TierReferencePR, Converter={StaticResource CvtPRColor}}" FontWeight="SemiBold"/>
+                        </TextBlock>
+                        <TextBlock Margin="0,3,0,0" TextWrapping="Wrap" Visibility="{Binding HasRecognizedTierData, Converter={StaticResource BoolToVisibility}}" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}">
+                            <Run Text="{DynamicResource TierStatsMostPlayedPrefix}"/>
+                            <Run Text="{Binding MostPlayedTier, Converter={StaticResource CvtShipTier}}" FontWeight="SemiBold"/>
+                            <Run Text=" · "/><Run Text="{Binding MostPlayedTierBattles, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}"/><Run Text="{DynamicResource TierStatsBattlesSuffix}"/>
+                            <Run Text="{DynamicResource TierStatsSharePrefix}"/><Run Text="{Binding MostPlayedTierShare, StringFormat={}{0:p0}}"/>
+                        </TextBlock>
+                        <TextBlock Text="{DynamicResource TierStatsLowTierBias}" Foreground="#B91C1C" FontWeight="SemiBold" Margin="0,3,0,0" TextWrapping="Wrap"
+                                   Visibility="{Binding IsLowTierBiased, Converter={StaticResource BoolToVisibility}}" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}"/>
+                        <TextBlock Text="{DynamicResource TierStatsReferenceNotice}" Foreground="#5B6470" Margin="0,3,0,0" TextWrapping="Wrap"
+                                   Visibility="{Binding HasTierReference, Converter={StaticResource BoolToVisibility}}" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}"/>
+                    </StackPanel>
+                </Border>
                 <Border BorderBrush="#FF8C00" BorderThickness="1,1,1,0" Margin="5,8,5,0" Visibility="{Binding RecentEncounterDetails, Converter={StaticResource CvtNoteVisibility}}"/>
                 <StackPanel Margin="10,4,10,8" Visibility="{Binding RecentEncounterDetails, Converter={StaticResource CvtNoteVisibility}}">
                     <TextBlock Text="{DynamicResource ToolTipRecentEncounters}" FontWeight="Bold" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=DetailedStatisticsFontSize}"/>
@@ -447,196 +590,200 @@
                 </StackPanel>
             </StackPanel>
         </ToolTip>
-        <Style x:Key="DataGridPlayerListRowStyle" TargetType="DataGridRow">
+        <Style x:Key="DataGridPlayerListRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
             <Setter Property="ContextMenu" Value="{StaticResource RowMenu}"/>
-            <Setter Property="ToolTip" Value="{StaticResource ToolTipPlayerDetails}"/>
+            <Setter Property="Focusable" Value="True"/>
+            <EventSetter Event="MouseEnter" Handler="RosterRow_MouseEnter"/>
+            <EventSetter Event="MouseLeave" Handler="RosterRow_MouseLeave"/>
         </Style>
 
 
 
     </Window.Resources>
 
-    <Grid x:Name="MainWindowGrid">
+    <Grid x:Name="MainWindowGrid" PreviewKeyDown="MainWindowGrid_PreviewKeyDown">
+    <Grid x:Name="LegacyRoot" Margin="10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="60"/>
-            <RowDefinition Height="39*" MinHeight="390"/>
-            <RowDefinition Height="8*" MinHeight="80"/>
-            <RowDefinition Height="60"/>
-            <RowDefinition Height="60"/>
-            <RowDefinition Height="10"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="20"/>
-            <ColumnDefinition Width="90*" MinWidth="770"/>
-            <ColumnDefinition Width="33*" MinWidth="330"/>
-            <ColumnDefinition Width="20"/>
-        </Grid.ColumnDefinitions>
-        <Grid Grid.Column="1">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10,0,0,0">
-                        <Label Content="{DynamicResource LabelAllies}" HorizontalAlignment="Left" VerticalAlignment="Center" FontSize="16"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,20,0">
-                        <Label Content="{DynamicResource LabelAverageData}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="14"/>
-                        <StackPanel Orientation="Vertical" Margin="0,5,10,0">
-                            <Label Content="{DynamicResource LabelAverageAccountWinrate}" HorizontalAlignment="Center" FontSize="14"/>
-                            <Label Content="{Binding AllyAvgAccountWinrate}" ContentStringFormat="p2" HorizontalAlignment="Center" FontSize="14"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Vertical" Margin="0,5,10,0">
-                            <Label Content="{DynamicResource LabelAverageWeightedWinrate}" HorizontalAlignment="Center" FontSize="14"/>
-                            <Label Content="{Binding AllyAvgWeightedWinrate}" ContentStringFormat="p2" HorizontalAlignment="Center" FontSize="14"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Vertical" Margin="0,5,0,0">
-                            <Label Content="{DynamicResource LabelAverageBattleCount}" HorizontalAlignment="Center" FontSize="14"/>
-                            <Label Content="{Binding AllyAvgBattleCount}" ContentStringFormat="f1" HorizontalAlignment="Center" FontSize="14"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Vertical" Margin="10,5,0,0">
-                            <Label Content="{DynamicResource LabelAveragePR}" HorizontalAlignment="Center" FontSize="14"/>
-                            <Label Content="{Binding AllyAvgPR}" ContentStringFormat="f0" HorizontalAlignment="Center" FontSize="14"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
-                <Grid Grid.Column="1">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10,0,0,0">
-                        <Label Content="{DynamicResource LabelEnemies}" HorizontalAlignment="Left" VerticalAlignment="Center" FontSize="16"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,20,0">
-                        <Label Content="{DynamicResource LabelAverageData}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="14"/>
-                        <StackPanel Orientation="Vertical" Margin="0,5,10,0">
-                            <Label Content="{DynamicResource LabelAverageAccountWinrate}" HorizontalAlignment="Center" FontSize="14"/>
-                            <Label Content="{Binding EnemyAvgAccountWinrate}" ContentStringFormat="p2" HorizontalAlignment="Center" FontSize="14"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Vertical" Margin="0,5,10,0">
-                            <Label Content="{DynamicResource LabelAverageWeightedWinrate}" HorizontalAlignment="Center" FontSize="14"/>
-                            <Label Content="{Binding EnemyAvgWeightedWinrate}" ContentStringFormat="p2" HorizontalAlignment="Center" FontSize="14"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Vertical" Margin="0,5,0,0">
-                            <Label Content="{DynamicResource LabelAverageBattleCount}" HorizontalAlignment="Center" FontSize="14"/>
-                            <Label Content="{Binding EnemyAvgBattleCount}" ContentStringFormat="f1" HorizontalAlignment="Center" FontSize="14"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Vertical" Margin="10,5,0,0">
-                            <Label Content="{DynamicResource LabelAveragePR}" HorizontalAlignment="Center" FontSize="14"/>
-                            <Label Content="{Binding EnemyAvgPR}" ContentStringFormat="f0" HorizontalAlignment="Center" FontSize="14"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
-            </Grid>
-        </Grid>
-        <Grid Grid.Column="2">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                <Label x:Name="LabelGamePathIsSetOrNot" Content="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetText}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetColor}}" Margin="20,0,0,0" FontSize="18"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Label Content="🌐" FontSize="20" VerticalAlignment="Center"/>
-                <ComboBox x:Name="ComboBoxLanguage" DisplayMemberPath="Content" SelectedValuePath="Value" HorizontalAlignment="Right" Margin="5" VerticalAlignment="Center" Width="90" SelectionChanged="ComboBoxLanguage_SelectionChanged"/>
-            </StackPanel>
-        </Grid>
-        <Grid Grid.Row="1" Grid.Column="1" Grid.RowSpan="2">
-            <Viewbox x:Name="ViewboxPlayerList" StretchDirection="Both" VerticalAlignment="Top" SizeChanged="ViewboxPlayerList_SizeChanged">
-                <StackPanel Orientation="Horizontal">
-                    <DataGrid x:Name="DataGridAlliesList" HorizontalAlignment="Center" Margin="5" VerticalAlignment="Stretch" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single" HeadersVisibility="Column" ItemsSource="{Binding Allies}" CanUserReorderColumns="False" CanUserSortColumns="False" RowStyle="{StaticResource DataGridPlayerListRowStyle}"/>
-                    <DataGrid x:Name="DataGridEnemiesList" HorizontalAlignment="Center" Margin="5" VerticalAlignment="Stretch" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single" HeadersVisibility="Column" ItemsSource="{Binding Enemies}" CanUserReorderColumns="False" CanUserSortColumns="False" RowStyle="{StaticResource DataGridPlayerListRowStyle}"/>
+        <Border Grid.Row="0" Style="{StaticResource SurfaceCardStyle}" Padding="10,5" Margin="0,0,0,7">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="6,0,8,0" ToolTip="https://lxdev.org/aperadar/">
+                        <Run Text="{Binding Source={x:Static p:Settings.Default}, Path=SoftwareVersion, Mode=OneWay}"/>
+                        <Run Text=" · "/><Run Text="Build "/><Run Text="{Binding Source={x:Static p:Settings.Default}, Path=SoftwareDate, Mode=OneWay}"/>
+                    </TextBlock>
+                    <Button x:Name="BtnToggleAnalysis" Content="{DynamicResource BtnAnalysis}" MinWidth="112" Margin="4,0,8,0" Click="BtnToggleAnalysis_Click"/>
+                    <ComboBox x:Name="ComboBoxLanguage" DisplayMemberPath="Content" SelectedValuePath="Value" Width="92" SelectionChanged="ComboBoxLanguage_SelectionChanged"/>
                 </StackPanel>
-            </Viewbox>
-        </Grid>
-        <Grid Grid.Row="1" Grid.Column="2">
-            <Grid>
+                <TextBlock x:Name="LabelGamePathIsSetOrNot" Text="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetText}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetColor}}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            </DockPanel>
+        </Border>
+
+        <Grid x:Name="MainContentGrid" Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition x:Name="AnalysisHostColumn" Width="0"/>
+            </Grid.ColumnDefinitions>
+            <Grid x:Name="RosterContentGrid" Grid.Column="0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="50"/>
-                    <RowDefinition Height="50"/>
-                    <RowDefinition Height="3*"/>
-                    <RowDefinition Height="1*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <Grid Grid.Row="0">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <StackPanel Orientation="Vertical" Margin="0,0,40,0">
-                            <Label Content="{DynamicResource LabelDisplayStyle}" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="ComboBoxMirrored" DisplayMemberPath="Content" SelectedValuePath="Value" HorizontalAlignment="Right" VerticalAlignment="Center" Width="90" SelectionChanged="ComboBoxMirrored_SelectionChanged"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Vertical" Margin="0,0,10,0">
-                            <Label Content="{DynamicResource LabelPlayerListSortBy}" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="ComboBoxSortBy" DisplayMemberPath="Content" SelectedValuePath="Value" HorizontalAlignment="Right" VerticalAlignment="Center" Width="180" SelectionChanged="ComboBoxSortBy_SelectionChanged"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
-                <Grid Grid.Row="1" Panel.ZIndex="1">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <StackPanel Orientation="Vertical" Margin="0,0,40,0">
-                            <Label Content="{DynamicResource LabelPlayerNames}" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="ComboBoxPlayerNamesVisibility" DisplayMemberPath="Content" SelectedValuePath="Value" HorizontalAlignment="Right" VerticalAlignment="Center" Width="90" SelectionChanged="ComboBoxPlayerNamesVisibility_SelectionChanged"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Vertical" HorizontalAlignment="Right" Margin="0,0,10,0">
-                            <Label Content="{DynamicResource LabelChartType}" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="ComboBoxChartType" DisplayMemberPath="Content" SelectedValuePath="Value" HorizontalAlignment="Right" VerticalAlignment="Center" Width="180" SelectionChanged="ComboBoxChartType_SelectionChanged"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
-                <Grid Grid.Row="2">
-                    <lvc:CartesianChart x:Name="WinrateChart" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" TooltipTextSize="13" TooltipFindingStrategy="CompareAllTakeClosest" Margin="0,-15,5,-15"/>
-                </Grid>
-                <Grid Grid.Row="3" Panel.ZIndex="1">
-                    <lvc:CartesianChart x:Name="KDEChart" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0,0,5,-10"/>
-                </Grid>
+            <Grid Grid.Row="0" Margin="0,0,0,6">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Style="{StaticResource SurfaceCardStyle}" Padding="10,6" BorderBrush="#67A98A" BorderThickness="0,0,0,3">
+                    <DockPanel>
+                        <TextBlock Text="{DynamicResource LabelAllies}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <WrapPanel HorizontalAlignment="Right">
+                            <TextBlock Text="{DynamicResource LabelAverageAccountWinrate}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding AllyAvgAccountWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p1}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                            <TextBlock Text="{DynamicResource LabelAverageBattleCount}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding AllyAvgBattleCount, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                            <TextBlock Text="PR " Foreground="{StaticResource TextSecondaryBrush}"/><TextBlock Text="{Binding AllyAvgPR, StringFormat={}{0:f0}}" FontWeight="SemiBold"/>
+                        </WrapPanel>
+                    </DockPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource SurfaceCardStyle}" Padding="10,6" BorderBrush="#D47A7A" BorderThickness="0,0,0,3">
+                    <DockPanel>
+                        <TextBlock Text="{DynamicResource LabelEnemies}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <WrapPanel HorizontalAlignment="Right">
+                            <TextBlock Text="{DynamicResource LabelAverageAccountWinrate}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding EnemyAvgAccountWinrate, Converter={StaticResource CvtBattleData}, StringFormat={}{0:p1}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                            <TextBlock Text="{DynamicResource LabelAverageBattleCount}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0"/><TextBlock Text="{Binding EnemyAvgBattleCount, Converter={StaticResource CvtBattleData}, StringFormat={}{0:f0}}" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                            <TextBlock Text="PR " Foreground="{StaticResource TextSecondaryBrush}"/><TextBlock Text="{Binding EnemyAvgPR, StringFormat={}{0:f0}}" FontWeight="SemiBold"/>
+                        </WrapPanel>
+                    </DockPanel>
+                </Border>
+            </Grid>
+            <Border Grid.Row="1" Margin="0,0,0,6" Padding="8,5" CornerRadius="5"
+                    Background="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=RosterStatus.Background}"
+                    BorderBrush="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=RosterStatus.Accent}" BorderThickness="1"
+                    Visibility="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=RosterStatus.IsVisible, Converter={StaticResource BoolToVisibility}}">
+                <DockPanel>
+                    <ProgressBar DockPanel.Dock="Right" Width="90" Height="4" Margin="10,0,0,0" IsIndeterminate="True"
+                                 Visibility="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=RosterStatus.IsBusy, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock Text="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=RosterStatus.Text}"
+                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=RosterStatus.Accent}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                </DockPanel>
+            </Border>
+            <Grid x:Name="RosterTablesGrid" Grid.Row="2">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <DataGrid x:Name="DataGridAlliesList" Grid.Column="0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single"
+                          ItemsSource="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=AlliesRosterRows}" CanUserReorderColumns="False" CanUserSortColumns="False"
+                          GridLinesVisibility="None"
+                          RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ColumnHeaderHeight="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveColumnHeaderHeight}" AlternationCount="2"
+                          ScrollViewer.ScrollChanged="RosterDataGrid_ScrollChanged"/>
+                <DataGrid x:Name="DataGridEnemiesList" Grid.Column="2" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single"
+                          ItemsSource="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EnemiesRosterRows}" CanUserReorderColumns="False" CanUserSortColumns="False"
+                          GridLinesVisibility="None"
+                          RowStyle="{StaticResource DataGridPlayerListRowStyle}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" ColumnHeaderHeight="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=EffectiveColumnHeaderHeight}" AlternationCount="2"
+                          ScrollViewer.ScrollChanged="RosterDataGrid_ScrollChanged"/>
             </Grid>
         </Grid>
 
-        <Grid Grid.Row="2" Grid.Column="2">
-            <TextBox x:Name="TxtOutputText" HorizontalAlignment="Stretch" Margin="5" TextWrapping="Wrap" VerticalAlignment="Stretch" VerticalScrollBarVisibility="Auto" IsEnabled="{Binding Source={x:Static p:Settings.Default}, Path=OutputTextUnlock}" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=OutputTextFontSize}"/>
+            <Border x:Name="AnalysisPanel" Grid.Column="0" Grid.ColumnSpan="2" Width="420" MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+                HorizontalAlignment="Right" Style="{StaticResource SurfaceCardStyle}" Padding="10" Panel.ZIndex="30" Visibility="Collapsed">
+            <Border.Effect>
+                <DropShadowEffect Color="#29415F" BlurRadius="18" ShadowDepth="-3" Opacity="0.22"/>
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="3*"/><RowDefinition Height="1*"/><RowDefinition Height="92"/></Grid.RowDefinitions>
+                <StackPanel Grid.Row="0">
+                    <DockPanel Margin="4,0,0,6">
+                        <Button DockPanel.Dock="Right" Content="×" Width="30" Height="30" Padding="0" Margin="4,0,0,0" Click="BtnToggleAnalysis_Click" ToolTip="{DynamicResource BtnCloseAnalysis}"/>
+                        <TextBlock Text="{DynamicResource AnalysisPanelTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <WrapPanel>
+                        <StackPanel Margin="4"><TextBlock Text="{DynamicResource LabelDisplayStyle}"/><ComboBox x:Name="ComboBoxMirrored" DisplayMemberPath="Content" SelectedValuePath="Value" Width="100" SelectionChanged="ComboBoxMirrored_SelectionChanged"/></StackPanel>
+                        <StackPanel Margin="4"><TextBlock Text="{DynamicResource LabelPlayerListSortBy}"/><ComboBox x:Name="ComboBoxSortBy" DisplayMemberPath="Content" SelectedValuePath="Value" Width="190" SelectionChanged="ComboBoxSortBy_SelectionChanged"/></StackPanel>
+                        <StackPanel Margin="4"><TextBlock Text="{DynamicResource LabelPlayerNames}"/><ComboBox x:Name="ComboBoxPlayerNamesVisibility" DisplayMemberPath="Content" SelectedValuePath="Value" Width="100" SelectionChanged="ComboBoxPlayerNamesVisibility_SelectionChanged"/></StackPanel>
+                        <StackPanel Margin="4"><TextBlock Text="{DynamicResource LabelChartType}"/><ComboBox x:Name="ComboBoxChartType" DisplayMemberPath="Content" SelectedValuePath="Value" Width="190" SelectionChanged="ComboBoxChartType_SelectionChanged"/></StackPanel>
+                    </WrapPanel>
+                </StackPanel>
+                <lvc:CartesianChart Grid.Row="1" x:Name="WinrateChart" TooltipTextSize="13" TooltipFindingStrategy="CompareAllTakeClosest" Margin="0,-8,0,-8"/>
+                <lvc:CartesianChart Grid.Row="2" x:Name="KDEChart" Margin="0,2,0,0"/>
+                <TextBox Grid.Row="3" x:Name="TxtOutputText" Margin="0,6,0,0" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" IsEnabled="{Binding Source={x:Static p:Settings.Default}, Path=OutputTextUnlock}" FontSize="{Binding Source={x:Static p:Settings.Default}, Path=OutputTextFontSize}"/>
+                </Grid>
+            </Border>
         </Grid>
-        <Grid Grid.Row="3" Grid.Column="1" Grid.RowSpan="2">
-            <DataGrid x:Name="DataGridNotificationMessages" Margin="5,10,0,0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single" HeadersVisibility="Column" ItemsSource="{Binding Source={x:Static utils:NotificationMessageUtils.NotificationMessageCollection}}" CanUserReorderColumns="False" CanUserSortColumns="False" Height="100" HorizontalAlignment="Left" VerticalAlignment="Top">
-                <DataGrid.Resources>
-                    <DataTemplate x:Key="TimeHeaderTemplate">
-                        <TextBlock Text="{DynamicResource DataGridHeaderTime}" FontSize="11"/>
-                    </DataTemplate>
-                    <DataTemplate x:Key="TimeTemplate">
-                        <TextBlock Text="{Binding Time, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" FontSize="11" Foreground="{Binding Type, Converter={StaticResource CvtNotificationMessageColor}}" Margin="5,0,0,0"/>
-                    </DataTemplate>
-                    <DataTemplate x:Key="MessageHeaderTemplate">
-                        <TextBlock Text="{DynamicResource DataGridHeaderMessage}" FontSize="11"/>
-                    </DataTemplate>
-                    <DataTemplate x:Key="MessageTemplate">
-                        <TextBlock Text="{Binding Message}" FontSize="11" Foreground="{Binding Type, Converter={StaticResource CvtNotificationMessageColor}}" Margin="5,0,0,0"/>
-                    </DataTemplate>
-                </DataGrid.Resources>
-                <DataGrid.Columns>
-                    <DataGridTemplateColumn HeaderTemplate="{StaticResource TimeHeaderTemplate}" CellTemplate="{StaticResource TimeTemplate}" MinWidth="120"/>
-                    <DataGridTemplateColumn HeaderTemplate="{StaticResource MessageHeaderTemplate}" CellTemplate="{StaticResource MessageTemplate}" MinWidth="570"/>
-                </DataGrid.Columns>
-            </DataGrid>
-        </Grid>
-        <Grid Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2">
-            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button x:Name="BtnRefresh" Content="{DynamicResource BtnRefresh}" HorizontalAlignment="Left" Height="40" Margin="10,5,5,5" VerticalAlignment="Center" Width="80" Click="BtnRefresh_Click"/>
-                <Button x:Name="BtnOpen" Content="{DynamicResource BtnOpen}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnOpen_Click"/>
-                <Button x:Name="BtnHistory" Content="{DynamicResource BtnHistory}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="90" Click="BtnHistory_Click"/>
-                <Button x:Name="BtnSoftwareUpdate" Content="{DynamicResource BtnSoftwareUpdate}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnSoftwareUpdate_Click"/>
-                <Button x:Name="BtnConfig" Content="{DynamicResource BtnConfig}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnConfig_Click"/>
-                <Button x:Name="BtnScreenshot" Content="{DynamicResource BtnScreenshot}" HorizontalAlignment="Left" Height="40" Margin="5" VerticalAlignment="Center" Width="80" Click="BtnScreenshot_Click"/>
-            </WrapPanel>
-        </Grid>
-        <Grid Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2">
-            <StackPanel Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,0,10,0">
-                <TextBlock HorizontalAlignment="Right" FontSize="11">
-                    <Run Text="{DynamicResource WindowTitleApeRadar}"/>
-                    <Run Text="{Binding Source={x:Static p:Settings.Default}, Mode=OneWay,Path=SoftwareVersion}"/>
-                    <Run Text="Build"/>
-                    <Run Text="{Binding Source={x:Static p:Settings.Default}, Mode=OneWay,Path=SoftwareDate}"/>
-                </TextBlock>
-                <TextBlock Text="{DynamicResource LabelAboutLine1}" HorizontalAlignment="Right" FontSize="11" Margin="0,5,0,5"/>
-                <TextBlock HorizontalAlignment="Right" FontSize="11">
-                    <Run Text="{DynamicResource LabelAboutLine2Part1}"/>
-                    <Hyperlink x:Name="HyperLinkApeRadarWebsite" NavigateUri="https://lxdev.org/aperadar/" RequestNavigate="HyperLinkApeRadarWebsite_RequestNavigate">https://lxdev.org/aperadar/</Hyperlink>
-                    <Run Text="{DynamicResource LabelAboutLine2Part2}"/>
-                </TextBlock>
-            </StackPanel>
-        </Grid>
+
+        <Border Grid.Row="2" Style="{StaticResource SurfaceCardStyle}" Padding="5" Margin="0,7,0,0">
+            <DockPanel LastChildFill="True">
+                <WrapPanel x:Name="MainFooterButtons" DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button x:Name="BtnRefresh" Content="{DynamicResource BtnRefresh}" MinWidth="72" Click="BtnRefresh_Click" Style="{StaticResource PrimaryButtonStyle}"/>
+                    <Button x:Name="BtnOpen" Content="{DynamicResource BtnOpen}" MinWidth="72" Click="BtnOpen_Click"/>
+                    <Button x:Name="BtnHistory" Content="{DynamicResource BtnHistory}" MinWidth="72" Click="BtnHistory_Click"/>
+                    <Button x:Name="BtnSoftwareUpdate" Content="{DynamicResource BtnSoftwareUpdate}" MinWidth="72" Click="BtnSoftwareUpdate_Click"/>
+                    <Button x:Name="BtnConfig" Content="{DynamicResource BtnConfig}" MinWidth="72" Click="BtnConfig_Click"/>
+                    <Button x:Name="BtnScreenshot" Content="{DynamicResource BtnScreenshot}" MinWidth="72" Click="BtnScreenshot_Click"/>
+                    <Button x:Name="BtnMore" Content="{DynamicResource BtnMore}" MinWidth="72" Click="BtnMore_Click" Visibility="Collapsed">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="{DynamicResource BtnSoftwareUpdate}" Click="BtnSoftwareUpdate_Click"/>
+                                <MenuItem Header="{DynamicResource BtnConfig}" Click="BtnConfig_Click"/>
+                                <MenuItem Header="{DynamicResource BtnScreenshot}" Click="BtnScreenshot_Click"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </WrapPanel>
+                <Border DockPanel.Dock="Left" x:Name="CurrentSessionSummaryCard" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,8,0" Padding="9,4" MaxWidth="650"
+                        BorderBrush="#CCD6E2" BorderThickness="1" CornerRadius="5" Background="#F8FAFD" Cursor="Hand"
+                        MouseLeftButtonDown="CurrentSessionSummaryCard_MouseLeftButtonDown" ToolTip="{DynamicResource MainSessionOpenHint}">
+                <WrapPanel>
+                    <TextBlock Text="{DynamicResource MainSessionTitle}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="{DynamicResource MainSessionBattles}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionBattles" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
+                    <TextBlock x:Name="TxtMainSessionResultLabel" Text="{DynamicResource HistoryWinrate}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionWinrate" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
+                    <TextBlock Text="{DynamicResource HistoryAverageDamage}" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionDamage" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,10,0"/>
+                    <TextBlock Text="PR" VerticalAlignment="Center"/><TextBlock x:Name="TxtMainSessionPr" Text="-" FontWeight="SemiBold" VerticalAlignment="Center" Margin="3,0,0,0"/>
+                </WrapPanel>
+                </Border>
+                <Grid Margin="0,0,6,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Button x:Name="BtnToggleNotifications" Grid.Column="0" Content="＋" Width="32" Height="32" Padding="0" Margin="0" Click="BtnToggleNotifications_Click" ToolTip="{DynamicResource NotificationExpand}"/>
+                    <DataGrid x:Name="DataGridNotificationMessages" Grid.Column="1" Height="32" HeadersVisibility="None" RowHeight="28" Margin="5,0,0,0" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" SelectionMode="Single" ItemsSource="{Binding Source={x:Static utils:NotificationMessageUtils.NotificationMessageCollection}}" CanUserReorderColumns="False" CanUserSortColumns="False" VerticalScrollBarVisibility="Hidden">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Width="66"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Time, StringFormat='{}{0:HH:mm:ss}'}" FontSize="10" Foreground="{Binding Type, Converter={StaticResource CvtNotificationMessageColor}}" Margin="4,0"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                            <DataGridTemplateColumn Width="*" MinWidth="150"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Message}" FontSize="11" Foreground="{Binding Type, Converter={StaticResource CvtNotificationMessageColor}}" Margin="4,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Message}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <Popup x:Name="NotificationPopup" PlacementTarget="{Binding ElementName=BtnToggleNotifications}" Placement="Top" StaysOpen="False" AllowsTransparency="True" Closed="NotificationPopup_Closed">
+            <Border Width="560" Height="150" Style="{StaticResource SurfaceCardStyle}" Padding="6" Margin="0,0,0,5" PreviewKeyDown="MainWindowGrid_PreviewKeyDown">
+                <Border.Effect><DropShadowEffect Color="#29415F" BlurRadius="14" ShadowDepth="2" Opacity="0.20"/></Border.Effect>
+                <DataGrid x:Name="DataGridNotificationHistory" HeadersVisibility="Column" RowHeight="27" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserResizeColumns="False" ItemsSource="{Binding Source={x:Static utils:NotificationMessageUtils.NotificationMessageCollection}}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource DataGridHeaderTime}" Binding="{Binding Time, StringFormat='{}{0:HH:mm:ss}'}" Width="78"/>
+                        <DataGridTextColumn Header="{DynamicResource DataGridHeaderMessage}" Binding="{Binding Message}" Width="*" MinWidth="360"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+        </Popup>
+
+        <Popup x:Name="PlayerDetailPopup" Placement="Custom" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade"
+               MouseEnter="PlayerDetailPopup_MouseEnter" MouseLeave="PlayerDetailPopup_MouseLeave">
+            <Border x:Name="PlayerDetailCardBorder" Width="560" MaxWidth="560" MaxHeight="720" Style="{StaticResource SurfaceCardStyle}" Padding="10" Margin="6">
+                <Border.Effect><DropShadowEffect Color="#29415F" BlurRadius="18" ShadowDepth="3" Opacity="0.24"/></Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,7">
+                        <Button x:Name="BtnClosePlayerDetail" DockPanel.Dock="Right" Content="×" Width="30" Height="28" Padding="0" Margin="4,0,0,0" Click="BtnClosePlayerDetail_Click" ToolTip="{DynamicResource DetailClose}"/>
+                        <Button x:Name="BtnCopyPlayerDetail" DockPanel.Dock="Right" Content="{DynamicResource DetailCopySummary}" MinWidth="88" Height="28" Padding="8,2" Margin="4,0,0,0" Click="BtnCopyPlayerDetail_Click"/>
+                        <TextBlock Text="{DynamicResource DetailHoverMode}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="True">
+                        <controls:PlayerDetailCard x:Name="PlayerDetailCardContent"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Popup>
+    </Grid>
+
+    <controls:DashboardMainView x:Name="DashboardView" Visibility="Collapsed"/>
     </Grid>
 
 

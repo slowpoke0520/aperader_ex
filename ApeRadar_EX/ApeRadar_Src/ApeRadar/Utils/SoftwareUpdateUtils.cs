@@ -8,81 +8,163 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using ApeRadar.Models;
 using System.Diagnostics;
-using System.Text.RegularExpressions;
 using System.Threading;
+using System.Net.Http;
+using System.Globalization;
 
 namespace ApeRadar.Utils
 {
+    internal enum SoftwareUpdateCheckStatus
+    {
+        UpToDate,
+        UpdateAvailable,
+        UpdateStarted,
+        AlreadyRunning,
+        NetworkError,
+        RateLimited,
+        InvalidFeed,
+        MissingAsset,
+        HashInvalid,
+        Cancelled
+    }
+
+    internal sealed record SoftwareUpdateCheckResult(
+        SoftwareUpdateCheckStatus Status,
+        string CurrentVersion,
+        string? AvailableVersion,
+        SoftwareUpdateChannel Channel,
+        DateTimeOffset CheckedAt)
+    {
+        public bool HasUpdate => Status is SoftwareUpdateCheckStatus.UpdateAvailable or SoftwareUpdateCheckStatus.UpdateStarted;
+        public DateTimeOffset? PublishedAt { get; init; }
+        public string ReleaseNotes { get; init; } = "";
+    }
+
     static internal class SoftwareUpdateUtils
     {
-        private const string LatestReleaseApiUrl = "https://api.github.com/repos/slowpoke0520/aperader_ex/releases/latest";
+        private const string LatestStableReleaseApiUrl = "https://api.github.com/repos/slowpoke0520/aperader_ex/releases/latest";
+        private const string ReleasesApiUrl = "https://api.github.com/repos/slowpoke0520/aperader_ex/releases?per_page=100";
         public const string ReleaseNotesUrl = "https://github.com/slowpoke0520/aperader_ex/releases";
         private const string ReleaseAssetName = "ApeRadar-win-x64.zip";
         static readonly string[] occupiedFileList = { @".\ApeRadar.exe", @".\libSkiaSharp.dll" };
         private static readonly SemaphoreSlim SoftwareUpdateGate = new(1, 1);
 
-        public static async Task<bool> CheckForSoftwareUpdates()
+        public static async Task<SoftwareUpdateCheckResult> CheckForSoftwareUpdates(bool installWhenFound = true, CancellationToken cancellationToken = default)
         {
-            if (!await SoftwareUpdateGate.WaitAsync(0))
+            SoftwareUpdateChannel channel = SoftwareReleaseSelector.ParseChannel(Properties.Settings.Default.SoftwareUpdateChannel);
+            string currentVersion = Properties.Settings.Default.SoftwareVersion;
+            if (!await SoftwareUpdateGate.WaitAsync(0, cancellationToken))
             {
                 NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageSoftwareUpdateAlreadyRunning") as string);
-                return true;
+                return new(SoftwareUpdateCheckStatus.AlreadyRunning, currentVersion, null, channel, DateTimeOffset.Now);
             }
 
             try
             {
-                JObject release = JsonUtils.Parse(await NetworkUtils.HttpGet(LatestReleaseApiUrl));
+                JArray releases;
+                try
+                {
+                    string releaseJson = await NetworkUtils.HttpGet(channel == SoftwareUpdateChannel.Stable
+                        ? LatestStableReleaseApiUrl
+                        : ReleasesApiUrl, cancellationToken);
+                    JToken response = JToken.Parse(releaseJson);
+                    releases = response switch
+                    {
+                        JObject singleRelease => new JArray(singleRelease),
+                        JArray releaseList => releaseList,
+                        _ => throw new FileFormatException("FileFormatIncorrect")
+                    };
+                }
+                catch (Exception ex) when (ex is not System.Net.Http.HttpRequestException)
+                {
+                    throw new FileFormatException("FileFormatIncorrect", ex);
+                }
+                JObject release = SoftwareReleaseSelector.SelectLatestRelease(releases, channel, ReleaseAssetName);
                 string tagName = release["tag_name"]?.Value<string>() ?? throw new FileFormatException("FileFormatIncorrect");
                 string softwareLatestVersion = tagName.TrimStart('v', 'V');
-                (Version latestVersion, int latestExRevision) = ParseReleaseVersion(softwareLatestVersion);
-                (Version currentVersion, int currentExRevision) = ParseReleaseVersion(Properties.Settings.Default.SoftwareVersion);
+                DateTimeOffset? publishedAt = ParsePublishedAt(release["published_at"]);
+                string releaseNotes = release["body"]?.Value<string>() ?? "";
 
                 JObject? softwareAsset = release["assets"]?
                     .OfType<JObject>()
                     .FirstOrDefault(asset => asset["name"]?.Value<string>() == ReleaseAssetName);
                 if (softwareAsset == null)
                 {
-                    throw new FileFormatException("FileFormatIncorrect");
+                    NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource("NotificationMessageUpdateAssetMissing") as string);
+                    return new(SoftwareUpdateCheckStatus.MissingAsset, currentVersion, softwareLatestVersion, channel, DateTimeOffset.Now)
+                    {
+                        PublishedAt = publishedAt,
+                        ReleaseNotes = releaseNotes
+                    };
                 }
                 string softwareLatestUrl = GetSecureDownloadUrl(softwareAsset, "browser_download_url");
                 string digest = softwareAsset["digest"]?.Value<string>() ?? "";
                 string softwareLatestSHA256 = digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
                     ? digest[7..]
                     : "";
-                string publishedAt = release["published_at"]?.ToString() ?? "";
-                string softwareLatestDate = DateTimeOffset.TryParse(publishedAt, out DateTimeOffset publishedDate)
-                    ? publishedDate.ToString("yyyyMMdd")
-                    : "";
-
-                int versionComparison = latestVersion.CompareTo(currentVersion);
-                if (versionComparison < 0 || versionComparison == 0 && latestExRevision <= currentExRevision)
+                if (string.IsNullOrWhiteSpace(softwareLatestSHA256))
                 {
-                    return false;
+                    throw new FileFormatException("FileHashInvalid");
                 }
 
-                if (MessageBox.Show($"{Application.Current.FindResource("MsgBoxSoftwareUpdateFound") as string}\n{Application.Current.FindResource("MsgBoxCurrentVersion") as string} {Properties.Settings.Default.SoftwareVersion}\n{Application.Current.FindResource("MsgBoxLatestVersion") as string} {softwareLatestVersion} ({softwareLatestDate})\n{Application.Current.FindResource("MsgBoxUpdateComfirm") as string}", Application.Current.FindResource("MsgBoxUpdate") as string, MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+                if (!SoftwareReleaseSelector.IsNewer(softwareLatestVersion, currentVersion))
                 {
-                    NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageSoftwareUpdateDownloading") as string);
-                    if (string.IsNullOrWhiteSpace(softwareLatestSHA256))
+                    return new(SoftwareUpdateCheckStatus.UpToDate, currentVersion, softwareLatestVersion, channel, DateTimeOffset.Now)
                     {
-                        throw new FileFormatException("FileHashInvalid");
-                    }
-
-                    UpdateInstaller.Start(softwareLatestUrl, softwareLatestSHA256, softwareLatestVersion, Properties.Settings.Default.Language);
-                    Application.Current.Shutdown();
+                        PublishedAt = publishedAt,
+                        ReleaseNotes = releaseNotes
+                    };
                 }
-                return true;
+
+                if (!installWhenFound)
+                {
+                    string channelName = Application.Current.FindResource(channel == SoftwareUpdateChannel.Development
+                        ? "ComboBoxItemSoftwareUpdateChannelDevelopment"
+                        : "ComboBoxItemSoftwareUpdateChannelStable") as string ?? channel.ToString();
+                    string messageFormat = Application.Current.FindResource("NotificationMessageSoftwareUpdateAvailable") as string
+                        ?? "Update {0} is available on the {1} channel.";
+                    NotificationMessageUtils.CreateMessage(MessageType.INFO, string.Format(messageFormat, softwareLatestVersion, channelName));
+                    return new(SoftwareUpdateCheckStatus.UpdateAvailable, currentVersion, softwareLatestVersion, channel, DateTimeOffset.Now)
+                    {
+                        PublishedAt = publishedAt,
+                        ReleaseNotes = releaseNotes
+                    };
+                }
+
+                NotificationMessageUtils.CreateMessage(MessageType.INFO, Application.Current.FindResource("NotificationMessageSoftwareUpdateDownloading") as string);
+                UpdateInstaller.Start(softwareLatestUrl, softwareLatestSHA256, softwareLatestVersion, Properties.Settings.Default.Language);
+                Application.Current.Shutdown();
+                return new(SoftwareUpdateCheckStatus.UpdateStarted, currentVersion, softwareLatestVersion, channel, DateTimeOffset.Now)
+                {
+                    PublishedAt = publishedAt,
+                    ReleaseNotes = releaseNotes
+                };
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new(SoftwareUpdateCheckStatus.Cancelled, currentVersion, null, channel, DateTimeOffset.Now);
             }
             catch (Exception ex)
             {
                 LogUtils.WriteError("", ex);
-                _ = ex.Message switch
+                SoftwareUpdateCheckStatus status = ex switch
                 {
-                    "HttpRequestFailed" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource("NotificationMessageUpdateConnectionError") as string),
-                    "FileHashInvalid" => NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource("NotificationMessageUpdateFileHashError") as string),
-                    _ => NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource("NotificationMessageOtherError") as string),
+                    NetworkRequestException network when network.FailureKind == ApiFailureKind.RateLimited => SoftwareUpdateCheckStatus.RateLimited,
+                    HttpRequestException => SoftwareUpdateCheckStatus.NetworkError,
+                    FileFormatException when ex.Message == "FileHashInvalid" => SoftwareUpdateCheckStatus.HashInvalid,
+                    FileFormatException => SoftwareUpdateCheckStatus.InvalidFeed,
+                    _ => SoftwareUpdateCheckStatus.InvalidFeed
                 };
-                return true;
+                string resourceKey = status switch
+                {
+                    SoftwareUpdateCheckStatus.RateLimited => "NotificationMessageUpdateRateLimited",
+                    SoftwareUpdateCheckStatus.NetworkError => "NotificationMessageUpdateConnectionError",
+                    SoftwareUpdateCheckStatus.HashInvalid => "NotificationMessageUpdateFileHashError",
+                    SoftwareUpdateCheckStatus.InvalidFeed => "NotificationMessageUpdateFeedInvalid",
+                    _ => "NotificationMessageOtherError"
+                };
+                NotificationMessageUtils.CreateMessage(MessageType.ERROR, Application.Current.FindResource(resourceKey) as string);
+                return new(status, currentVersion, null, channel, DateTimeOffset.Now);
             }
             finally
             {
@@ -99,6 +181,27 @@ namespace ApeRadar.Utils
                     File.Delete($"{filename}.bak");
                 }
             }
+        }
+
+        internal static DateTimeOffset? ParsePublishedAt(JToken? value)
+        {
+            if (value == null || value.Type == JTokenType.Null) return null;
+            if (value is JValue { Value: DateTimeOffset offset }) return offset;
+            if (value is JValue { Value: DateTime date })
+            {
+                DateTime normalized = date.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(date, DateTimeKind.Utc)
+                    : date;
+                return new DateTimeOffset(normalized).ToUniversalTime();
+            }
+
+            return DateTimeOffset.TryParse(
+                value.ToString(),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out DateTimeOffset parsed)
+                ? parsed
+                : throw new FileFormatException("FileFormatIncorrect");
         }
 
         public static async Task<bool> CheckForShipListUpdates()
@@ -179,19 +282,6 @@ namespace ApeRadar.Utils
                 throw new FileFormatException("FileFormatIncorrect");
             }
             return uri.AbsoluteUri;
-        }
-
-        private static (Version Core, int ExRevision) ParseReleaseVersion(string value)
-        {
-            Match match = Regex.Match(value, @"^(?<core>\d+\.\d+\.\d+)(?:-ex\.(?<revision>\d+))?$");
-            if (!match.Success || !Version.TryParse(match.Groups["core"].Value, out Version? core))
-            {
-                throw new FileFormatException("FileFormatIncorrect");
-            }
-            int revision = match.Groups["revision"].Success
-                ? int.Parse(match.Groups["revision"].Value)
-                : 0;
-            return (core, revision);
         }
 
         private static void ValidateArchiveEntries(string archivePath, string destinationDirectory)

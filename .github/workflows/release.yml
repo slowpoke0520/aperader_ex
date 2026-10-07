@@ -12,14 +12,16 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
 
       - name: Build update package
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
           .\Publish-Release.ps1 -Version $version
@@ -28,4 +30,20 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create $env:GITHUB_REF_NAME artifacts/ApeRadar-win-x64.zip --generate-notes --verify-tag
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $escapedVersion = [regex]::Escape($version)
+          $changeLog = [IO.File]::ReadAllText((Join-Path $PWD 'CHANGELOG.md'))
+          $match = [regex]::Match($changeLog, "(?ms)^## \[$escapedVersion\].*?(?=^## \[|\z)")
+          if (-not $match.Success) {
+            throw "CHANGELOG.md does not contain release notes for $version"
+          }
+          $notesPath = Join-Path $PWD 'artifacts/release-notes.md'
+          [IO.File]::WriteAllText($notesPath, $match.Value.Trim(), [Text.UTF8Encoding]::new($false))
+          $hash = (Get-FileHash -LiteralPath 'artifacts/ApeRadar-win-x64.zip' -Algorithm SHA256).Hash
+          [IO.File]::WriteAllText((Join-Path $PWD 'artifacts/ApeRadar-win-x64.zip.sha256'), "$hash  ApeRadar-win-x64.zip`n", [Text.UTF8Encoding]::new($false))
+          $arguments = @('release', 'create', $env:GITHUB_REF_NAME, 'artifacts/ApeRadar-win-x64.zip', 'artifacts/ApeRadar-win-x64.zip.sha256', '--notes-file', $notesPath, '--verify-tag')
+          if ($version -match '-(?:dev|alpha|beta|rc)\.\d+$') {
+            $arguments += '--prerelease'
+          }
+          gh @arguments

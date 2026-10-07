@@ -68,6 +68,13 @@ namespace ApeRadar.Utils
             }
         }
 
+        public static string TryGetShipTypeByID(string ID)
+        {
+            if (ShipInfo?["ships"] is JObject ships && ships.ContainsKey(ID))
+                return ships[ID]?["type"]?.Value<string>() ?? "";
+            return "";
+        }
+
         public static int GetShipTierByID(string ID)
         {
             if (((JObject)ShipInfo!["ships"]!).ContainsKey(ID))

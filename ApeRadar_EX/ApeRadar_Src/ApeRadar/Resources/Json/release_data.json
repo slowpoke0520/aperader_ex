@@ -1,0 +1,21 @@
+{
+  "shipList": {
+    "version": "15.9",
+    "date": "20261006",
+    "ships": 1104,
+    "repository": "wowsinfo/data",
+    "tag": "15.9.0.0.13357625",
+    "commit": "49aaf3fccf84ebd48e4cb70d6a3b91c7351aa220",
+    "sha256": "E69A45061B17661C7B2B79165621D536CDF41B8518B7F3BC3CE872D486F528D3"
+  },
+  "prData": {
+    "timestamp": 1791248759,
+    "date": "2026-10-06",
+    "ships": 1040,
+    "usableShips": 974,
+    "repository": "wowsinfo/WoWs-Info-Seven",
+    "ref": "API",
+    "commit": "9dd327e511b8812824b6ed188e1974afa4a74921",
+    "sha256": "E61E270099B77948041648AF783EC3713E2D4E9AA45B45518E617EC62D55E9A5"
+  }
+}
