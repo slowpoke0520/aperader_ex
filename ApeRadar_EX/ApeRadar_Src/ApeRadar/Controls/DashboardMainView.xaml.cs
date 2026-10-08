@@ -75,7 +75,7 @@ namespace ApeRadar.Controls
             InitializeComponent();
             detailPopup = new PlayerDetailPopupController<DashboardPlayerRowViewModel>(
                 PlayerDetailPopup, PlayerDetailBorder, PlayerDetailCardContent, this, AlliesGrid,
-                row => row.BaseRow.Detail, openIfTargetHovered: true);
+                row => new PlayerDetailCardViewModel(row.Player, row.StatusBadges), openIfTargetHovered: true);
             DataContextChanged += DashboardMainView_DataContextChanged;
             Loaded += (_, _) =>
             {
@@ -214,7 +214,7 @@ namespace ApeRadar.Controls
         {
             double Measure(string value, string fontResource)
             {
-                TextBlock text = new() { Text = value, FontFamily = (System.Windows.Media.FontFamily)FindResource(fontResource), FontSize = 12 };
+                TextBlock text = new() { Text = value, FontFamily = (System.Windows.Media.FontFamily)FindResource(fontResource), FontSize = 13 };
                 System.Windows.Media.TextOptions.SetTextFormattingMode(text, System.Windows.Media.TextFormattingMode.Display);
                 text.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                 return Math.Ceiling(text.DesiredSize.Width) + 13; // Cell border and two 6 DIP margins.
@@ -284,6 +284,7 @@ namespace ApeRadar.Controls
             DashboardLayout layout = DashboardLayoutCalculator.Calculate(ActualWidth, ActualHeight);
             bool compactSidebar = layout.CompactSidebar;
             SidebarColumn.Width = new GridLength(layout.SidebarWidth);
+            NavBattleGroupText.Visibility = NavToolsGroupText.Visibility = compactSidebar || layout.CompactHeight ? Visibility.Collapsed : Visibility.Visible;
             BrandText.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
             NavBattleText.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
             NavHistoryText.Visibility = compactSidebar ? Visibility.Collapsed : Visibility.Visible;
@@ -320,7 +321,12 @@ namespace ApeRadar.Controls
             MainContentGrid.RowDefinitions[0].Height = new GridLength(layout.CompactHeight ? 32 : DashboardLayout.HeadingHeight);
             MainContentGrid.RowDefinitions[1].Height = new GridLength(DashboardLayout.SummaryHeight);
             MainContentGrid.RowDefinitions[2].Height = new GridLength(DashboardLayout.ToolbarHeight);
-            ComparisonCard.Height = 64;
+            ComparisonCard.Height = DashboardLayout.SummaryHeight;
+            bool compactSummary = ActualWidth < 1000;
+            SummaryContextCaptionColumn.Width = SummaryShipCaptionColumn.Width = new GridLength(compactSummary ? 64 : 100);
+            SummaryContextTitle.FontSize = SummaryShipTitle.FontSize = compactSummary ? 13 : 16;
+            SummaryContextCaption.Padding = SummaryShipCaption.Padding = new Thickness(compactSummary ? 4 : 8, 0, compactSummary ? 4 : 8, 0);
+            SummaryContextHint.Visibility = SummaryShipHint.Visibility = compactSummary ? Visibility.Collapsed : Visibility.Visible;
             BattleMetadataText.Visibility = ActualWidth < 1240 ? Visibility.Collapsed : Visibility.Visible;
 
             // Use the viewport budget, independent of filters or the overlay drawer.

@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:ApeRadar"
+             xmlns:model="clr-namespace:ApeRadar.Models"
              xmlns:controls="clr-namespace:ApeRadar.Controls"
              xmlns:utils="clr-namespace:ApeRadar.Utils"
              xmlns:cvt="clr-namespace:ApeRadar.Utils.Converters"
@@ -23,9 +24,12 @@
         <SolidColorBrush x:Key="DashboardRed" Color="#D92E49"/>
         <SolidColorBrush x:Key="DashboardAllySurface" Color="#EAF3FF"/>
         <SolidColorBrush x:Key="DashboardEnemySurface" Color="#FFF0F2"/>
+        <SolidColorBrush x:Key="SummaryGroupBorder" Color="#B8C8DC"/>
+        <SolidColorBrush x:Key="SummaryGroupCaption" Color="#EAF0F8"/>
 
         <cvt:RosterMetricBrushConverter x:Key="MetricBrush"/>
         <cvt:RosterBadgeBrushConverter x:Key="BadgeBrush"/>
+        <cvt:WatchStatusColorConverter x:Key="WatchColor"/>
         <cvt:ShipTierConverter x:Key="ShipTier"/>
         <cvt:LabelGamePathIsSetContentConverter x:Key="CvtGamePathIsSetText"/>
         <cvt:LabelGamePathIsSetColorConverter x:Key="CvtGamePathIsSetColor"/>
@@ -42,7 +46,25 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
         </Style>
+        <ControlTemplate x:Key="DashboardButtonTemplate" TargetType="Button">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" SnapsToDevicePixels="True">
+                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"/>
+            </Border>
+        </ControlTemplate>
+        <Style x:Key="NavIcon" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="NavGroupText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource DashboardMuted}"/>
+            <Setter Property="Margin" Value="24,0,0,6"/>
+        </Style>
         <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Template" Value="{StaticResource DashboardButtonTemplate}"/>
             <Setter Property="Height" Value="44"/>
             <Setter Property="Margin" Value="8,2"/>
             <Setter Property="Padding" Value="12,0"/>
@@ -53,11 +75,13 @@
             <Setter Property="FontSize" Value="13"/>
         </Style>
         <Style x:Key="NavButtonSelected" TargetType="Button" BasedOn="{StaticResource NavButton}">
-            <Setter Property="Background" Value="#E6F0FF"/>
-            <Setter Property="Foreground" Value="{StaticResource DashboardBlue}"/>
+            <Setter Property="Background" Value="#246BCE"/>
+            <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
+            <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D5DB9"/></Trigger></Style.Triggers>
         </Style>
         <Style x:Key="ToolbarButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Template" Value="{StaticResource DashboardButtonTemplate}"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="Padding" Value="12,0"/>
             <Setter Property="Margin" Value="4,0"/>
@@ -145,6 +169,18 @@
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Foreground" Value="{StaticResource DashboardText}"/>
         </Style>
+        <Style x:Key="PlayerNameText" TargetType="TextBlock" BasedOn="{StaticResource CellText}">
+            <Setter Property="FontFamily" Value="{Binding RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}, Path=FontFamily}"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{Binding Player.WatchStatus, Converter={StaticResource WatchColor}}"/>
+            <Style.Triggers><DataTrigger Binding="{Binding Player.WatchStatus}" Value="{x:Static model:WatchStatus.NONE}"><Setter Property="Foreground" Value="{StaticResource DashboardText}"/></DataTrigger></Style.Triggers>
+        </Style>
+        <Style x:Key="PlayerShipText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{Binding Player.WatchStatus, Converter={StaticResource WatchColor}}"/>
+            <Style.Triggers><DataTrigger Binding="{Binding Player.WatchStatus}" Value="{x:Static model:WatchStatus.NONE}"><Setter Property="Foreground" Value="{StaticResource DashboardMuted}"/></DataTrigger></Style.Triggers>
+        </Style>
         <Style x:Key="ShipWinrateSubcolumn" TargetType="ColumnDefinition">
             <Setter Property="Width" Value="0.9*"/>
             <Setter Property="MinWidth" Value="56"/>
@@ -165,7 +201,7 @@
         </Style>
         <Style x:Key="ShipMetricText" TargetType="TextBlock" BasedOn="{StaticResource CellText}">
             <Setter Property="FontFamily" Value="{StaticResource NumericFontFamily}"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="13"/>
             <Setter Property="Margin" Value="2,0"/>
             <Setter Property="TextAlignment" Value="Right"/>
             <Setter Property="TextWrapping" Value="NoWrap"/>
@@ -215,13 +251,14 @@
                     </ColumnDefinition>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                <TextBlock Style="{StaticResource CellText}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding PlayerDisplayName}">
+                <TextBlock x:Name="PlayerName" Style="{StaticResource PlayerNameText}" TextTrimming="CharacterEllipsis" ToolTip="{Binding PlayerIdentityToolTip}">
                     <Run Text="{Binding PlayerDisplayName, Mode=OneWay}"/><Run Text=" "/><Run Text="{Binding KarmaText, Mode=OneWay}" BaselineAlignment="Superscript" FontSize="12" FontWeight="Normal" Foreground="{StaticResource DashboardMuted}"/>
+                    <Run Text="{Binding Player.CustomMarkerIcon, Mode=OneWay}" Foreground="#996600" FontWeight="Normal"/>
                 </TextBlock>
                 <Grid Grid.Row="1" VerticalAlignment="Center">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="22"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding Player.ShipTier, Converter={StaticResource ShipTier}}" FontSize="12" Foreground="{StaticResource DashboardMuted}"/>
-                    <TextBlock Grid.Column="1" Text="{Binding Player.ShipName}" FontSize="12" Foreground="{StaticResource DashboardMuted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Player.ShipName}"/>
+                    <TextBlock x:Name="PlayerShipTier" Text="{Binding Player.ShipTier, Converter={StaticResource ShipTier}}" Style="{StaticResource PlayerShipText}"/>
+                    <TextBlock x:Name="PlayerShipName" Grid.Column="1" Text="{Binding Player.ShipName}" Style="{StaticResource PlayerShipText}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Player.ShipName}"/>
                     <ItemsControl Grid.Column="2" ItemsSource="{Binding VisibleIdentityStatusBadges}" ItemTemplate="{StaticResource BadgeTemplate}" Visibility="{Binding ActualWidth, ElementName=PlayerIdentityHost, Converter={StaticResource BadgeVisibility}}">
                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     </ItemsControl>
@@ -247,9 +284,9 @@
                         <ColumnDefinition Style="{StaticResource ShipBattlesSubcolumn}"/>
                         <ColumnDefinition Style="{StaticResource ShipDamageSubcolumn}"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="{DynamicResource RosterMetricWinrate}" Style="{StaticResource ShipMetricText}" Foreground="{StaticResource DashboardMuted}" FontWeight="Normal"/>
-                    <TextBlock Grid.Column="1" Text="{DynamicResource RosterMetricBattles}" Style="{StaticResource ShipMetricText}" Foreground="{StaticResource DashboardMuted}" FontWeight="Normal"/>
-                    <TextBlock Grid.Column="2" Text="{DynamicResource RosterMetricAvgDamage}" Style="{StaticResource ShipMetricText}" Foreground="{StaticResource DashboardMuted}" FontWeight="Normal"
+                    <TextBlock Text="{DynamicResource RosterMetricWinrate}" Style="{StaticResource ShipMetricText}" FontSize="12" Foreground="{StaticResource DashboardMuted}" FontWeight="Normal"/>
+                    <TextBlock Grid.Column="1" Text="{DynamicResource RosterMetricBattles}" Style="{StaticResource ShipMetricText}" FontSize="12" Foreground="{StaticResource DashboardMuted}" FontWeight="Normal"/>
+                    <TextBlock Grid.Column="2" Text="{DynamicResource RosterMetricAvgDamage}" Style="{StaticResource ShipMetricText}" FontSize="12" Foreground="{StaticResource DashboardMuted}" FontWeight="Normal"
                                Visibility="{Binding Source={x:Static p:Settings.Default}, Path=ShipAvgDmgVisibility, Converter={StaticResource ColumnVisibility}}"/>
                 </Grid>
             </Grid>
@@ -258,8 +295,8 @@
             <StackPanel VerticalAlignment="Center" Margin="6,3" ToolTip="{Binding ContextToolTip}" Typography.NumeralAlignment="Tabular">
                 <TextBlock Text="{Binding ContextWinrateMetric.DisplayValue}" Foreground="{Binding ContextWinrateMetric, Converter={StaticResource MetricBrush}}" FontSize="14" FontWeight="SemiBold" FontFamily="{StaticResource NumericFontFamily}" TextAlignment="Right"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <TextBlock Style="{StaticResource CellText}" FontSize="12"><Run Text="{Binding ContextBattlesText, Mode=OneWay}"/><Run Text=" "/><Run Text="{DynamicResource RosterMetricBattlesShort}"/></TextBlock>
-                    <TextBlock Text="{Binding ContextWarning}" Foreground="{StaticResource WarningBrush}" FontSize="12" Margin="2,0,0,0"/>
+                    <TextBlock Style="{StaticResource CellText}" FontSize="13"><Run Text="{Binding ContextBattlesText, Mode=OneWay}"/><Run Text=" "/><Run Text="{DynamicResource RosterMetricBattlesShort}"/></TextBlock>
+                    <TextBlock Text="{Binding ContextWarning}" Foreground="{StaticResource WarningBrush}" FontSize="13" Margin="2,0,0,0"/>
                 </StackPanel>
             </StackPanel>
         </DataTemplate>
@@ -278,8 +315,8 @@
         </DataTemplate>
         <DataTemplate x:Key="PrTemplate">
             <StackPanel VerticalAlignment="Center" Margin="6,3" Typography.NumeralAlignment="Tabular">
-                <TextBlock FontSize="12" TextAlignment="Right" Foreground="{Binding ContextPrMetric, Converter={StaticResource MetricBrush}}"><Run Text="{Binding ContextPrLabel, Mode=OneWay}"/><Run Text=" "/><Run Text="{Binding ContextPrMetric.DisplayValue, Mode=OneWay}"/></TextBlock>
-                <TextBlock FontSize="12" TextAlignment="Right" Foreground="{Binding ShipPrMetric, Converter={StaticResource MetricBrush}}"><Run Text="{DynamicResource RosterPrShipShort}"/><Run Text=" "/><Run Text="{Binding ShipPrMetric.DisplayValue, Mode=OneWay}"/></TextBlock>
+                <TextBlock FontSize="13" TextAlignment="Right" Foreground="{Binding ContextPrMetric, Converter={StaticResource MetricBrush}}"><Run Text="{Binding ContextPrLabel, Mode=OneWay}"/><Run Text=" "/><Run Text="{Binding ContextPrMetric.DisplayValue, Mode=OneWay}"/></TextBlock>
+                <TextBlock FontSize="13" TextAlignment="Right" Foreground="{Binding ShipPrMetric, Converter={StaticResource MetricBrush}}"><Run Text="{DynamicResource RosterPrShipShort}"/><Run Text=" "/><Run Text="{Binding ShipPrMetric.DisplayValue, Mode=OneWay}"/></TextBlock>
             </StackPanel>
         </DataTemplate>
         <DataTemplate x:Key="PerformanceTemplate">
@@ -293,16 +330,25 @@
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="ScoreMetricTemplate">
-            <StackPanel VerticalAlignment="Center" Margin="10,0" ToolTip="{Binding Label}">
-                <TextBlock Text="{Binding Label}" FontSize="12" Foreground="{StaticResource DashboardMuted}" TextTrimming="CharacterEllipsis"/>
-                <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding AllyText}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource DashboardBlue}"/>
-                    <TextBlock Grid.Column="1" Text="{Binding Direction}" Margin="5,0" FontSize="12" Foreground="{StaticResource DashboardMuted}"/>
-                    <TextBlock Grid.Column="2" Text="{Binding EnemyText}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource DashboardRed}" TextAlignment="Right"/>
-                </Grid>
-                <TextBlock Text="{Binding CoverageText}" FontSize="12" Foreground="{StaticResource DashboardMuted}" ToolTip="{DynamicResource DashboardMetricCoverageTip}"/>
-            </StackPanel>
+            <Grid VerticalAlignment="Center" Margin="6,1" ToolTip="{Binding Label}">
+                <Grid.RowDefinitions><RowDefinition Height="18"/><RowDefinition Height="24"/><RowDefinition Height="24"/></Grid.RowDefinitions>
+                <TextBlock Text="{Binding Tag, RelativeSource={RelativeSource AncestorType=ContentControl}}" FontSize="13" Foreground="{StaticResource DashboardMuted}" TextAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Row="1" Text="{Binding AllyText}" FontFamily="{StaticResource NumericFontFamily}" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource DashboardBlue}" TextAlignment="Center" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="2" Text="{Binding EnemyText}" FontFamily="{StaticResource NumericFontFamily}" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource DashboardRed}" TextAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
         </DataTemplate>
+        <Style x:Key="SummaryGroup" TargetType="Border" BasedOn="{StaticResource Card}">
+            <Setter Property="BorderBrush" Value="{StaticResource SummaryGroupBorder}"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style x:Key="HiddenStatsNotice" TargetType="Border">
+            <Setter Property="Background" Value="#FFF4D7"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Setter Property="MaxWidth" Value="86"/>
+            <Setter Property="ToolTip" Value="{DynamicResource DashboardHiddenStatsWarningTip}"/>
+        </Style>
     </UserControl.Resources>
 
     <Grid Background="{StaticResource DashboardBackground}">
@@ -314,11 +360,13 @@
                     <StackPanel x:Name="BrandText" Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"><TextBlock Text="ApeRadar EX" FontSize="16" FontWeight="Bold" Foreground="{StaticResource DashboardText}"/><TextBlock Text="{DynamicResource DashboardSubtitle}" FontSize="12" Foreground="{StaticResource DashboardMuted}" TextTrimming="None"/></StackPanel>
                 </Grid>
                 <StackPanel x:Name="NavigationButtons" Grid.Row="1" Margin="0,6,0,0">
-                    <Button Style="{StaticResource NavButtonSelected}" ToolTip="{DynamicResource DashboardNavBattle}" AutomationProperties.Name="{DynamicResource DashboardNavBattle}"><StackPanel Orientation="Horizontal"><TextBlock Text="▥" FontSize="19" Width="32"/><TextBlock x:Name="NavBattleText" Text="{DynamicResource DashboardNavBattle}" VerticalAlignment="Center"/></StackPanel></Button>
-                    <Button Style="{StaticResource NavButton}" Click="History_Click" ToolTip="{DynamicResource BtnHistory}" AutomationProperties.Name="{DynamicResource BtnHistory}"><StackPanel Orientation="Horizontal"><TextBlock Text="◴" FontSize="18" Width="32"/><TextBlock x:Name="NavHistoryText" Text="{DynamicResource BtnHistory}" VerticalAlignment="Center"/></StackPanel></Button>
-                    <Button Style="{StaticResource NavButton}" Click="ToggleAnalysis_Click" ToolTip="{DynamicResource BtnAnalysis}" AutomationProperties.Name="{DynamicResource BtnAnalysis}"><StackPanel Orientation="Horizontal"><TextBlock Text="⌁" FontSize="20" Width="32"/><TextBlock x:Name="NavAnalysisText" Text="{DynamicResource BtnAnalysis}" VerticalAlignment="Center"/></StackPanel></Button>
-                    <Button x:Name="OpenReplayButton" Style="{StaticResource NavButton}" Click="OpenReplay_Click" ToolTip="{DynamicResource BtnOpen}" AutomationProperties.Name="{DynamicResource BtnOpen}"><StackPanel Orientation="Horizontal"><TextBlock Text="▷" FontSize="20" Width="32"/><TextBlock x:Name="NavReplayText" Text="{DynamicResource BtnOpen}" VerticalAlignment="Center"/></StackPanel></Button>
-                    <Button Style="{StaticResource NavButton}" Click="Settings_Click" ToolTip="{DynamicResource BtnConfig}" AutomationProperties.Name="{DynamicResource BtnConfig}"><StackPanel Orientation="Horizontal"><TextBlock Text="⚙" FontSize="18" Width="32"/><TextBlock x:Name="NavSettingsText" Text="{DynamicResource BtnConfig}" VerticalAlignment="Center"/></StackPanel></Button>
+                    <TextBlock x:Name="NavBattleGroupText" Style="{StaticResource NavGroupText}" Text="{DynamicResource DashboardNavBattleGroup}"/>
+                    <Button Style="{StaticResource NavButtonSelected}" ToolTip="{DynamicResource DashboardNavBattle}" AutomationProperties.Name="{DynamicResource DashboardNavBattle}"><StackPanel Orientation="Horizontal"><TextBlock Text="▥" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavBattleText" Text="{DynamicResource DashboardNavBattle}" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button Style="{StaticResource NavButton}" Click="History_Click" ToolTip="{DynamicResource BtnHistory}" AutomationProperties.Name="{DynamicResource BtnHistory}"><StackPanel Orientation="Horizontal"><TextBlock Text="◴" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavHistoryText" Text="{DynamicResource BtnHistory}" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button Style="{StaticResource NavButton}" Click="ToggleAnalysis_Click" ToolTip="{DynamicResource BtnAnalysis}" AutomationProperties.Name="{DynamicResource BtnAnalysis}"><StackPanel Orientation="Horizontal"><TextBlock Text="⌁" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavAnalysisText" Text="{DynamicResource BtnAnalysis}" VerticalAlignment="Center"/></StackPanel></Button>
+                    <TextBlock x:Name="NavToolsGroupText" Style="{StaticResource NavGroupText}" Text="{DynamicResource DashboardNavToolsGroup}" Margin="24,16,0,6"/>
+                    <Button x:Name="OpenReplayButton" Style="{StaticResource NavButton}" Click="OpenReplay_Click" ToolTip="{DynamicResource BtnOpen}" AutomationProperties.Name="{DynamicResource BtnOpen}"><StackPanel Orientation="Horizontal"><TextBlock Text="▷" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavReplayText" Text="{DynamicResource BtnOpen}" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button Style="{StaticResource NavButton}" Click="Settings_Click" ToolTip="{DynamicResource BtnConfig}" AutomationProperties.Name="{DynamicResource BtnConfig}"><StackPanel Orientation="Horizontal"><TextBlock Text="⚙" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavSettingsText" Text="{DynamicResource BtnConfig}" VerticalAlignment="Center"/></StackPanel></Button>
                 </StackPanel>
                 <StackPanel Grid.Row="2" Margin="10,8,10,16">
                     <Border x:Name="SessionCard" Style="{StaticResource Card}" Padding="8,6" Margin="0,0,0,8" Cursor="Hand" MouseLeftButtonDown="SessionCard_MouseLeftButtonDown" ToolTip="{Binding SessionToolTip, ElementName=Root}">
@@ -355,23 +403,47 @@
 
             <Grid x:Name="MainContentGrid" Grid.Row="1" Margin="18,12,18,12">
                 <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="106"/><RowDefinition Height="36"/><RowDefinition x:Name="RosterAreaRow" Height="*" MinHeight="80"/></Grid.RowDefinitions>
-                <Grid x:Name="BattleHeading" Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Grid x:Name="BattleHeading" Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <TextBlock Text="{DynamicResource DashboardCurrentBattle}" FontSize="23" FontWeight="Bold" Foreground="{StaticResource DashboardText}" VerticalAlignment="Center"/>
                     <TextBlock x:Name="BattleMetadataText" Grid.Column="1" Margin="18,0,8,0" HorizontalAlignment="Left" VerticalAlignment="Center" Foreground="{StaticResource DashboardMuted}" FontSize="12" TextTrimming="CharacterEllipsis">
                         <Run Text="{DynamicResource DashboardMap}"/><Run Text="{Binding Metadata.MapName, Mode=OneWay}"/><Run Text="   |   "/><Run Text="{DynamicResource DashboardMode}"/><Run Text="{Binding Metadata.Mode, Mode=OneWay}"/><Run Text="   |   "/><Run Text="{DynamicResource DashboardServer}"/><Run Text="{Binding Metadata.Server, Mode=OneWay}"/><Run Text="   |   "/><Run Text="{DynamicResource DashboardStartedAt}"/><Run Text="{Binding Metadata.StartedAtText, Mode=OneWay}"/>
                     </TextBlock>
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
-                        <Button x:Name="RefreshButton" Style="{StaticResource ToolbarButton}" Content="{DynamicResource BtnRefresh}" Click="Refresh_Click"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" MaxWidth="180" VerticalAlignment="Center">
+                        <Border x:Name="AllyHiddenStatsNotice" Style="{StaticResource HiddenStatsNotice}" Visibility="{Binding Summary.Ally.HasHiddenStatsWarning, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Foreground="{StaticResource WarningBrush}" FontSize="12" TextTrimming="CharacterEllipsis"><Run Text="{DynamicResource LabelAllies}"/><Run Text=" "/><Run Text="{Binding Summary.Ally.HiddenStatsWarning, Mode=OneWay}"/></TextBlock>
+                        </Border>
+                        <Border x:Name="EnemyHiddenStatsNotice" Style="{StaticResource HiddenStatsNotice}" Visibility="{Binding Summary.Enemy.HasHiddenStatsWarning, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Foreground="{StaticResource WarningBrush}" FontSize="12" TextTrimming="CharacterEllipsis"><Run Text="{DynamicResource LabelEnemies}"/><Run Text=" "/><Run Text="{Binding Summary.Enemy.HiddenStatsWarning, Mode=OneWay}"/></TextBlock>
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                        <Button x:Name="RefreshButton" Style="{StaticResource ToolbarButton}" Background="#EAF3FF" BorderBrush="#8CB3EA" Foreground="#155CB5" FontWeight="SemiBold" Content="{DynamicResource BtnRefresh}" Click="Refresh_Click"/>
                         <Button Style="{StaticResource ToolbarButton}" Content="{DynamicResource DashboardSaveScreenshot}" Click="Screenshot_Click"/>
                     </StackPanel>
                 </Grid>
 
-                <Border x:Name="ComparisonCard" Grid.Row="1" Style="{StaticResource Card}" Height="98" Padding="6">
-                    <Grid x:Name="ComparisonPanel"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                        <ContentControl Content="{Binding Summary.ContextWinrate}" ContentTemplate="{StaticResource ScoreMetricTemplate}"/>
-                        <ContentControl Grid.Column="1" Content="{Binding Summary.ContextPr}" ContentTemplate="{StaticResource ScoreMetricTemplate}"/>
-                        <ContentControl Grid.Column="2" Content="{Binding Summary.ShipWinrate}" ContentTemplate="{StaticResource ScoreMetricTemplate}"/>
-                        <ContentControl Grid.Column="3" Content="{Binding Summary.ShipPr}" ContentTemplate="{StaticResource ScoreMetricTemplate}"/>
+                <Border x:Name="ComparisonCard" Grid.Row="1" Height="70" Background="Transparent">
+                    <Grid x:Name="ComparisonPanel"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="14"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                        <Border Style="{StaticResource SummaryGroup}">
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition x:Name="SummaryContextCaptionColumn" Width="100"/><ColumnDefinition Width="52"/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <Border x:Name="SummaryContextCaption" Background="{StaticResource SummaryGroupCaption}" BorderBrush="{StaticResource SummaryGroupBorder}" BorderThickness="0,0,1,0" CornerRadius="5,0,0,5" Padding="8,0">
+                                    <StackPanel VerticalAlignment="Center"><TextBlock x:Name="SummaryContextTitle" Text="{Binding ContextSummaryTitle}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource DashboardText}" TextAlignment="Center" TextWrapping="Wrap"/><TextBlock x:Name="SummaryContextHint" Text="{DynamicResource DashboardSummaryMetrics}" FontSize="12" Foreground="{StaticResource DashboardMuted}" TextAlignment="Center" Margin="0,3,0,0"/></StackPanel>
+                                </Border>
+                                <Grid Grid.Column="1" Margin="0,1"><Grid.RowDefinitions><RowDefinition Height="18"/><RowDefinition Height="24"/><RowDefinition Height="24"/></Grid.RowDefinitions><TextBlock Grid.Row="1" Text="{DynamicResource LabelAllies}" FontSize="12" Foreground="{StaticResource DashboardBlue}" TextAlignment="Center" VerticalAlignment="Center"/><TextBlock Grid.Row="2" Text="{DynamicResource LabelEnemies}" FontSize="12" Foreground="{StaticResource DashboardRed}" TextAlignment="Center" VerticalAlignment="Center"/></Grid>
+                                <ContentControl Grid.Column="2" Content="{Binding Summary.ContextWinrate}" Tag="{DynamicResource DashboardSummaryWinrate}" ContentTemplate="{StaticResource ScoreMetricTemplate}"/>
+                                <Border Grid.Column="3" BorderBrush="{StaticResource SummaryGroupBorder}" BorderThickness="1,0,0,0"><ContentControl Content="{Binding Summary.ContextPr}" Tag="{DynamicResource DashboardSummaryPr}" ContentTemplate="{StaticResource ScoreMetricTemplate}"/></Border>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Column="2" Style="{StaticResource SummaryGroup}">
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition x:Name="SummaryShipCaptionColumn" Width="100"/><ColumnDefinition Width="52"/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <Border x:Name="SummaryShipCaption" Background="{StaticResource SummaryGroupCaption}" BorderBrush="{StaticResource SummaryGroupBorder}" BorderThickness="0,0,1,0" CornerRadius="5,0,0,5" Padding="8,0">
+                                    <StackPanel VerticalAlignment="Center"><TextBlock x:Name="SummaryShipTitle" Text="{DynamicResource DashboardSummaryShip}" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource DashboardText}" TextAlignment="Center" TextWrapping="Wrap"/><TextBlock x:Name="SummaryShipHint" Text="{DynamicResource DashboardSummaryMetrics}" FontSize="12" Foreground="{StaticResource DashboardMuted}" TextAlignment="Center" Margin="0,3,0,0"/></StackPanel>
+                                </Border>
+                                <Grid Grid.Column="1" Margin="0,1"><Grid.RowDefinitions><RowDefinition Height="18"/><RowDefinition Height="24"/><RowDefinition Height="24"/></Grid.RowDefinitions><TextBlock Grid.Row="1" Text="{DynamicResource LabelAllies}" FontSize="12" Foreground="{StaticResource DashboardBlue}" TextAlignment="Center" VerticalAlignment="Center"/><TextBlock Grid.Row="2" Text="{DynamicResource LabelEnemies}" FontSize="12" Foreground="{StaticResource DashboardRed}" TextAlignment="Center" VerticalAlignment="Center"/></Grid>
+                                <ContentControl Grid.Column="2" Content="{Binding Summary.ShipWinrate}" Tag="{DynamicResource DashboardSummaryWinrate}" ContentTemplate="{StaticResource ScoreMetricTemplate}"/>
+                                <Border Grid.Column="3" BorderBrush="{StaticResource SummaryGroupBorder}" BorderThickness="1,0,0,0"><ContentControl Content="{Binding Summary.ShipPr}" Tag="{DynamicResource DashboardSummaryPr}" ContentTemplate="{StaticResource ScoreMetricTemplate}"/></Border>
+                            </Grid>
+                        </Border>
                     </Grid>
                 </Border>
 

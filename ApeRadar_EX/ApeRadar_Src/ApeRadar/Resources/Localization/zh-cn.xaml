@@ -746,6 +746,8 @@
     <system:String x:Key="MsgBoxMainInterfaceRestart">主界面样式将在重启海猴雷达后生效。</system:String>
     <system:String x:Key="DashboardSubtitle">战舰世界对局分析工具</system:String>
     <system:String x:Key="DashboardNavBattle">对局分析</system:String>
+    <system:String x:Key="DashboardNavBattleGroup">对局</system:String>
+    <system:String x:Key="DashboardNavToolsGroup">工具</system:String>
     <system:String x:Key="DashboardCurrentBattle">当前对局</system:String>
     <system:String x:Key="DashboardHelp">帮助</system:String>
     <system:String x:Key="DashboardBuild">构建</system:String>
@@ -818,5 +820,13 @@
     <system:String x:Key="DashboardBadgePartialTip">已展示可用数据，缺失指标显示为 —</system:String>
     <system:String x:Key="RosterPrShipShort">单船</system:String>
     <system:String x:Key="DashboardMetricCoverageTip">每项分别计数：友方有效/总数 · 敌方有效/总数</system:String>
+    <system:String x:Key="DashboardSummaryAccount">账号综合</system:String>
+    <system:String x:Key="DashboardSummaryTier">同阶综合</system:String>
+    <system:String x:Key="DashboardSummaryShip">当前舰船</system:String>
+    <system:String x:Key="DashboardSummaryMetrics">胜率 / PR</system:String>
+    <system:String x:Key="DashboardSummaryWinrate">平均胜率</system:String>
+    <system:String x:Key="DashboardSummaryPr">平均 PR</system:String>
+    <system:String x:Key="DashboardHiddenStatsCount">{0}人隐藏</system:String>
+    <system:String x:Key="DashboardHiddenStatsWarningTip">该队超过3名玩家隐藏战绩，汇总仅包含可用数据。</system:String>
     <system:String x:Key="DashboardBattlesCompact">场</system:String>
 </ResourceDictionary>

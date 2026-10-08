@@ -371,8 +371,7 @@ namespace ApeRadar
             WinrateChart.Tooltip = new ShipAwareChartTooltip();
             detailPopup = new PlayerDetailPopupController<PlayerRosterRowViewModel>(
                 PlayerDetailPopup, PlayerDetailCardBorder, PlayerDetailCardContent, this, DataGridAlliesList,
-                row => row.Detail, reopenBeforeShow: true, keepOpenWhileOverRow: false,
-                sameRow: (left, right) => left.Detail.IdentityKey == right.Detail.IdentityKey);
+                row => row.Detail, keepOpenWhileOverRow: false);
             Deactivated += (_, _) =>
             {
                 ClosePlayerDetail();

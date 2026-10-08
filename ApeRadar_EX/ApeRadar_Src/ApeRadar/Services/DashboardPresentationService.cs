@@ -105,6 +105,7 @@ namespace ApeRadar.Services
             return new()
             {
                 TeamSize = rows.Count,
+                HiddenPlayerCount = rows.Count(row => row.Player.IsHidden),
                 ContextValidCount = contextValid.Length,
                 ShipValidCount = shipValid.Length,
                 ContextPrValidCount = contextPrValid.Length,

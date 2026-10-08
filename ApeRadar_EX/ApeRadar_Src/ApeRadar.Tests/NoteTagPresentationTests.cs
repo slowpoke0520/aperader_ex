@@ -31,7 +31,7 @@ public sealed class NoteTagPresentationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Dashboard_WatchAndNoteAreBothVisibleWithoutCountingNoteAsOverflow(bool additionalBadges)
+    public void Dashboard_WatchAndCustomMarkLeaveBadgeSpaceForOtherStatusesAndNotes(bool additionalBadges)
     {
         const string original = "  Reliable teammate\t需要复盘  ";
         Player player = CreatePlayer(original);
@@ -45,19 +45,24 @@ public sealed class NoteTagPresentationTests
 
         DashboardPlayerRowViewModel dashboard = new(1, CreateRow(player), DashboardRosterContext.Account, loadCompleted: true);
 
-        Assert.Equal(new[] { RosterBadgeKind.Watch, RosterBadgeKind.Note }, dashboard.VisibleStatusBadges.Select(badge => badge.Kind));
+        Assert.Equal(additionalBadges ? new[] { RosterBadgeKind.RecentEncounter, RosterBadgeKind.Note } : new[] { RosterBadgeKind.Note },
+            dashboard.VisibleStatusBadges.Select(badge => badge.Kind));
+        Assert.DoesNotContain(dashboard.VisibleIdentityStatusBadges, badge => badge.Kind is RosterBadgeKind.Watch or RosterBadgeKind.CustomMark);
+        Assert.Equal(additionalBadges ? 2 : 0, dashboard.IdentityStatusBadgeCount);
+        Assert.True(dashboard.IsMarked);
         RosterStatusBadgeViewModel note = Assert.Single(dashboard.StatusBadges, badge => badge.Kind == RosterBadgeKind.Note);
         Assert.Same(note, Assert.Single(dashboard.VisibleStatusBadges, badge => badge.Kind == RosterBadgeKind.Note));
         Assert.Equal(original, note.NoteText);
         Assert.Equal(additionalBadges ? 5 : 2, dashboard.StatusBadges.Count);
-        Assert.Equal(additionalBadges ? 3 : 0, dashboard.OverflowBadgeCount);
-        Assert.Equal(additionalBadges ? "+3" : "", dashboard.OverflowBadgeText);
+        Assert.Equal(additionalBadges ? 1 : 0, dashboard.OverflowBadgeCount);
+        Assert.Equal(additionalBadges ? "+1" : "", dashboard.OverflowBadgeText);
+        Assert.Contains(new PlayerDetailCardViewModel(player, dashboard.StatusBadges).StatusBadges, badge => badge.Kind == RosterBadgeKind.Watch);
     }
 
     [Theory]
     [InlineData(false, 0, "")]
-    [InlineData(true, 1, "+1")]
-    public void Dashboard_WhenNoteIsFirstPriorityItAppearsOnlyOnce(bool customMarker, int overflow, string overflowText)
+    [InlineData(true, 0, "")]
+    public void Dashboard_NoteAndCustomMarkDoNotConsumeStatusBadgeSlots(bool customMarker, int overflow, string overflowText)
     {
         Player player = CreatePlayer("One Two Three");
         player.IsCustomMarked = customMarker;
@@ -66,6 +71,8 @@ public sealed class NoteTagPresentationTests
 
         Assert.Equal(RosterBadgeKind.Note, Assert.Single(dashboard.VisibleStatusBadges).Kind);
         Assert.Single(dashboard.StatusBadges, badge => badge.Kind == RosterBadgeKind.Note);
+        Assert.Empty(dashboard.VisibleIdentityStatusBadges);
+        Assert.Equal(0, dashboard.IdentityStatusBadgeCount);
         Assert.Equal(overflow, dashboard.OverflowBadgeCount);
         Assert.Equal(overflowText, dashboard.OverflowBadgeText);
     }

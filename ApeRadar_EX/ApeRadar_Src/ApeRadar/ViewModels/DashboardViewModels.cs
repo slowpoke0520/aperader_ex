@@ -85,13 +85,16 @@ namespace ApeRadar.ViewModels
         public IReadOnlyList<RosterStatusBadgeViewModel> VisibleStatusBadges { get; }
         public IReadOnlyList<RosterStatusBadgeViewModel> VisibleIdentityStatusBadges { get; }
         public bool HasNotes => StatusBadges.Any(badge => badge.Kind == RosterBadgeKind.Note);
-        public int IdentityStatusBadgeCount => StatusBadges.Count(badge => badge.Kind != RosterBadgeKind.Note);
+        public int IdentityStatusBadgeCount => StatusBadges.Count(IsIdentityBadge);
         public int OverflowBadgeCount { get; }
         public string OverflowBadgeText => OverflowBadgeCount > 0 ? $"+{OverflowBadgeCount}" : "";
         public string AllStatusToolTip { get; }
         public string PlayerDisplayName => string.IsNullOrWhiteSpace(Player.ClanTag)
             ? Player.Name
             : $"[{Player.ClanTag.Trim().Trim('[', ']')}] {Player.Name}";
+        public string PlayerIdentityToolTip => string.Join(Environment.NewLine, new[] { PlayerDisplayName }
+            .Concat(StatusBadges.Where(badge => badge.Kind is RosterBadgeKind.Watch or RosterBadgeKind.CustomMark)
+                .Select(badge => badge.ToolTip)));
         public bool HasKarma => Player.Karma >= 0;
         public string KarmaText => HasKarma
             ? Player.Karma.ToString("0", CultureInfo.CurrentCulture)
@@ -160,12 +163,16 @@ namespace ApeRadar.ViewModels
                 badges.Add(new(RosterBadgeKind.PartialData, RosterBadgeSeverity.Info, "…", Text("DashboardBadgePartial", "Partial"), Text("DashboardBadgePartialTip", "Available statistics are shown; missing metrics use a dash")));
 
             StatusBadges = badges;
-            VisibleStatusBadges = badges.Take(VisibleBadgeLimit)
-                .Concat(badges.Where(badge => badge.Kind == RosterBadgeKind.Note)).Distinct().ToArray();
-            VisibleIdentityStatusBadges = VisibleStatusBadges.Where(badge => badge.Kind != RosterBadgeKind.Note).ToArray();
-            OverflowBadgeCount = Math.Max(0, badges.Count - VisibleStatusBadges.Count);
+            RosterStatusBadgeViewModel[] displayBadges = badges.Where(IsIdentityBadge).ToArray();
+            VisibleIdentityStatusBadges = displayBadges.Take(VisibleBadgeLimit).ToArray();
+            VisibleStatusBadges = VisibleIdentityStatusBadges
+                .Concat(badges.Where(badge => badge.Kind == RosterBadgeKind.Note)).ToArray();
+            OverflowBadgeCount = Math.Max(0, displayBadges.Length - VisibleIdentityStatusBadges.Count);
             AllStatusToolTip = string.Join(Environment.NewLine, badges.Select(badge => badge.ToolTip));
         }
+
+        private static bool IsIdentityBadge(RosterStatusBadgeViewModel badge) =>
+            badge.Kind is not (RosterBadgeKind.Watch or RosterBadgeKind.CustomMark or RosterBadgeKind.Note or RosterBadgeKind.LowSample);
 
         private static MetricItemViewModel Metric(double value, string format, RosterMetricKind kind) =>
             new("", RosterStatistic.Format(value, format, kind), value, kind, RosterStatistic.IsAvailable(value, kind), 1, RosterMetricEmphasis.Primary);
@@ -183,6 +190,10 @@ namespace ApeRadar.ViewModels
     internal sealed class DashboardTeamSummary
     {
         public int TeamSize { get; init; }
+        public int HiddenPlayerCount { get; init; }
+        public bool HasHiddenStatsWarning => HiddenPlayerCount > 3;
+        public string HiddenStatsWarning => string.Format(CultureInfo.CurrentCulture,
+            System.Windows.Application.Current?.TryFindResource("DashboardHiddenStatsCount") as string ?? "{0} hidden", HiddenPlayerCount);
         public int ContextValidCount { get; init; }
         public int ShipValidCount { get; init; }
         public int ContextPrValidCount { get; init; }
@@ -272,6 +283,8 @@ namespace ApeRadar.ViewModels
         public DashboardRosterFilter EnemyFilter => enemyFilter;
         public int SortMode => sortMode;
         public string ContextHeader => context == DashboardRosterContext.Account ? Text("DashboardContextAccount", "Account") : Text("DashboardContextTier", "Tier");
+        public string ContextSummaryTitle => context == DashboardRosterContext.Account
+            ? Text("DashboardSummaryAccount", "Account overview") : Text("DashboardSummaryTier", "Tier overview");
         public int AllyTotalCount => allAllies.Count;
         public int EnemyTotalCount => allEnemies.Count;
         public int AllyMarkedCount => allAllies.Count(row => row.IsMarked);
@@ -302,6 +315,7 @@ namespace ApeRadar.ViewModels
             context = value;
             NotifyPropertyChanged(nameof(Context));
             NotifyPropertyChanged(nameof(ContextHeader));
+            NotifyPropertyChanged(nameof(ContextSummaryTitle));
             Rebuild();
         }
 
@@ -321,7 +335,11 @@ namespace ApeRadar.ViewModels
             Rebuild();
         }
 
-        public void RefreshPresentation() => Rebuild();
+        public void RefreshPresentation()
+        {
+            NotifyPropertyChanged(nameof(ContextSummaryTitle));
+            Rebuild();
+        }
 
         private void Rebuild()
         {
