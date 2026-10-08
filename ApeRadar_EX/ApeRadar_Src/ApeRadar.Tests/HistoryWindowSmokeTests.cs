@@ -967,7 +967,12 @@ public sealed class HistoryWindowSmokeTests
             {
                 DataGridRow row = Assert.IsType<DataGridRow>(view.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(index));
                 DashboardPlayerRowViewModel expected = Assert.IsType<DashboardPlayerRowViewModel>(row.Item);
-                NativeMouseInput.MoveTo(row.PointToScreen(new Point(40, row.ActualHeight / 2)));
+                // This wide fixture can extend beyond a small CI desktop. Use the same
+                // visible row center as the initial hover check, rather than its left edge.
+                Point target = row.PointToScreen(new Point(row.ActualWidth / 2, row.ActualHeight / 2));
+                var source = Assert.IsType<System.Windows.Interop.HwndSource>(PresentationSource.FromVisual(row));
+                Assert.Equal(source.Handle, NativeMouseInput.WindowAt(target));
+                NativeMouseInput.MoveTo(target);
                 WaitForUiCondition(() => row.IsMouseOver, TimeSpan.FromSeconds(2),
                     $"{language} Dashboard hover row {index}", () => HoverExitDiagnostic(row, popup));
 
@@ -1666,7 +1671,10 @@ public sealed class HistoryWindowSmokeTests
         while (current != null)
         {
             if (current is T match) return match;
-            current = VisualTreeHelper.GetParent(current);
+            // Mouse.DirectlyOver can be an inline Run when the target contains text.
+            current = current is Visual or System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(current)
+                : LogicalTreeHelper.GetParent(current);
         }
         return null;
     }
