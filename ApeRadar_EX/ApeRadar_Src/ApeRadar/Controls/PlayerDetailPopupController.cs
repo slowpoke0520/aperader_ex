@@ -15,9 +15,7 @@ namespace ApeRadar.Controls
         private readonly FrameworkElement owner;
         private readonly DataGrid alliesGrid;
         private readonly Func<TRow, object> getDetail;
-        private readonly Func<TRow, TRow, bool>? sameRow;
         private readonly bool openIfTargetHovered;
-        private readonly bool reopenBeforeShow;
         private readonly bool keepOpenWhileOverRow;
         private readonly DispatcherTimer openTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
         private readonly DispatcherTimer closeTimer = new() { Interval = TimeSpan.FromMilliseconds(200) };
@@ -28,7 +26,7 @@ namespace ApeRadar.Controls
 
         internal PlayerDetailPopupController(Popup popup, Border border, FrameworkElement card, FrameworkElement owner,
             DataGrid alliesGrid, Func<TRow, object> getDetail, bool openIfTargetHovered = false,
-            bool reopenBeforeShow = false, bool keepOpenWhileOverRow = true, Func<TRow, TRow, bool>? sameRow = null)
+            bool keepOpenWhileOverRow = true)
         {
             this.popup = popup;
             this.border = border;
@@ -37,9 +35,7 @@ namespace ApeRadar.Controls
             this.alliesGrid = alliesGrid;
             this.getDetail = getDetail;
             this.openIfTargetHovered = openIfTargetHovered;
-            this.reopenBeforeShow = reopenBeforeShow;
             this.keepOpenWhileOverRow = keepOpenWhileOverRow;
-            this.sameRow = sameRow;
             openTimer.Tick += OpenTimer_Tick;
             closeTimer.Tick += CloseTimer_Tick;
             popup.CustomPopupPlacementCallback = PlacePopup;
@@ -56,12 +52,13 @@ namespace ApeRadar.Controls
         {
             closeTimer.Stop();
             openTimer.Stop();
-            if (sameRow != null && CurrentRow != null && !sameRow(CurrentRow, row) && popup.IsOpen)
-                Close();
             pointerOverRow = true;
             pendingRow = row;
             pendingTarget = target;
-            openTimer.Start();
+            if (popup.IsOpen)
+                ShowPendingRow();
+            else
+                openTimer.Start();
         }
 
         internal void RowLeft()
@@ -120,15 +117,33 @@ namespace ApeRadar.Controls
             openTimer.Stop();
             if (pendingRow == null || pendingTarget == null ||
                 (!pointerOverRow && !(openIfTargetHovered && pendingTarget.IsMouseOver))) return;
+            ShowPendingRow();
+        }
+
+        private void ShowPendingRow()
+        {
+            if (pendingRow == null || pendingTarget == null) return;
             closeTimer.Stop();
-            if (reopenBeforeShow && popup.IsOpen) popup.IsOpen = false;
-            CurrentRow = pendingRow;
-            card.DataContext = getDetail(pendingRow);
-            popup.PlacementTarget = pendingTarget;
-            popup.Placement = PlacementMode.Custom;
-            popup.StaysOpen = true;
-            UpdateBounds();
-            popup.IsOpen = true;
+            bool reanchor = popup.IsOpen && !ReferenceEquals(popup.PlacementTarget, pendingTarget);
+            PopupAnimation animation = popup.PopupAnimation;
+            try
+            {
+                if (reanchor)
+                {
+                    // WPF does not reposition an open popup when only PlacementTarget changes.
+                    // Reopen without a fade so a different row gets fresh screen coordinates.
+                    popup.PopupAnimation = PopupAnimation.None;
+                    popup.IsOpen = false;
+                }
+                CurrentRow = pendingRow;
+                card.DataContext = getDetail(pendingRow);
+                popup.PlacementTarget = pendingTarget;
+                popup.Placement = PlacementMode.Custom;
+                popup.StaysOpen = true;
+                UpdateBounds();
+                popup.IsOpen = true;
+            }
+            finally { popup.PopupAnimation = animation; }
             closeTimer.Start();
         }
 

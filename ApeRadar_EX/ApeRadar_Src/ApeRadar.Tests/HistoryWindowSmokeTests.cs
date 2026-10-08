@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Globalization;
+using ApeRadar.Controls;
 using ApeRadar.History;
 using ApeRadar.Models;
 using ApeRadar.Services;
@@ -426,6 +427,8 @@ public sealed class HistoryWindowSmokeTests
             Assert.Equal(44, window.DashboardView.AlliesGrid.ColumnHeaderHeight);
             Assert.True(window.DashboardView.AllyContextColumn.ActualWidth > 0);
             Assert.True(window.DashboardView.AllyShipColumn.ActualWidth > 0);
+            AssertDashboardSummaryLayout(window);
+            AssertHiddenStatsNoticeThreshold(window, battlefield);
             Rect comparisonBounds = window.DashboardView.ComparisonPanel.TransformToAncestor(window.DashboardView.ComparisonCard)
                 .TransformBounds(new Rect(window.DashboardView.ComparisonPanel.RenderSize));
             Assert.InRange(
@@ -455,6 +458,7 @@ public sealed class HistoryWindowSmokeTests
 
             DataGridRow dashboardFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(0));
             DataGridRow dashboardEnemyFirstRow = Assert.IsType<DataGridRow>(window.DashboardView.EnemiesGrid.ItemContainerGenerator.ContainerFromIndex(0));
+            AssertDashboardWatchIdentity(window, dashboardFirstRow);
             Assert.Contains("可靠队友", ((DashboardPlayerRowViewModel)dashboardFirstRow.Item).AllStatusToolTip);
             Assert.Contains("谨慎推进", ((DashboardPlayerRowViewModel)dashboardEnemyFirstRow.Item).AllStatusToolTip);
             FrameworkElement accountContent = Assert.IsAssignableFrom<FrameworkElement>(window.DashboardView.AllyContextColumn.GetCellContent(dashboardFirstRow));
@@ -546,6 +550,7 @@ public sealed class HistoryWindowSmokeTests
             DataGridRow popupTarget = Assert.IsType<DataGridRow>(window.DashboardView.PlayerDetailPopup.PlacementTarget);
             Assert.Same(dashboardFirstRow.DataContext, popupTarget.DataContext);
             Assert.Equal(System.Windows.Controls.Primitives.PlacementMode.Custom, window.DashboardView.PlayerDetailPopup.Placement);
+            AssertDashboardHoverFollowsPlayers(window, language);
             dashboardFirstRow.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount)
             {
                 RoutedEvent = System.Windows.Input.Mouse.MouseLeaveEvent,
@@ -586,9 +591,11 @@ public sealed class HistoryWindowSmokeTests
 
             window.DashboardView.TierContext.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.Equal(DashboardRosterContext.Tier, window.Dashboard.Context);
+            Assert.Equal(window.FindResource("DashboardSummaryTier"), window.DashboardView.SummaryContextTitle.Text);
             Assert.Equal(13_850, Assert.Single(window.Dashboard.Allies, row => row.Player.Name == "Allied dashboard sample 1").Player.TierBattles);
             window.DashboardView.AccountContext.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.Equal(DashboardRosterContext.Account, window.Dashboard.Context);
+            Assert.Equal(window.FindResource("DashboardSummaryAccount"), window.DashboardView.SummaryContextTitle.Text);
 
             window.DashboardView.AllyMarked.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             DashboardPlayerRowViewModel marked = Assert.Single(window.Dashboard.Allies);
@@ -944,6 +951,49 @@ public sealed class HistoryWindowSmokeTests
         }
     }
 
+    private static void AssertDashboardHoverFollowsPlayers(MainWindow window, string language)
+    {
+        var view = window.DashboardView;
+        var popup = view.PlayerDetailPopup;
+        FrameworkElement child = Assert.IsAssignableFrom<FrameworkElement>(popup.Child);
+        bool previousTopmost = window.Topmost;
+        Point previousPosition = new();
+        double previousHeight = 0;
+        try
+        {
+            window.Topmost = true;
+            window.Activate();
+            foreach (int index in new[] { 1, 7, 0 })
+            {
+                DataGridRow row = Assert.IsType<DataGridRow>(view.AlliesGrid.ItemContainerGenerator.ContainerFromIndex(index));
+                DashboardPlayerRowViewModel expected = Assert.IsType<DashboardPlayerRowViewModel>(row.Item);
+                NativeMouseInput.MoveTo(row.PointToScreen(new Point(40, row.ActualHeight / 2)));
+                WaitForUiCondition(() => row.IsMouseOver, TimeSpan.FromSeconds(2),
+                    $"{language} Dashboard hover row {index}", () => HoverExitDiagnostic(row, popup));
+
+                // Check as soon as real input reaches the row, before another 350 ms timer.
+                Assert.True(popup.IsOpen);
+                Assert.Same(row, popup.PlacementTarget);
+                PlayerDetailCardViewModel detail = Assert.IsType<PlayerDetailCardViewModel>(view.PlayerDetailCardContent.DataContext);
+                Assert.Same(expected.Player, detail.Player);
+                Assert.Equal(System.Windows.Controls.Primitives.PopupAnimation.Fade, popup.PopupAnimation);
+                window.UpdateLayout();
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                Point position = child.PointToScreen(new Point());
+                if (index == 7)
+                {
+                    // Equal card heights must still yield new native popup coordinates.
+                    Assert.Equal(previousHeight, child.ActualHeight, 1);
+                    Assert.True(Math.Abs(position.Y - previousPosition.Y) > 2,
+                        $"{language} popup stayed at {previousPosition} after moving to row {index}: {position}");
+                }
+                previousPosition = position;
+                previousHeight = child.ActualHeight;
+            }
+        }
+        finally { window.Topmost = previousTopmost; }
+    }
+
     private static void MoveToHoverExitTarget(MainWindow window, DataGridRow row,
         System.Windows.Controls.Primitives.Popup popup, string scenario)
     {
@@ -1186,7 +1236,7 @@ public sealed class HistoryWindowSmokeTests
                     Assert.NotEmpty(System.Windows.Automation.AutomationProperties.GetName(view.HelpNavButton));
                     Rect help = view.HelpNavButton.TransformToAncestor(view).TransformBounds(new Rect(view.HelpNavButton.RenderSize));
                     Assert.InRange(help.Right, 0, view.SidebarColumn.ActualWidth + 0.5);
-                    Button settings = Assert.IsType<Button>(view.NavigationButtons.Children[4]);
+                    Button settings = Assert.IsType<Button>(FindVisualParent<Button>(view.NavSettingsText));
                     Rect settingsBounds = settings.TransformToAncestor(view).TransformBounds(new Rect(settings.RenderSize));
                     Rect sessionBounds = view.CompactSessionButton.TransformToAncestor(view).TransformBounds(new Rect(view.CompactSessionButton.RenderSize));
                     if (view.CompactSessionButton.IsVisible) Assert.True(settingsBounds.Bottom <= sessionBounds.Top + 0.5);
@@ -1199,6 +1249,7 @@ public sealed class HistoryWindowSmokeTests
                     Assert.True(number.ActualWidth + 0.5 >= number.DesiredSize.Width);
                     AssertDataGridCellContentsStayInside(view.AlliesGrid, width, height);
                     AssertDataGridCellContentsStayInside(view.EnemiesGrid, width, height);
+                    AssertDashboardSummaryLayout(window);
                     if (scale == 1 && height >= 900)
                     {
                         AssertFullDashboardRosterVisible(window);
@@ -1208,6 +1259,112 @@ public sealed class HistoryWindowSmokeTests
                 }
         }
         finally { root.LayoutTransform = previous; }
+    }
+
+    private static void AssertDashboardWatchIdentity(MainWindow window, DataGridRow row)
+    {
+        var player = ((DashboardPlayerRowViewModel)row.Item).Player;
+        TextBlock name = Assert.Single(FindVisualChildren<TextBlock>(row), text => text.Name == "PlayerName");
+        TextBlock tier = Assert.Single(FindVisualChildren<TextBlock>(row), text => text.Name == "PlayerShipTier");
+        TextBlock ship = Assert.Single(FindVisualChildren<TextBlock>(row), text => text.Name == "PlayerShipName");
+        NoteTagsControl note = Assert.Single(FindVisualChildren<NoteTagsControl>(row));
+        Size noteSize = note.RenderSize;
+        double rowHeight = row.ActualHeight;
+        Assert.Equal(window.FontFamily.Source, name.FontFamily.Source);
+        Assert.Equal(FontWeights.Normal, name.FontWeight);
+        Assert.Equal(15, name.FontSize);
+        Assert.Contains(name.Inlines.OfType<System.Windows.Documents.Run>(), run => run.Text == " ★");
+        WatchStatus priorWatch = player.WatchStatus;
+        bool priorMark = player.IsCustomMarked;
+        try
+        {
+            foreach ((WatchStatus status, string color) in new[]
+            {
+                (WatchStatus.POSITIVE, "#FFA00DC5"), (WatchStatus.NEGTIVE, "#FFFE0E00"), (WatchStatus.CHEATER, "#FFFF96CA")
+            })
+            {
+                player.WatchStatus = status;
+                window.UpdateLayout();
+                Assert.Equal(color, name.Foreground.ToString());
+                Assert.Equal(color, tier.Foreground.ToString());
+                Assert.Equal(color, ship.Foreground.ToString());
+                Assert.DoesNotContain(name.Inlines.OfType<System.Windows.Documents.Run>(), run => run.Text.Contains('⚠'));
+                Assert.Equal(noteSize, note.RenderSize);
+                Assert.Equal(rowHeight, row.ActualHeight);
+                SaveWindowSnapshot(window, $"dashboard-watch-{CultureInfo.CurrentUICulture.Name.ToLowerInvariant()}-{status}.png");
+            }
+            player.WatchStatus = WatchStatus.NONE;
+            player.IsCustomMarked = false;
+            window.UpdateLayout();
+            Assert.Equal(window.DashboardView.FindResource("DashboardText").ToString(), name.Foreground.ToString());
+            Assert.Equal(window.DashboardView.FindResource("DashboardMuted").ToString(), ship.Foreground.ToString());
+            Assert.DoesNotContain(name.Inlines.OfType<System.Windows.Documents.Run>(), run => run.Text.Contains('★'));
+        }
+        finally
+        {
+            player.WatchStatus = priorWatch;
+            player.IsCustomMarked = priorMark;
+            window.UpdateLayout();
+        }
+    }
+
+    private static void AssertDashboardSummaryLayout(MainWindow window)
+    {
+        var view = window.DashboardView;
+        Assert.Equal(DashboardLayout.SummaryHeight, view.ComparisonCard.ActualHeight);
+        TextBlock[] texts = FindVisualChildren<TextBlock>(view.ComparisonPanel).Where(text => text.IsVisible).ToArray();
+        Assert.DoesNotContain(texts, text => System.Text.RegularExpressions.Regex.IsMatch(text.Text, @"\d+/\d+"));
+        TextBlock[] values = texts.Where(text => text.FontSize == 18).ToArray();
+        Assert.Equal(8, values.Length);
+        foreach (TextBlock text in texts)
+        {
+            Rect bounds = text.TransformToAncestor(view.ComparisonPanel).TransformBounds(new Rect(text.RenderSize));
+            Assert.InRange(bounds.Left, -0.5, view.ComparisonPanel.ActualWidth + 0.5);
+            Assert.InRange(bounds.Right, -0.5, view.ComparisonPanel.ActualWidth + 0.5);
+            Assert.InRange(bounds.Top, -0.5, view.ComparisonPanel.ActualHeight + 0.5);
+            Assert.InRange(bounds.Bottom, -0.5, view.ComparisonPanel.ActualHeight + 0.5);
+        }
+        foreach (TextBlock value in values)
+        {
+            var formatted = new FormattedText(value.Text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                new Typeface(value.FontFamily, value.FontStyle, value.FontWeight, value.FontStretch), value.FontSize,
+                value.Foreground, VisualTreeHelper.GetDpi(value).PixelsPerDip);
+            Assert.True(value.ActualWidth + 0.5 >= formatted.WidthIncludingTrailingWhitespace,
+                $"Summary value '{value.Text}' is clipped at {view.ActualWidth} DIP.");
+        }
+    }
+
+    private static void AssertHiddenStatsNoticeThreshold(MainWindow window, Battlefield battlefield)
+    {
+        Player[] allies = battlefield.Allies.ToArray(), enemies = battlefield.Enemies.ToArray();
+        bool[] original = allies.Concat(enemies).Select(player => player.IsHidden).ToArray();
+        var view = window.DashboardView;
+        Rect roster = view.RosterTeamsGrid.TransformToAncestor(view).TransformBounds(new Rect(view.RosterTeamsGrid.RenderSize));
+        double rowHeight = view.AlliesGrid.RowHeight;
+        try
+        {
+            foreach ((int allyHidden, int enemyHidden) in new[] {(3, 3), (4, 3), (3, 4), (4, 4)})
+            {
+                for (int i = 0; i < allies.Length; i++) allies[i].IsHidden = i < allyHidden;
+                for (int i = 0; i < enemies.Length; i++) enemies[i].IsHidden = i < enemyHidden;
+                window.Dashboard.Update(battlefield, true, window.Dashboard.Metadata);
+                window.UpdateLayout();
+                window.Dispatcher.Invoke(() => {}, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                Assert.Equal(allyHidden > 3 ? Visibility.Visible : Visibility.Collapsed, view.AllyHiddenStatsNotice.Visibility);
+                Assert.Equal(enemyHidden > 3 ? Visibility.Visible : Visibility.Collapsed, view.EnemyHiddenStatsNotice.Visibility);
+                Assert.Equal(roster, view.RosterTeamsGrid.TransformToAncestor(view).TransformBounds(new Rect(view.RosterTeamsGrid.RenderSize)));
+                Assert.Equal(rowHeight, view.AlliesGrid.RowHeight);
+                AssertDashboardSummaryLayout(window);
+            }
+        }
+        finally
+        {
+            int index = 0;
+            foreach (Player player in allies.Concat(enemies)) player.IsHidden = original[index++];
+            window.Dashboard.Update(battlefield, true, window.Dashboard.Metadata);
+            window.UpdateLayout();
+            window.Dispatcher.Invoke(() => {}, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
     }
 
     private static void AssertShipTypeIconsRefreshWithoutReload(MainWindow window, string language)

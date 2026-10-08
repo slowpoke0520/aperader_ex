@@ -746,6 +746,8 @@
     <system:String x:Key="MsgBoxMainInterfaceRestart">The main interface style will be applied after ApeRadar restarts.</system:String>
     <system:String x:Key="DashboardSubtitle">World of Warships battle analysis</system:String>
     <system:String x:Key="DashboardNavBattle">Battle analysis</system:String>
+    <system:String x:Key="DashboardNavBattleGroup">Battle</system:String>
+    <system:String x:Key="DashboardNavToolsGroup">Tools</system:String>
     <system:String x:Key="DashboardCurrentBattle">Current battle</system:String>
     <system:String x:Key="DashboardHelp">Help</system:String>
     <system:String x:Key="DashboardBuild">Build</system:String>
@@ -818,5 +820,13 @@
     <system:String x:Key="DashboardBadgePartialTip">Available statistics are shown; missing metrics use a dash</system:String>
     <system:String x:Key="RosterPrShipShort">Ship</system:String>
     <system:String x:Key="DashboardMetricCoverageTip">Per metric: valid/all allied players · valid/all enemy players</system:String>
+    <system:String x:Key="DashboardSummaryAccount">Account overview</system:String>
+    <system:String x:Key="DashboardSummaryTier">Tier overview</system:String>
+    <system:String x:Key="DashboardSummaryShip">Current ship</system:String>
+    <system:String x:Key="DashboardSummaryMetrics">Win rate / PR</system:String>
+    <system:String x:Key="DashboardSummaryWinrate">Avg win rate</system:String>
+    <system:String x:Key="DashboardSummaryPr">Avg PR</system:String>
+    <system:String x:Key="DashboardHiddenStatsCount">{0} hidden</system:String>
+    <system:String x:Key="DashboardHiddenStatsWarningTip">More than 3 players on this team hide their statistics. Summaries include available data only.</system:String>
     <system:String x:Key="DashboardBattlesCompact">b</system:String>
 </ResourceDictionary>

@@ -54,6 +54,98 @@ public sealed class DashboardPresentationTests
     }
 
     [Theory]
+    [InlineData(WatchStatus.POSITIVE)]
+    [InlineData(WatchStatus.NEGTIVE)]
+    [InlineData(WatchStatus.CHEATER)]
+    public void WatchStatus_RemainsInMarkedFilterAndDetailsWithoutIdentityBadgeOrOverflow(WatchStatus watch)
+    {
+        Player player = CreatePlayer("Watched", "1", 2000, 0.52, 1200, 80, 0.51, 1100);
+        player.WatchStatus = watch;
+        BattleDashboardViewModel dashboard = CreateDashboard(player);
+        dashboard.SetFilter(true, DashboardRosterFilter.Marked);
+        DashboardPlayerRowViewModel row = Assert.Single(dashboard.Allies);
+
+        Assert.Same(player, row.Player);
+        Assert.Equal(1, dashboard.AllyMarkedCount);
+        Assert.Empty(row.VisibleIdentityStatusBadges);
+        Assert.Equal(0, row.IdentityStatusBadgeCount);
+        Assert.Equal("", row.OverflowBadgeText);
+        RosterStatusBadgeViewModel watchBadge = Assert.Single(row.StatusBadges, badge => badge.Kind == RosterBadgeKind.Watch);
+        Assert.Contains(watchBadge.ToolTip, row.PlayerIdentityToolTip);
+        Assert.Contains(new PlayerDetailCardViewModel(player, row.StatusBadges).StatusBadges,
+            badge => badge.Kind == RosterBadgeKind.Watch);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("可靠队友 输出稳定")]
+    public void LowSample_DoesNotOccupyIdentityBadgesOrOverflow(string note)
+    {
+        Player player = CreatePlayer("Low", "1", 2000, 0.52, 1200, 5, 0.51, 1100);
+        player.Note = note;
+        DashboardPlayerRowViewModel row = CreateRow(player, true);
+
+        Assert.Contains(row.StatusBadges, badge => badge.Kind == RosterBadgeKind.LowSample);
+        Assert.DoesNotContain(row.VisibleStatusBadges, badge => badge.Kind == RosterBadgeKind.LowSample);
+        Assert.Empty(row.VisibleIdentityStatusBadges);
+        Assert.Equal(0, row.IdentityStatusBadgeCount);
+        Assert.Equal(0, row.OverflowBadgeCount);
+        Assert.Equal("", row.OverflowBadgeText);
+        Assert.Equal(note.Length > 0, row.HasNotes);
+        Assert.Contains(new PlayerDetailCardViewModel(player, row.StatusBadges).StatusBadges,
+            badge => badge.Kind == RosterBadgeKind.LowSample);
+
+        BattleDashboardViewModel dashboard = CreateDashboard(player);
+        dashboard.SetFilter(true, DashboardRosterFilter.LowSample);
+        Assert.Same(player, Assert.Single(dashboard.Allies).Player);
+        Assert.Equal(1, dashboard.AllyLowSampleCount);
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(2, 2)]
+    [InlineData(3, 3)]
+    [InlineData(4, 0)]
+    [InlineData(0, 4)]
+    [InlineData(4, 4)]
+    [InlineData(12, 12)]
+    public void HiddenStatsWarning_RequiresMoreThanThreeHiddenPlayersOnThatTeam(int allyHidden, int enemyHidden)
+    {
+        Player[] players = Enumerable.Range(0, 24).Select(index =>
+        {
+            Player player = CreatePlayer($"Player{index}", index < 12 ? "1" : "2", 2000, 0.52, 1200, 80, 0.51, 1100);
+            player.IsHidden = index < 12 ? index < allyHidden : index - 12 < enemyHidden;
+            return player;
+        }).ToArray();
+        BattleDashboardViewModel dashboard = CreateDashboard(players);
+
+        Assert.Equal(allyHidden, dashboard.Summary.Ally.HiddenPlayerCount);
+        Assert.Equal(enemyHidden, dashboard.Summary.Enemy.HiddenPlayerCount);
+        Assert.Equal(allyHidden > 3, dashboard.Summary.Ally.HasHiddenStatsWarning);
+        Assert.Equal(enemyHidden > 3, dashboard.Summary.Enemy.HasHiddenStatsWarning);
+        dashboard.SetFilter(true, DashboardRosterFilter.Marked);
+        Assert.Empty(dashboard.Allies);
+        Assert.Equal(allyHidden > 3, dashboard.Summary.Ally.HasHiddenStatsWarning);
+        Assert.Equal(enemyHidden > 3, dashboard.Summary.Enemy.HasHiddenStatsWarning);
+    }
+
+    [Fact]
+    public void MissingStatistics_AreNotCountedAsHiddenPlayers()
+    {
+        Player[] players = Enumerable.Range(0, 4).Select(index =>
+        {
+            Player player = CreatePlayer($"Failed{index}", "1", -1, -1, -1, -1, -1, -1);
+            player.IsDataFetchFailed = true;
+            return player;
+        }).ToArray();
+        BattleDashboardViewModel dashboard = CreateDashboard(players);
+
+        Assert.Equal(0, dashboard.Summary.Ally.HiddenPlayerCount);
+        Assert.False(dashboard.Summary.Ally.HasHiddenStatsWarning);
+        Assert.True(dashboard.Summary.CoverageInsufficient);
+    }
+
+    [Theory]
     [InlineData(49, true)]
     [InlineData(50, false)]
     public void TierLowSample_UsesFiftyBattleBoundary(double battles, bool expected)

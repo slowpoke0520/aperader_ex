@@ -16,7 +16,7 @@ namespace ApeRadar.Tests;
 internal static class NoteTagsLayoutAssertions
 {
     private const string ShortNote = "甲 乙 丙";
-    private sealed record RosterBaseline(double Height, Rect NameBounds, Rect WatchBounds);
+    private sealed record RosterBaseline(double Height);
 
     internal static void Verify(string language, HistoryServices historyServices)
     {
@@ -283,13 +283,15 @@ internal static class NoteTagsLayoutAssertions
 
     private static RosterBaseline CaptureBaseline(DataGridRow row, Player player, string style, string language)
     {
-        Border watch = WatchBadge(row);
         TextBlock name = PlayerName(row, player);
-        Rect nameBounds = Bounds(name, row);
-        Rect watchBounds = Bounds(watch, row);
-        if (style == "Dashboard") AssertNoGlyphOverlap(name, watch, row, $"{language} Dashboard no-note baseline");
-        else AssertNoOverlap(name, watch, row, $"{language} Legacy no-note baseline");
-        return new RosterBaseline(row.ActualHeight, nameBounds, watchBounds);
+        if (style == "Dashboard")
+        {
+            AssertDashboardWatchColor(row, name, $"{language} Dashboard no-note baseline");
+            return new RosterBaseline(row.ActualHeight);
+        }
+        Border watch = WatchBadge(row);
+        AssertNoOverlap(name, watch, row, $"{language} Legacy no-note baseline");
+        return new RosterBaseline(row.ActualHeight);
     }
 
     private static void AssertRosterRow(DataGridRow row, Player player, RosterBaseline baseline, string style, string scenario)
@@ -301,37 +303,43 @@ internal static class NoteTagsLayoutAssertions
         DataGridCell cell = Ancestor<DataGridCell>(tags);
         foreach (Border badge in TagBorders(tags)) AssertInside(badge, cell, scenario);
 
-        Border watch = WatchBadge(row);
-        Assert.True(watch.IsVisible && watch.ActualWidth > 0, $"{scenario}: Watch badge is hidden.");
-        AssertInside(watch, cell, scenario);
-        AssertNoOverlap(watch, Ancestor<Border>(tags), row, scenario);
         TextBlock name = PlayerName(cell, player);
         Assert.True(name.IsVisible && name.ActualWidth >= 24, $"{scenario}: player name lost its readable space.");
         Assert.Contains(player.Name, name.Text);
         AssertInside(name, cell, scenario);
         if (style == "Dashboard")
         {
-            bool baselineOverlap = Overlap(baseline.NameBounds, baseline.WatchBounds);
-            Assert.True(!Overlap(Bounds(name, row), Bounds(watch, row)) || baselineOverlap,
-                $"{scenario}: a new name/Watch render-box overlap appeared; no-note baseline name={baseline.NameBounds}, Watch={baseline.WatchBounds}.");
-            string diagnostic = $"{scenario}; no-note name={baseline.NameBounds}, Watch={baseline.WatchBounds}, renderOverlap={baselineOverlap}";
-            // Dashboard uses different grid rows. TextBlock's transparent layout box may extend
-            // into the next row; inspect the actually drawn glyph geometry, not that empty box.
-            AssertNoGlyphOverlap(name, watch, row, diagnostic);
-            AssertNoGlyphOverlap(name, Ancestor<Border>(tags), row, diagnostic);
+            AssertDashboardWatchColor(row, name, scenario);
+            AssertNoGlyphOverlap(name, Ancestor<Border>(tags), row, scenario);
         }
         else
         {
+            Border watch = WatchBadge(row);
+            Assert.True(watch.IsVisible && watch.ActualWidth > 0, $"{scenario}: Watch badge is hidden.");
+            AssertInside(watch, cell, scenario);
+            AssertNoOverlap(watch, Ancestor<Border>(tags), row, scenario);
             AssertNoOverlap(name, watch, row, scenario);
             AssertNoOverlap(name, Ancestor<Border>(tags), row, scenario);
         }
+    }
+
+    private static void AssertDashboardWatchColor(DataGridRow row, TextBlock name, string scenario)
+    {
+        Assert.Equal("#FFA00DC5", name.Foreground.ToString());
+        Assert.Equal(FontWeights.Normal, name.FontWeight);
+        Assert.DoesNotContain(Descendants(row).OfType<Border>(), border =>
+            border.DataContext is RosterStatusBadgeViewModel { Kind: RosterBadgeKind.Watch });
+        TextBlock ship = Assert.Single(Descendants(row).OfType<TextBlock>(), text => text.Name == "PlayerShipName");
+        Assert.Equal(name.Foreground.ToString(), ship.Foreground.ToString());
+        Assert.True(name.IsVisible && ship.IsVisible, $"{scenario}: Watch colors are hidden.");
     }
 
     private static Border WatchBadge(DependencyObject parent) => Assert.Single(Descendants(parent).OfType<Border>(),
         border => border.Name == "BadgeBorder" && border.DataContext is RosterStatusBadgeViewModel { Kind: RosterBadgeKind.Watch });
 
     private static TextBlock PlayerName(DependencyObject parent, Player player) => Assert.Single(Descendants(parent).OfType<TextBlock>(),
-        text => Equals(text.ToolTip, player.Name));
+        text => Equals(text.ToolTip, player.Name) || (text.Name == "PlayerName" &&
+            text.DataContext is DashboardPlayerRowViewModel dashboard && ReferenceEquals(dashboard.Player, player)));
 
     private static void VerifyWatchLists(string language)
     {
