@@ -52,8 +52,13 @@ public sealed class HistoryWindowSmokeTests
                         progress = $"{language}: history window";
                         bool previousShipTypeIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
                         ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
-                        HistoryWindow window = new(historyServices, initializeOnLoaded: false);
-                        Assert.Same(historyServices, window.HistoryServices);
+                        HistoryAnalysisService historyAnalysis = new();
+                        HistoryServices historyWindowServices = new(new HistoryPagingTests.ReadRepository(), historyAnalysis,
+                            new SessionAnalysisService(historyAnalysis), new ImprovementInsightService(historyAnalysis),
+                            () => new HistoryPagingTests.IdleTrackingCoordinator());
+                        HistoryWindow window = new(historyWindowServices, initializeOnLoaded: false);
+                        Assert.Same(historyWindowServices, window.HistoryServices);
+                        Assert.Equal(0, window.HistoryTabs.SelectedIndex);
                         HistoryViewModel viewModel = Assert.IsType<HistoryViewModel>(window.DataContext);
                         // Actual table rows cover complete, partial, metadata-only and failed imports.
                         BattleRecord[] examples = Enumerable.Range(1, 12).Select(HistoryPagingTests.Record).ToArray();
@@ -71,6 +76,7 @@ public sealed class HistoryWindowSmokeTests
                         Assert.Equal(HistorySampleTier.VerySmall, HistoryViewModel.ClassifySample(1));
                         Assert.DoesNotContain("100", viewModel.CurrentSessionWinrateText, StringComparison.OrdinalIgnoreCase);
                         window.Show();
+                        Assert.IsType<TabItem>(window.FindName("ManagementTab")).Visibility = Visibility.Visible;
                         foreach ((double width, double height) in new[] { (860d, 620d), (1000d, 700d), (1180d, 760d) })
                         {
                             window.Width = width;
@@ -82,14 +88,17 @@ public sealed class HistoryWindowSmokeTests
                                 window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
                                 AssertChildrenDoNotOverlap(window, Assert.IsAssignableFrom<Panel>(window.FindName("HistoryFilters")));
                                 AssertChildrenDoNotOverlap(window, Assert.IsAssignableFrom<Panel>(window.FindName("HistoryFooterButtons")));
-                                AssertChildrenDoNotOverlap(window, Assert.IsAssignableFrom<Panel>(window.FindName(tab == 0 ? "CurrentSessionCards" : "TrendSummaryCards")));
+                                AssertChildrenDoNotOverlap(window, Assert.IsAssignableFrom<Panel>(window.FindName("TrendSummaryCards")));
                                 foreach (ComboBox combo in FindVisualChildren<ComboBox>(window).Where(c => c.SelectedItem != null))
                                     AssertSelectorText(combo);
                                 SaveSnapshotIfRequested(window, language, width, height, tab);
+                                if (tab == 0) ValidateRecordDetails(window, viewModel, language);
                             }
                         }
                         window.Close();
+                        historyWindowServices.DisposeAsync().AsTask().GetAwaiter().GetResult();
                         ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = previousShipTypeIconSetting;
+                        ValidateRealHistoryCopyIfRequested(language);
                         progress = $"{language}: note tag layouts";
                         NoteTagsLayoutAssertions.Verify(language, historyServices);
                         progress = $"{language}: main window";
@@ -127,6 +136,41 @@ public sealed class HistoryWindowSmokeTests
     }
 
     [Fact]
+    public void HistoryCenter_RealDataPreview_WhenRequested()
+    {
+        if (Environment.GetEnvironmentVariable("APERADAR_HISTORY_PREVIEW_ONLY")!="1") return;
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("APERADAR_HISTORY_PREVIEW_DB"))) return;
+        Exception? error=null;
+        Thread thread=new(()=>
+        {
+            Application? app=null;
+            try
+            {
+                SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext(
+                    System.Windows.Threading.Dispatcher.CurrentDispatcher));
+                app=new() { ShutdownMode=ShutdownMode.OnExplicitShutdown };
+                foreach (string language in new[] { "zh-cn","en-us" })
+                {
+                    app.Resources.MergedDictionaries.Clear();
+                    app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source=new Uri($"/ApeRadar;component/Resources/Localization/{language}.xaml",UriKind.Relative) });
+                    app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source=new Uri("/ApeRadar;component/Resources/Styles/ModernLight.xaml",UriKind.Relative) });
+                    ValidateRealHistoryCopyIfRequested(language);
+                }
+            }
+            catch (Exception ex) { error=ex; }
+            finally
+            {
+                app?.Shutdown();
+                if (app!=null && !app.Dispatcher.HasShutdownStarted)
+                    app.Dispatcher.Invoke(()=>{},System.Windows.Threading.DispatcherPriority.ContextIdle);
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA); thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(60)));
+        Assert.Null(error);
+    }
+
+    [Fact]
     public void SmallSamplePolicy_DoesNotPresentSparseDataAsATrend()
     {
         Assert.Equal(HistorySampleTier.None, HistoryViewModel.ClassifySample(0));
@@ -136,6 +180,75 @@ public sealed class HistoryWindowSmokeTests
         Assert.Equal(HistorySampleTier.Established, HistoryViewModel.ClassifySample(20));
         Assert.False(HistoryViewModel.ShouldRenderTrend(2));
         Assert.True(HistoryViewModel.ShouldRenderTrend(3));
+    }
+
+    private static void ValidateRealHistoryCopyIfRequested(string language)
+    {
+        string? sourcePath=Environment.GetEnvironmentVariable("APERADAR_HISTORY_PREVIEW_DB");
+        string? output=Environment.GetEnvironmentVariable("APERADAR_UI_SNAPSHOT_DIR");
+        if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(output)) return;
+        Directory.CreateDirectory(output);
+        string copy=Path.Combine(output,$"history-real-{language}.db");
+        using (Microsoft.Data.Sqlite.SqliteConnection source=new($"Data Source={sourcePath};Mode=ReadOnly;Pooling=False"))
+        using (Microsoft.Data.Sqlite.SqliteConnection destination=new($"Data Source={copy};Pooling=False"))
+        {
+            source.Open(); destination.Open(); source.BackupDatabase(destination);
+        }
+        PRUtils.LoadExpectedValues(Path.Combine(AppContext.BaseDirectory,"Resources","Json","expected_values.json"));
+        SqliteHistoryRepository repository=new(copy);
+        HistoryAnalysisService analysis=new();
+        HistoryServices services=new(repository,analysis,new SessionAnalysisService(analysis),new ImprovementInsightService(analysis),
+            ()=>new HistoryPagingTests.IdleTrackingCoordinator());
+        HistoryWindow window=new(services,initializeOnLoaded:false) { Width=1180,Height=800 };
+        HistoryViewModel vm=(HistoryViewModel)window.DataContext;
+        void Finish(Task task)
+        {
+            WaitForUiCondition(()=>task.IsCompleted,TimeSpan.FromSeconds(20),"History preview load",()=>vm.StatusText);
+            task.GetAwaiter().GetResult();
+        }
+        try
+        {
+            window.Show(); window.UpdateLayout();
+            Finish(vm.InitializeAsync());
+            window.UpdateLayout(); PumpDispatcher(TimeSpan.FromMilliseconds(100));
+            SaveWindowSnapshot(window,$"history-real-{language}-records.png");
+            foreach (DataGridColumn column in window.RecordsGrid.Columns.Where(c=>c.Width.IsAbsolute))
+                Assert.True(column.ActualWidth>=column.Width.Value-1,$"Column {column.Header} shrank to {column.ActualWidth} instead of {column.Width.Value}.");
+            Assert.All(vm.Rows,row=>Assert.Equal(1,row.Battle.BattleCount));
+            Assert.True(repository.CountBattlesAsync(new HistoryQuery()).GetAwaiter().GetResult()<=108);
+            IReadOnlyList<BattleRecord> records=repository.GetBattlesAsync(new HistoryQuery
+            {
+                Server=vm.SelectedServer?.Value,AccountId=vm.SelectedAccount?.Value,SingleBattlesOnly=true,
+                From=vm.FromDate.HasValue?new DateTimeOffset(vm.FromDate.Value):null,
+                To=vm.ToDate.HasValue?new DateTimeOffset(vm.ToDate.Value.AddDays(1)):null
+            }).GetAwaiter().GetResult();
+            HistorySummary summary=analysis.CalculateSummary(records);
+            Assert.Equal(summary.RecordedBattles.ToString(),vm.RecordedBattlesText);
+            var report=new { count=summary.RecordedBattles,summary.ResultSampleCount,summary.DamageSampleCount,summary.PrSampleCount,
+                summary.Winrate,summary.AverageDamage,summary.AveragePr,intervals=vm.ApiIntervals.Count,from=vm.FromDate,to=vm.ToDate,
+                server=vm.SelectedServer?.Value,account=vm.SelectedAccount?.Value,
+                columnWidths=window.RecordsGrid.Columns.Select(c=>new { c.Header,c.ActualWidth }).ToArray() };
+            File.WriteAllText(Path.Combine(output,$"history-real-{language}-summary.json"),System.Text.Json.JsonSerializer.Serialize(report));
+            HistoryRowViewModel? row=vm.Rows.FirstOrDefault(x=>!string.IsNullOrWhiteSpace(x.Battle.ReplayHash));
+            if (row!=null)
+            {
+                vm.SelectedBattle=row; Finish(vm.BattleDetailLoadTask);
+                Button sourceInfo=Assert.IsType<Button>(window.FindName("SourceInfoButton"));
+                sourceInfo.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                window.UpdateLayout();
+                Assert.True(sourceInfo.ContextMenu.IsOpen);
+                sourceInfo.ContextMenu.IsOpen=false;
+                for (int section=0;section<3;section++)
+                {
+                    window.BattleDetailTabs.SelectedIndex=section; window.UpdateLayout();
+                    SaveWindowSnapshot(window,$"history-real-{language}-detail-{section}.png");
+                }
+                vm.IsBattleDetailOpen=false;
+            }
+            window.Width=860; window.Height=620; window.UpdateLayout();
+            SaveWindowSnapshot(window,$"history-real-{language}-minimum.png");
+        }
+        finally { window.Close(); Finish(vm.FlushReviewDraftsAsync()); services.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
     }
 
     private static void AssertChildrenDoNotOverlap(Window window, Panel panel)
@@ -152,6 +265,47 @@ public sealed class HistoryWindowSmokeTests
                     $"{children[i].GetType().Name} overlaps {children[j].GetType().Name} at {window.Width}x{window.Height}.");
             }
         }
+    }
+
+    private static void ValidateRecordDetails(HistoryWindow window, HistoryViewModel vm, string language)
+    {
+        DataGrid records = Assert.IsType<DataGrid>(window.FindName("RecordsGrid"));
+        Grid body = Assert.IsType<Grid>(window.FindName("BattleDetailBody"));
+        Assert.False(body.IsVisible);
+        double collapsedListHeight = records.ActualHeight;
+        var originalSelection = records.SelectedItem;
+        vm.SelectedBattle = vm.Rows[2];
+        Assert.True(vm.BattleDetailLoadTask.IsCompletedSuccessfully);
+        window.UpdateLayout();
+        Assert.True(body.IsVisible);
+        Assert.False(records.IsVisible);
+        Assert.True(body.ActualHeight > 400, "Single-battle details use the full page instead of squeezing the list.");
+        Button save = Assert.IsType<Button>(window.FindName("SaveReviewButton"));
+        TextBox note = Assert.IsType<TextBox>(window.FindName("ReviewNoteBox"));
+        TabControl sections = Assert.IsType<TabControl>(window.FindName("BattleDetailTabs"));
+        sections.SelectedIndex = 2;
+        window.UpdateLayout();
+        Assert.True(save.IsVisible && save.IsEnabled);
+        SaveWindowSnapshot(window, $"history-{language}-{window.Width:0}x{window.Height:0}-review-check.png");
+        Assert.True(note.ActualHeight >= 80, $"Review notes must remain usable: {note.ActualHeight} at {window.Width}x{window.Height}.");
+        Rect saveBounds = save.TransformToAncestor(body).TransformBounds(new Rect(save.RenderSize));
+        Assert.InRange(saveBounds.Bottom, 0, body.ActualHeight + 1);
+        foreach (int section in new[] { 1, 2, 0 })
+        {
+            sections.SelectedIndex = section;
+            window.UpdateLayout();
+            Assert.InRange(body.TransformToAncestor(window).TransformBounds(new Rect(body.RenderSize)).Bottom,
+                0, window.ActualHeight + 1);
+            SaveWindowSnapshot(window, $"history-{language}-{window.Width:0}x{window.Height:0}-detail-{section}.png");
+        }
+        vm.IsBattleDetailOpen = false;
+        window.UpdateLayout();
+        Assert.False(body.IsVisible);
+        Assert.Same(vm.Rows[2], vm.SelectedBattle);
+        Assert.InRange(records.ActualHeight, collapsedListHeight - 1, collapsedListHeight + 1);
+        Assert.True(records.Columns.Sum(x => x.ActualWidth) <= records.ActualWidth + 1,
+            "Record columns must fit the minimum window width.");
+        vm.SelectedBattle = null;
     }
 
     private static void ValidateMainWindowLayout(string language, HistoryServices historyServices)
@@ -1722,6 +1876,10 @@ public sealed class HistoryWindowSmokeTests
         int bitmapWidth = Math.Max(1, (int)Math.Ceiling(window.ActualWidth));
         int bitmapHeight = Math.Max(1, (int)Math.Ceiling(window.ActualHeight));
         RenderTargetBitmap bitmap = new(bitmapWidth, bitmapHeight, 96, 96, PixelFormats.Pbgra32);
+        DrawingVisual background = new();
+        using (DrawingContext drawing = background.RenderOpen())
+            drawing.DrawRectangle(window.Background ?? Brushes.White,null,new Rect(0,0,bitmapWidth,bitmapHeight));
+        bitmap.Render(background);
         bitmap.Render(window);
         PngBitmapEncoder encoder = new();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));

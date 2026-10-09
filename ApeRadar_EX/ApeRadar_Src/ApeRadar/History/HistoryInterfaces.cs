@@ -34,6 +34,13 @@ namespace ApeRadar.History
         Task<IReadOnlyList<BattlePlayerRecord>> GetBattlePlayersAsync(long battleId, CancellationToken cancellationToken = default);
         Task<BattleReview?> GetBattleReviewAsync(long battleId, CancellationToken cancellationToken = default);
         Task SaveBattleReviewAsync(BattleReview review, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<ApiBattleInterval>> GetApiIntervalsAsync(HistoryQuery query, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ApiBattleInterval>>(Array.Empty<ApiBattleInterval>());
+        Task<BattleReview?> GetReviewDraftAsync(long battleId, CancellationToken cancellationToken = default) => Task.FromResult<BattleReview?>(null);
+        Task SaveReviewDraftAsync(BattleReview draft, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        Task SetBattleFavoriteAsync(long battleId, bool favorite, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        Task<IReadOnlyDictionary<long,BattleReview>> GetReviewSummariesAsync(IEnumerable<long> ids, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<long,BattleReview>>(new Dictionary<long,BattleReview>());
         Task MergeSessionsAsync(IReadOnlyCollection<long> sessionIds, CancellationToken cancellationToken = default);
         Task<long> SplitSessionAsync(long sessionId, long firstBattleIdOfNewSession, CancellationToken cancellationToken = default);
         Task DeleteAllAsync(CancellationToken cancellationToken = default);

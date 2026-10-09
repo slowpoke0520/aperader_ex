@@ -972,6 +972,8 @@ namespace ApeRadar
         private void BtnHistory_Click(object sender, RoutedEventArgs e)
         {
             HistoryWindow window = new(historyServices, initializeOnLoaded: true) { Owner = this };
+            if (DataContext is Battlefield battlefield && battlefield.Allies.FirstOrDefault(x => x.Relation == "0") is Player self)
+                window.SetAccountContext(ServerExt.GetNameByServer(self.Server), self.ID);
             window.Show();
         }
 

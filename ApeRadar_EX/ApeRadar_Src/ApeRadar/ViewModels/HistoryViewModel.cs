@@ -20,7 +20,7 @@ namespace ApeRadar.ViewModels
 {
     internal enum HistorySampleTier { None, VerySmall, Short, Established }
 
-    internal sealed class HistoryViewModel : INotifyPropertyChanged, IDisposable
+    internal sealed partial class HistoryViewModel : INotifyPropertyChanged, IDisposable
     {
         private readonly IHistoryRepository repository;
         private readonly IHistoryAnalysisService analysis;
@@ -50,6 +50,10 @@ namespace ApeRadar.ViewModels
         private SessionRowViewModel? selectedSession;
         private HistoryRowViewModel? selectedSessionBattle;
         private HistoryRowViewModel? selectedBattle;
+        private bool isBattleDetailOpen;
+        private bool isBattleDetailLoading;
+        private BattleReview? loadedBattleReview;
+        private readonly Dictionary<long, BattleReview> reviewDrafts = new();
         private string reviewNote = "";
         private string battleDetailShipName = "";
         private string battleDetailShipType = "";
@@ -93,6 +97,8 @@ namespace ApeRadar.ViewModels
             coordinator.ReplayMonitor.ImportProgressChanged += ReplayMonitor_ImportProgressChanged;
             foreach (string tag in new[] { "GoodPerformance", "EarlyDeath", "LowOpportunity", "Positioning", "Clutch", "ReviewReplay" })
                 ReviewTags.Add(new ReviewTagOption(tag, Resource($"HistoryReviewTag{tag}", tag)));
+            foreach (ReviewTagOption tag in ReviewTags) tag.PropertyChanged += ReviewTagChanged;
+            InitializeHistoryCenterOptions();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -124,8 +130,31 @@ namespace ApeRadar.ViewModels
         public bool ShowExperimentalMetrics => Properties.Settings.Default.ShowExperimentalReplayMetrics;
         public SessionRowViewModel? SelectedSession { get => selectedSession; set { if (Set(ref selectedSession, value)) _ = LoadSelectedSessionAsync(value, ++sessionLoadVersion); } }
         public HistoryRowViewModel? SelectedSessionBattle { get => selectedSessionBattle; set => Set(ref selectedSessionBattle, value); }
-        public HistoryRowViewModel? SelectedBattle { get => selectedBattle; set { if (Set(ref selectedBattle, value)) _ = LoadBattleDetailsAsync(value, ++battleDetailLoadVersion); } }
-        public string ReviewNote { get => reviewNote; set => Set(ref reviewNote, value); }
+        public HistoryRowViewModel? SelectedBattle
+        {
+            get => selectedBattle;
+            set
+            {
+                KeepReviewDraft();
+                if (!Set(ref selectedBattle, value)) return;
+                OnPropertyChanged(nameof(HasSelectedBattle));
+                IsBattleDetailOpen = value != null;
+                IsBattleDetailLoading = value != null;
+                ClearBattleDetails();
+                OnPropertyChanged(nameof(CanEditBattleReview));
+                BattleDetailLoadTask = LoadBattleDetailsAsync(value, ++battleDetailLoadVersion);
+            }
+        }
+        public bool HasSelectedBattle => SelectedBattle != null;
+        public bool IsBattleDetailOpen { get => isBattleDetailOpen; set { if (Set(ref isBattleDetailOpen, value)) { OnPropertyChanged(nameof(CanGoPreviousBattle)); OnPropertyChanged(nameof(CanGoNextBattle)); } } }
+        public bool IsBattleDetailLoading
+        {
+            get => isBattleDetailLoading;
+            private set { if (Set(ref isBattleDetailLoading, value)) OnPropertyChanged(nameof(CanEditBattleReview)); }
+        }
+        public bool CanEditBattleReview => HasSelectedBattle && !IsBattleDetailLoading && loadedBattleReview != null;
+        internal Task BattleDetailLoadTask { get; private set; } = Task.CompletedTask;
+        public string ReviewNote { get => reviewNote; set { if (Set(ref reviewNote, value)) QueueReviewDraft(); } }
         public bool IsFavorite { get => isFavorite; set => Set(ref isFavorite, value); }
 
         public string RecordedBattlesText { get; private set; } = "0";
@@ -152,6 +181,8 @@ namespace ApeRadar.ViewModels
         public string BattleDetailShipName { get => battleDetailShipName; private set => Set(ref battleDetailShipName, value); }
         public string BattleDetailShipType { get => battleDetailShipType; private set => Set(ref battleDetailShipType, value); }
         public string BattleDetailMetrics { get; private set; } = "-";
+        public string BattleDetailAdvancedSummary { get; private set; } = "";
+        public string BattleDamageEmptyText { get; private set; } = "";
         public string ChartGuidanceText { get; private set; } = "";
         public string PrDataVersionText => PRUtils.GetExpectedValuesDateString();
         public string PageText => $"{CurrentPage + 1} / {TotalPages}";
@@ -164,6 +195,7 @@ namespace ApeRadar.ViewModels
         {
             await repository.InitializeAsync();
             await LoadServersAsync();
+            ApplyDateRange("week");
             await ReloadAsync();
             await LoadSessionsAsync();
         }
@@ -207,11 +239,14 @@ namespace ApeRadar.ViewModels
                     AccountId = EmptyToNull(SelectedAccount?.Value),
                     ShipId = EmptyToNull(SelectedShip?.Value),
                     From = FromDate.HasValue ? new DateTimeOffset(FromDate.Value.Date) : null,
-                    To = ToDate.HasValue ? new DateTimeOffset(ToDate.Value.Date.AddDays(1)) : null
+                    To = ToDate.HasValue ? new DateTimeOffset(ToDate.Value.Date.AddDays(1)) : null,
+                    SingleBattlesOnly = true,
+                    FavoritesOnly = FavoritesOnly
                 };
                 string metricName = SelectedMetric?.Value ?? "Winrate";
                 string metricDisplay = SelectedMetric?.Display ?? metricName;
                 int window = int.TryParse(SelectedRollingWindow?.Value, out int parsed) ? parsed : 20;
+                if (window == 1 && metricName is "Winrate" or "Survival") window = 5;
                 bool experimental = ShowExperimentalMetrics;
                 AnalysisKey key = new(query.Server, query.AccountId, query.ShipId, query.From, query.To,
                     metricName, window, experimental);
@@ -232,6 +267,7 @@ namespace ApeRadar.ViewModels
                     Limit = PageSize,
                     Offset = requestedPage * PageSize,
                     Descending = true
+                    ,SingleBattlesOnly = true, FavoritesOnly = FavoritesOnly
                 };
                 IReadOnlyList<BattleRecord> page = await Task.Run(() => repository.GetBattlesAsync(pageQuery, cancellationToken), cancellationToken);
                 bool analysisChanged = snapshot == null;
@@ -246,6 +282,8 @@ namespace ApeRadar.ViewModels
                         : new Dictionary<long, BattleAdvancedMetrics>());
                 cancellationToken.ThrowIfCancellationRequested();
                 if (version != reloadVersion) return;
+                long? selectedId = SelectedBattle?.Battle.Id;
+                bool detailWasOpen = IsBattleDetailOpen;
                 Rows.Clear();
                 foreach (BattleRecord battle in page)
                 {
@@ -257,6 +295,11 @@ namespace ApeRadar.ViewModels
                         advanced.TryGetValue(battle.Id, out BattleAdvancedMetrics? metric) ? metric : null,
                         ShowExperimentalMetrics));
                 }
+                IReadOnlyDictionary<long,BattleReview> reviews = await repository.GetReviewSummariesAsync(page.Select(x=>x.Id),cancellationToken);
+                if (version != reloadVersion) return;
+                foreach (HistoryRowViewModel row in Rows) row.ApplyReview(reviews.GetValueOrDefault(row.Battle.Id));
+                SelectedBattle = selectedId.HasValue ? Rows.FirstOrDefault(x => x.Battle.Id == selectedId.Value) : null;
+                if (SelectedBattle != null) IsBattleDetailOpen = detailWasOpen;
                 StatusText = string.Format(Resource("HistoryLoadedStatus", "Loaded {0} records"), recordCount) + $" · {PageText}";
                 if (analysisChanged)
                 {
@@ -268,7 +311,9 @@ namespace ApeRadar.ViewModels
                     snapshotRecordCount = recordCount;
                     ApplySummary(snapshot.Summary);
                     ApplyChart(snapshot.Points, metricName, metricDisplay);
+                    ApplyMetricSamples(snapshot.Summary);
                 }
+                await LoadApiIntervalsAsync(query, cancellationToken, version);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
             catch (Exception ex)
@@ -315,7 +360,10 @@ namespace ApeRadar.ViewModels
 
         public async Task ClearAsync()
         {
+            SelectedBattle = null;
+            await FlushReviewDraftsAsync();
             await repository.DeleteAllAsync();
+            reviewDrafts.Clear();
             await LoadServersAsync();
             await RefreshAllAsync();
         }
@@ -338,16 +386,49 @@ namespace ApeRadar.ViewModels
 
         public async Task SaveReviewAsync()
         {
-            if (SelectedBattle == null) return;
-            await repository.SaveBattleReviewAsync(new BattleReview
+            if (!CanEditBattleReview || SelectedBattle == null) return;
+            HistoryRowViewModel row = SelectedBattle;
+            BattleReview review = CurrentReview(row.Battle.Id);
+            await FlushReviewDraftsAsync();
+            await repository.SaveBattleReviewAsync(review);
+            row.ApplyReview(review);
+            if (ReferenceEquals(row, SelectedBattle) && ReviewsEqual(CurrentReview(review.BattleId),review))
             {
-                BattleId = SelectedBattle.Battle.Id,
-                IsFavorite = IsFavorite,
-                Note = ReviewNote,
-                Tags = ReviewTags.Where(x => x.IsSelected).Select(x => x.Key).ToList()
-            });
+                reviewDrafts.Remove(review.BattleId);
+                loadedBattleReview = review;
+            }
+            else if (reviewDrafts.TryGetValue(review.BattleId, out BattleReview? draft) && ReviewsEqual(draft, review))
+                reviewDrafts.Remove(review.BattleId);
+            else if (reviewDrafts.TryGetValue(review.BattleId, out BattleReview? newer))
+            {
+                if (ReferenceEquals(row,SelectedBattle)) loadedBattleReview = review;
+                QueueCapturedDraft(newer);
+            }
             StatusText = Resource("HistoryReviewSaved", "Review saved.");
         }
+
+        private BattleReview CurrentReview(long battleId) => new()
+        {
+            BattleId = battleId, IsFavorite = IsFavorite, Note = ReviewNote,
+            Tags = ReviewTags.Where(x => x.IsSelected).Select(x => x.Key).ToList()
+        };
+
+        private void KeepReviewDraft()
+        {
+            if (SelectedBattle == null || loadedBattleReview == null || IsBattleDetailLoading) return;
+            BattleReview draft = CurrentReview(SelectedBattle.Battle.Id);
+            if (ReviewsEqual(draft, loadedBattleReview))
+            {
+                reviewDrafts.Remove(draft.BattleId);
+                return;
+            }
+            else reviewDrafts[draft.BattleId] = draft;
+            QueueReviewDraft();
+        }
+
+        private static bool ReviewsEqual(BattleReview left, BattleReview right) =>
+            left.IsFavorite == right.IsFavorite && left.Note == right.Note &&
+            new HashSet<string>(left.Tags, StringComparer.Ordinal).SetEquals(right.Tags);
 
         public async Task MergeSessionsAsync(IEnumerable<SessionRowViewModel> selected)
         {
@@ -437,6 +518,7 @@ namespace ApeRadar.ViewModels
                 IReadOnlyList<BattleDamageBreakdown> breakdowns = await repository.GetDamageBreakdownsAsync(row.Battle.Id);
                 IReadOnlyList<BattlePlayerRecord> players = await repository.GetBattlePlayersAsync(row.Battle.Id);
                 BattleReview? review = await repository.GetBattleReviewAsync(row.Battle.Id);
+                BattleReview? storedDraft = await repository.GetReviewDraftAsync(row.Battle.Id);
                 if (version != battleDetailLoadVersion || !ReferenceEquals(row, SelectedBattle)) return;
 
                 ClearBattleDetails();
@@ -444,41 +526,85 @@ namespace ApeRadar.ViewModels
                 BattleDetailShipName = row.ShipName;
                 BattleDetailShipType = row.ShipType;
                 BattleDetailMetrics = FormatBattleMetrics(row, metric);
+                List<string> advancedParts = new();
+                bool showSurvival = metric != null && (metric.SurvivalAvailability == MetricAvailability.Stable ||
+                    ShowExperimentalMetrics && metric.SurvivalAvailability == MetricAvailability.Experimental);
+                if (showSurvival && metric?.Survived.HasValue == true)
+                    advancedParts.Add(metric.Survived.Value ? Resource("HistorySurvived", "Survived") : Resource("HistorySunk", "Sunk"));
+                if (showSurvival && metric?.SurvivalSeconds.HasValue == true)
+                    advancedParts.Add($"{Resource("HistorySurvivalTime", "Survival time")}: {FormatDuration(metric.SurvivalSeconds)}");
+                if (metric?.PotentialDamage.HasValue == true && (metric.PotentialDamageAvailability == MetricAvailability.Stable ||
+                    ShowExperimentalMetrics && metric.PotentialDamageAvailability == MetricAvailability.Experimental))
+                    advancedParts.Add($"{Resource("HistoryMetricPotentialDamage", "Potential damage")}: {metric.PotentialDamage:0}");
+                if (ShowExperimentalMetrics && metric?.DamageTaken.HasValue == true &&
+                    metric.DamageTakenAvailability is MetricAvailability.Stable or MetricAvailability.Experimental)
+                    advancedParts.Add($"{Resource("HistoryMetricDamageTakenExperimental", "Damage taken (experimental)")}: {metric.DamageTaken:0}");
+                BattleDetailAdvancedSummary = string.Join(" · ", advancedParts);
+                BattleDamageEmptyText = !ShowExperimentalMetrics && breakdowns.Any(x => x.Availability == MetricAvailability.Experimental)
+                    ? Resource("HistoryDamageDetailsHidden", "This battle's damage breakdown is experimental and currently hidden. Enable experimental replay metrics in Settings → Advanced to view it.")
+                    : Resource("HistoryNoDamageDetails", "No damage breakdown was saved for this battle. Some replays cannot provide this data.");
                 foreach (BattleDamageBreakdown item in breakdowns)
                 {
                     if (item.Availability == MetricAvailability.Experimental && !ShowExperimentalMetrics) continue;
                     DamageBreakdowns.Add(new DamageBreakdownRowViewModel(item));
                 }
                 foreach (BattlePlayerRecord player in players)
-                    BattlePlayers.Add(new BattlePlayerRowViewModel(player));
-                if (review != null)
                 {
-                    IsFavorite = review.IsFavorite;
-                    ReviewNote = review.Note;
-                    foreach (ReviewTagOption tag in ReviewTags) tag.IsSelected = review.Tags.Contains(tag.Key, StringComparer.Ordinal);
+                    BattlePlayerRowViewModel playerRow = new(player);
+                    BattlePlayers.Add(playerRow);
+                    (player.Relation is "0" or "1" ? AllyPlayers : EnemyPlayers).Add(playerRow);
                 }
+                loadedBattleReview = review ?? new BattleReview { BattleId = row.Battle.Id };
+                BattleReview displayedReview = reviewDrafts.TryGetValue(row.Battle.Id, out BattleReview? draft) ? draft : storedDraft ?? loadedBattleReview;
+                IsFavorite = displayedReview.IsFavorite;
+                ReviewNote = displayedReview.Note;
+                foreach (ReviewTagOption tag in ReviewTags) tag.IsSelected = displayedReview.Tags.Contains(tag.Key, StringComparer.Ordinal);
+                foreach (string tag in displayedReview.Tags.Where(x => ReviewTags.All(t => t.Key != x)))
+                    AddReviewTagOption(tag, tag, true);
+                ApplyDetailMetrics(row, metric);
                 OnPropertyChanged(nameof(BattleDetailTitle));
                 OnPropertyChanged(nameof(BattleDetailMetrics));
+                OnPropertyChanged(nameof(BattleDetailAdvancedSummary));
+                OnPropertyChanged(nameof(BattleDamageEmptyText));
             }
             catch (Exception ex)
             {
-                StatusText = string.Format(Resource("HistoryLoadFailed", "Unable to load history: {0}"), ex.Message);
+                if (version == battleDetailLoadVersion)
+                    StatusText = string.Format(Resource("HistoryLoadFailed", "Unable to load history: {0}"), ex.Message);
+            }
+            finally
+            {
+                if (version == battleDetailLoadVersion)
+                {
+                    IsBattleDetailLoading = false;
+                    OnPropertyChanged(nameof(CanEditBattleReview));
+                }
             }
         }
 
         private void ClearBattleDetails()
         {
+            loadedBattleReview = null;
             DamageBreakdowns.Clear();
             BattlePlayers.Clear();
-            foreach (ReviewTagOption tag in ReviewTags) tag.IsSelected = false;
+            AllyPlayers.Clear(); EnemyPlayers.Clear();
+            foreach (ReviewTagOption tag in ReviewTags.ToArray())
+            {
+                if (builtInReviewTags.Contains(tag.Key)) tag.IsSelected = false;
+                else { tag.PropertyChanged -= ReviewTagChanged; ReviewTags.Remove(tag); }
+            }
             ReviewNote = "";
             IsFavorite = false;
             BattleDetailTitle = "-";
             BattleDetailShipName = "";
             BattleDetailShipType = "";
             BattleDetailMetrics = "-";
+            BattleDetailAdvancedSummary = "";
+            BattleDamageEmptyText = "";
             OnPropertyChanged(nameof(BattleDetailTitle));
             OnPropertyChanged(nameof(BattleDetailMetrics));
+            OnPropertyChanged(nameof(BattleDetailAdvancedSummary));
+            OnPropertyChanged(nameof(BattleDamageEmptyText));
         }
 
         internal void ApplyCurrentSession(SessionSummary summary)
@@ -568,10 +694,11 @@ namespace ApeRadar.ViewModels
         private async Task LoadServersAsync()
         {
             await LoadOptionsAsync(Servers, await repository.GetServersAsync(), Resource("HistoryAllServers", "All servers"));
-            SelectedServer = Servers.FirstOrDefault();
-            await LoadOptionsAsync(Accounts, await repository.GetAccountsAsync(null), Resource("HistoryAllAccounts", "All accounts"));
-            SelectedAccount = Accounts.FirstOrDefault();
-            await LoadOptionsAsync(Ships, await repository.GetShipsAsync(null, null), Resource("HistoryAllShips", "All ships"));
+            BattleRecord? recent = (await repository.GetBattlesAsync(new HistoryQuery { Descending = true, Limit = 1 })).FirstOrDefault();
+            SelectedServer = Servers.FirstOrDefault(x => x.Value == preferredServer) ?? Servers.FirstOrDefault(x => x.Value == recent?.Server) ?? Servers.FirstOrDefault();
+            await LoadOptionsAsync(Accounts, await repository.GetAccountsAsync(EmptyToNull(SelectedServer?.Value)), Resource("HistoryAllAccounts", "All accounts"));
+            SelectedAccount = Accounts.FirstOrDefault(x => x.Value == preferredAccount) ?? Accounts.FirstOrDefault(x => x.Value == recent?.AccountId) ?? Accounts.FirstOrDefault();
+            await LoadOptionsAsync(Ships, await repository.GetShipsAsync(EmptyToNull(SelectedServer?.Value), EmptyToNull(SelectedAccount?.Value)), Resource("HistoryAllShips", "All ships"));
             SelectedShip = Ships.FirstOrDefault();
         }
 
@@ -586,8 +713,8 @@ namespace ApeRadar.ViewModels
         private void ApplySummary(HistorySummary summary)
         {
             RecordedBattlesText = summary.RecordedBattles.ToString(CultureInfo.CurrentCulture);
-            WinrateText = summary.Winrate?.ToString("P2") ?? "-";
-            AverageDamageText = summary.AverageDamage?.ToString("0") ?? "-";
+            WinrateText = summary.Winrate?.ToString("P1") ?? "—";
+            AverageDamageText = summary.AverageDamage?.ToString("N0") ?? "—";
             AverageDamageRatingValue = summary.AverageDamageRating;
             AverageFragsText = summary.AverageFrags?.ToString("0.00") ?? "-";
             AverageFragsRatingValue = summary.AverageFragsRating;
@@ -690,6 +817,8 @@ namespace ApeRadar.ViewModels
         private void OnPropertyChanged([CallerMemberName] string name = "") => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         public void Dispose()
         {
+            KeepReviewDraft();
+            Interlocked.Increment(ref battleDetailLoadVersion);
             Interlocked.Increment(ref reloadVersion);
             reloadCancellation?.Cancel();
             reloadCancellation?.Dispose();
@@ -698,17 +827,27 @@ namespace ApeRadar.ViewModels
         }
     }
 
-    internal sealed class HistoryRowViewModel
+    internal sealed partial class HistoryRowViewModel : INotifyPropertyChanged
     {
         public HistoryRowViewModel(BattleRecord battle, double? pr, double? damageRating, double? fragsRating, BattleAdvancedMetrics? advanced = null, bool showExperimental = false)
         {
             Battle = battle;
             StartedAt = battle.StartedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
             MapName = HistoryMapNameLocalizer.GetDisplayName(battle.MapName); ShipName = battle.ShipName; ShipType = battle.ShipType;
-            Result = LocalizeResult(battle.Result); Damage = battle.Damage?.ToString("0") ?? "-";
+            Result = LocalizeResult(battle.Result); Damage = battle.Damage?.ToString("N0") ?? "—";
             Frags = battle.Frags?.ToString("0") ?? "-"; Pr = pr?.ToString("0") ?? "-";
             ResultValue = battle.Result; DamageRatingValue = damageRating; FragsRatingValue = fragsRating; PrValue = pr;
             Source = LocalizeSource(battle.Source); Completeness = LocalizeCompleteness(battle.Completeness);
+            SourceSummary = battle.Source switch
+            {
+                BattleMetricSource.ApiExact when !string.IsNullOrWhiteSpace(battle.ReplayHash) => Resource("HistorySourceCombined", "API + Replay"),
+                BattleMetricSource.ApiExact => "API",
+                BattleMetricSource.ReplayExact or BattleMetricSource.ReplayDerived => Resource("HistorySourceReplayShort", "Replay"),
+                BattleMetricSource.ApiMerged => Resource("HistorySourceIntervalShort", "Interval"),
+                _ => Resource("HistorySourceMetadataShort", "Pending")
+            };
+            SourceDetail = Source + " · " + Completeness + (battle.BattleCount > 1 ?
+                Environment.NewLine + string.Format(Resource("HistorySourceIntervalHint", "Combined totals from {0} battles, not individual battle results."), battle.BattleCount) : "");
             Status = battle.StatusMessage ?? "";
             Survival = advanced?.Survived.HasValue == true ? advanced.Survived.Value ? Resource("HistorySurvived", "Survived") : Resource("HistorySunk", "Sunk") : "-";
             PotentialDamage = advanced?.PotentialDamage?.ToString("0") ?? "-";
@@ -728,6 +867,8 @@ namespace ApeRadar.ViewModels
         public string Pr { get; }
         public double? PrValue { get; }
         public string Source { get; }
+        public string SourceSummary { get; }
+        public string SourceDetail { get; }
         public string Completeness { get; }
         public string Status { get; }
         public string Survival { get; }
@@ -805,11 +946,13 @@ namespace ApeRadar.ViewModels
         public BattlePlayerRowViewModel(BattlePlayerRecord value)
         {
             Relation = value.Relation == "0" ? Resource("HistorySelf", "Self") : value.Relation == "1" ? Resource("EncounterAlly", "Ally") : Resource("EncounterEnemy", "Enemy");
+            PrValue = value.AccountPr;
             Player = value.AccountName; Ship = value.ShipName; ShipType = value.ShipType;
             Winrate = value.AccountWinrate?.ToString("P2") ?? "-";
             Pr = value.AccountPr?.ToString("0") ?? "-";
         }
         public string Relation { get; }
+        public double? PrValue { get; }
         public string Player { get; }
         public string Ship { get; }
         public string ShipType { get; }
