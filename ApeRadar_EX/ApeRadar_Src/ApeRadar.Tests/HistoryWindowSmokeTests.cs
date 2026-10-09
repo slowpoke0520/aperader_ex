@@ -290,6 +290,21 @@ public sealed class HistoryWindowSmokeTests
         Assert.True(note.ActualHeight >= 80, $"Review notes must remain usable: {note.ActualHeight} at {window.Width}x{window.Height}.");
         Rect saveBounds = save.TransformToAncestor(body).TransformBounds(new Rect(save.RenderSize));
         Assert.InRange(saveBounds.Bottom, 0, body.ActualHeight + 1);
+        ReviewTagOption[] additionalTags = Enumerable.Range(1, 8)
+            .Select(i => new ReviewTagOption($"LayoutTag{i}", $"Custom review label {i}")).ToArray();
+        try
+        {
+            foreach (ReviewTagOption tag in additionalTags) vm.ReviewTags.Add(tag);
+            window.UpdateLayout();
+            Assert.True(note.ActualHeight >= 80, "Additional review tags must not squeeze the note editor.");
+            saveBounds = save.TransformToAncestor(body).TransformBounds(new Rect(save.RenderSize));
+            Assert.InRange(saveBounds.Bottom, 0, body.ActualHeight + 1);
+        }
+        finally
+        {
+            foreach (ReviewTagOption tag in additionalTags) vm.ReviewTags.Remove(tag);
+            window.UpdateLayout();
+        }
         foreach (int section in new[] { 1, 2, 0 })
         {
             sections.SelectedIndex = section;

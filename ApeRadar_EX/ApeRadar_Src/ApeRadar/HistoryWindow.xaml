@@ -569,24 +569,26 @@
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <ItemsControl ItemsSource="{Binding ReviewTags}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <CheckBox Content="{Binding Display}" IsChecked="{Binding IsSelected}" Margin="0,0,20,10"/>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+                            <ScrollViewer MaxHeight="52" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding ReviewTags}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox Content="{Binding Display}" IsChecked="{Binding IsSelected}" Margin="0,0,20,10"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
                                 <TextBox Width="200" MaxLength="24" Text="{Binding CustomReviewTag, UpdateSourceTrigger=PropertyChanged}" ToolTip="{DynamicResource HistoryCustomTag}"/>
                                 <Button Content="{DynamicResource HistoryAddTag}" Click="AddReviewTag_Click" Margin="8,0,0,0"/>
                             </StackPanel>
                             <Grid Grid.Row="2">
-                                <TextBox x:Name="ReviewNoteBox" Text="{Binding ReviewNote, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MaxLength="4000" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"/>
+                                <TextBox x:Name="ReviewNoteBox" MinHeight="80" Text="{Binding ReviewNote, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MaxLength="4000" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"/>
                                 <TextBlock Text="{DynamicResource HistoryReviewNoteHint}" Foreground="{StaticResource TextSecondaryBrush}" IsHitTestVisible="False" Margin="10,8">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
