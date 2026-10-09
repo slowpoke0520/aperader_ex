@@ -58,6 +58,8 @@ namespace ApeRadar.History
             for (int i = 0; i < ordered.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (!advancedMetrics.TryGetValue(ordered[i].Id,out BattleAdvancedMetrics? current) ||
+                    !MetricValue(ordered[i],current,metric,includeExperimental).HasValue) continue;
                 int first = rollingWindow <= 0 ? 0 : Math.Max(0, i - rollingWindow + 1);
                 List<double> values = new();
                 for (int j = first; j <= i; j++)

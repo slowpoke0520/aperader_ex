@@ -211,7 +211,7 @@ public sealed class HistoryRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task ReplayImport_RemovesReconnectDraftCreatedBeforeFirstSegmentWasParsed()
+    public async Task ReconnectDraft_IsMatchedEvenBeforeFirstReplaySegmentWasParsed()
     {
         SqliteHistoryRepository repository = new(DatabasePath);
         DateTimeOffset started = new(2026, 9, 11, 12, 0, 0, TimeSpan.Zero);
@@ -219,8 +219,8 @@ public sealed class HistoryRepositoryTests : IDisposable
         BattleRecord original = CreateBattle(); original.StartedAt = started; original.StatusMessage = "WaitingForReplay";
         BattleRecord reconnect = CreateBattle(); reconnect.BattleKey = "reconnect-draft"; reconnect.StartedAt = started.AddMinutes(8); reconnect.StatusMessage = "WaitingForReplay";
         long originalId = await repository.UpsertDraftAsync(original, roster, null);
-        await repository.UpsertDraftAsync(reconnect, roster, null);
-        Assert.Equal(2, (await repository.GetBattlesAsync(new HistoryQuery())).Count);
+        Assert.Equal(originalId, await repository.UpsertDraftAsync(reconnect, roster, null));
+        Assert.Single(await repository.GetBattlesAsync(new HistoryQuery()));
 
         await repository.CompleteFromReplayAsync(originalId, new ReplayParseResult
         {
@@ -378,7 +378,7 @@ public sealed class HistoryRepositoryTests : IDisposable
         BattleRecord battle = Assert.Single(await repository.GetBattlesAsync(new HistoryQuery()));
         Assert.NotNull(battle.SessionId);
         Assert.Single(await repository.GetSessionsAsync());
-        string backupPath = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v4-*.bak"));
+        string backupPath = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v6-*.bak"));
         await using SqliteConnection backupConnection = new($"Data Source={backupPath};Mode=ReadOnly");
         await backupConnection.OpenAsync();
         await using SqliteCommand backupCommand = backupConnection.CreateCommand();
@@ -403,7 +403,7 @@ public sealed class HistoryRepositoryTests : IDisposable
         {
             await connection.OpenAsync();
             await using SqliteCommand command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM SchemaMigrations WHERE Version=4; UPDATE Battles SET ShipType='';";
+            command.CommandText = "DELETE FROM SchemaMigrations WHERE Version>=4; UPDATE Battles SET ShipType='';";
             await command.ExecuteNonQueryAsync();
         }
         SqliteConnection.ClearAllPools();
@@ -415,7 +415,7 @@ public sealed class HistoryRepositoryTests : IDisposable
         Assert.Equal("Battleship", stored.ShipType);
         HistoryFilterOption ship = Assert.Single(await migrated.GetShipsAsync("ASIA", "1"));
         Assert.Equal("Battleship", ship.ShipType);
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v4-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v6-*.bak"));
     }
 
     [Fact]

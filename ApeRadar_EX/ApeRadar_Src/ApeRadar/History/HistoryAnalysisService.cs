@@ -22,6 +22,9 @@ namespace ApeRadar.History
             {
                 RecordedBattles = recorded,
                 EffectiveBattles = Convert.ToInt32(effectiveCount),
+                ResultSampleCount = Convert.ToInt32(knownResultCount),
+                DamageSampleCount = Convert.ToInt32(damageCount),
+                PrSampleCount = effective.Where(x => CalculateBattlePr(x).HasValue).Sum(x => Math.Max(1, x.BattleCount)),
                 Winrate = knownResultCount > 0 ? wins / knownResultCount : null,
                 AverageDamage = damageCount > 0 ? effective.Where(x => x.Damage.HasValue).Sum(x => x.Damage!.Value) / damageCount : null,
                 AverageDamageRating = CalculateAggregateMetricRating(effective, true),
@@ -39,7 +42,8 @@ namespace ApeRadar.History
             for (int i = 0; i < ordered.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                List<BattleRecord> window = TakeWindow(ordered, i, rollingWindow);
+                if (!HasBaseMetrics(ordered[i])) continue;
+                List<BattleRecord> window = TakeWindow(ordered, i, rollingWindow).Where(HasBaseMetrics).ToList();
                 double? value = metric switch
                 {
                     "Winrate" => WeightedAverage(window, x => x.WinCount, true),

@@ -92,7 +92,8 @@ namespace ApeRadar.Utils
             {
                 StackPanel ship = new() { Orientation = Orientation.Horizontal };
                 ship.Children.Add(new TextBlock { Text = shipName, Foreground = new SolidColorBrush(Color.FromRgb(83, 97, 116)), VerticalAlignment = VerticalAlignment.Center });
-                ship.Children.Add(new ShipTypeIconBadge { ShipType = shipType, Margin = new Thickness(4, 0, 0, 0) });
+                if (model is Player)
+                    ship.Children.Add(new ShipTypeIconBadge { ShipType = shipType, Margin = new Thickness(4, 0, 0, 0) });
                 content.Children.Add(ship);
             }
             content.Children.Add(new TextBlock { Text = value, Foreground = Brushes.Black });

@@ -46,6 +46,8 @@ namespace ApeRadar.History
         private static void AppendBattleFilters(SqliteCommand command, StringBuilder sql, HistoryQuery query)
         {
             List<string> predicates = new();
+            if (query.SingleBattlesOnly) predicates.Add("BattleCount=1 AND Source<>3");
+            if (query.FavoritesOnly) predicates.Add("EXISTS(SELECT 1 FROM BattleReviews r WHERE r.BattleId=Battles.Id AND r.IsFavorite=1)");
             if (!string.IsNullOrWhiteSpace(query.Server))
             {
                 predicates.Add("Server=$server");

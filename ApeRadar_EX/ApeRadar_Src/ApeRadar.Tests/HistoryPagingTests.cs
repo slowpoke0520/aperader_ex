@@ -102,6 +102,116 @@ public sealed class HistoryPagingTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public async Task Refresh_KeepsSelectedBattleAndCollapsedDetail_FilterClearsSelection()
+    {
+        ReadRepository repository = new();
+        using HistoryViewModel vm = CreateViewModel(repository);
+        await vm.ReloadAsync();
+        Assert.False(vm.IsBattleDetailOpen);
+        vm.SelectedBattle = vm.Rows[10];
+        await vm.BattleDetailLoadTask;
+        long selectedId = vm.SelectedBattle.Battle.Id;
+        vm.IsBattleDetailOpen = false;
+        await vm.ReloadAsync();
+        await vm.BattleDetailLoadTask;
+        Assert.Equal(selectedId, vm.SelectedBattle!.Battle.Id);
+        Assert.False(vm.IsBattleDetailOpen);
+        Assert.Equal($"Review {selectedId}", vm.ReviewNote);
+
+        vm.SelectedServer = new HistoryFilterOption { Value = "EU", Display = "EU" };
+        await vm.ReloadAsync();
+        Assert.Null(vm.SelectedBattle);
+        Assert.False(vm.IsBattleDetailOpen);
+        Assert.False(vm.CanEditBattleReview);
+        Assert.Empty(vm.ReviewNote);
+    }
+
+    [Fact]
+    public async Task RapidSelection_DoesNotApplyEarlierDetailOrSaveBeforeItLoads()
+    {
+        ReadRepository repository = new() { HeldReviewId = 240 };
+        using HistoryViewModel vm = CreateViewModel(repository);
+        await vm.ReloadAsync();
+        vm.SelectedBattle = vm.Rows[0];
+        Task earlierDetail = vm.BattleDetailLoadTask;
+        Assert.True(vm.IsBattleDetailLoading);
+        Assert.False(vm.CanEditBattleReview);
+        await vm.SaveReviewAsync();
+        Assert.Equal(0, repository.ReviewWrites);
+        vm.SelectedBattle = vm.Rows[1];
+        await vm.BattleDetailLoadTask;
+        Assert.True(vm.CanEditBattleReview);
+        Assert.Equal("Review 239", vm.ReviewNote);
+        repository.ReleaseReview.SetResult(new BattleReview { BattleId = 240, Note = "Old review" });
+        await earlierDetail;
+        Assert.Equal("Review 239", vm.ReviewNote);
+        Assert.Equal(239, vm.SelectedBattle!.Battle.Id);
+        Assert.False(vm.IsBattleDetailLoading);
+    }
+
+    [Fact]
+    public async Task ReviewDraft_SurvivesSelectionChangesAndRefreshWithoutWriting()
+    {
+        ReadRepository repository = new();
+        using HistoryViewModel vm = CreateViewModel(repository);
+        await vm.ReloadAsync();
+        vm.SelectedBattle = vm.Rows[0];
+        await vm.BattleDetailLoadTask;
+        vm.ReviewNote = "Unsaved notes";
+        vm.IsFavorite = true;
+        vm.ReviewTags[0].IsSelected = true;
+        vm.SelectedBattle = vm.Rows[1];
+        await vm.BattleDetailLoadTask;
+        Assert.Equal("Review 239", vm.ReviewNote);
+        vm.SelectedBattle = vm.Rows[0];
+        await vm.BattleDetailLoadTask;
+        await vm.ReloadAsync();
+        await vm.BattleDetailLoadTask;
+        Assert.Equal("Unsaved notes", vm.ReviewNote);
+        Assert.True(vm.IsFavorite);
+        Assert.True(vm.ReviewTags[0].IsSelected);
+        Assert.Equal(0, repository.ReviewWrites);
+    }
+
+    [Fact]
+    public async Task FailedDetailLoad_CannotOverwriteStoredReviewWithEmptyFields()
+    {
+        ReadRepository repository = new() { FailReviewRead = true };
+        using HistoryViewModel vm = CreateViewModel(repository);
+        await vm.ReloadAsync();
+        vm.SelectedBattle = vm.Rows[0];
+        await vm.BattleDetailLoadTask;
+        Assert.False(vm.IsBattleDetailLoading);
+        Assert.False(vm.CanEditBattleReview);
+        await vm.SaveReviewAsync();
+        Assert.Equal(0, repository.ReviewWrites);
+    }
+
+    [Fact]
+    public async Task HiddenExperimentalDamage_IsExplainedRatherThanReportedAsMissing()
+    {
+        bool previous = ApeRadar.Properties.Settings.Default.ShowExperimentalReplayMetrics;
+        try
+        {
+            ApeRadar.Properties.Settings.Default.ShowExperimentalReplayMetrics = false;
+            ReadRepository repository = new();
+            repository.DamageDetails.Add(new BattleDamageBreakdown { Damage = 12000, Availability = MetricAvailability.Experimental });
+            using HistoryViewModel vm = CreateViewModel(repository);
+            await vm.ReloadAsync();
+            vm.SelectedBattle = vm.Rows[0];
+            await vm.BattleDetailLoadTask;
+            Assert.Empty(vm.DamageBreakdowns);
+            Assert.Contains("experimental", vm.BattleDamageEmptyText, StringComparison.OrdinalIgnoreCase);
+            vm.SelectedBattle = null;
+            ApeRadar.Properties.Settings.Default.ShowExperimentalReplayMetrics = true;
+            vm.SelectedBattle = vm.Rows[0];
+            await vm.BattleDetailLoadTask;
+            Assert.Single(vm.DamageBreakdowns);
+        }
+        finally { ApeRadar.Properties.Settings.Default.ShowExperimentalReplayMetrics = previous; }
+    }
+
+    [Fact]
     public async Task AnalysisCancellation_StopsTheCumulativeCurve()
     {
         var records = Enumerable.Range(1, 10_000).Select(Record).ToArray();
@@ -135,9 +245,28 @@ public sealed class HistoryPagingTests(ITestOutputHelper output)
         public List<BattleRecord> Records { get; }
         public int AllReads, PageReads, CountReads;
         public bool HoldAllReads;
+        public long? HeldReviewId;
+        public int ReviewWrites;
+        public bool FailReviewRead;
+        public List<BattleDamageBreakdown> DamageDetails { get; } = new();
+        public TaskCompletionSource<BattleReview?> ReleaseReview { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource AllReadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource ReleaseAllRead { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public ReadRepository(int count = 240) => Records = Enumerable.Range(1, count).Select(Record).ToList();
+        public override Task<IReadOnlyDictionary<long, BattleAdvancedMetrics>> GetAdvancedMetricsAsync(IEnumerable<long> battleIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<long, BattleAdvancedMetrics>>(new Dictionary<long, BattleAdvancedMetrics>());
+        public override Task<IReadOnlyList<BattleDamageBreakdown>> GetDamageBreakdownsAsync(long battleId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<BattleDamageBreakdown>>(DamageDetails);
+        public override Task<IReadOnlyList<BattlePlayerRecord>> GetBattlePlayersAsync(long battleId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<BattlePlayerRecord>>(Array.Empty<BattlePlayerRecord>());
+        public override Task<BattleReview?> GetBattleReviewAsync(long battleId, CancellationToken cancellationToken = default) =>
+            FailReviewRead ? Task.FromException<BattleReview?>(new IOException("Review read failed")) :
+            battleId == HeldReviewId ? ReleaseReview.Task : Task.FromResult<BattleReview?>(new BattleReview { BattleId = battleId, Note = $"Review {battleId}" });
+        public override Task SaveBattleReviewAsync(BattleReview review, CancellationToken cancellationToken = default)
+        {
+            ReviewWrites++;
+            return Task.CompletedTask;
+        }
         private IEnumerable<BattleRecord> Query(HistoryQuery query) => Records.Where(x =>
             (string.IsNullOrEmpty(query.Server) || x.Server == query.Server) &&
             (string.IsNullOrEmpty(query.ShipId) || x.ShipId == query.ShipId));

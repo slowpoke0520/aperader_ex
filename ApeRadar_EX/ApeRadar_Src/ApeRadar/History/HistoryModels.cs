@@ -148,6 +148,8 @@ namespace ApeRadar.History
 
     internal sealed class ReplayParseResult
     {
+        public string Server { get; set; } = "";
+        public string AccountId { get; set; } = "";
         public ReplayParseStatus Status { get; init; }
         public string FileHash { get; init; } = "";
         public string GameVersion { get; init; } = "";
@@ -181,6 +183,25 @@ namespace ApeRadar.History
         public int? Limit { get; init; }
         public int Offset { get; init; }
         public bool Descending { get; init; }
+        public bool SingleBattlesOnly { get; init; }
+        public bool FavoritesOnly { get; init; }
+    }
+
+    internal sealed class ApiBattleInterval
+    {
+        public string IntervalKey { get; init; } = "";
+        public string Server { get; init; } = "";
+        public string AccountId { get; init; } = "";
+        public string AccountName { get; init; } = "";
+        public string ShipId { get; init; } = "";
+        public string ShipName { get; init; } = "";
+        public DateTimeOffset From { get; init; }
+        public DateTimeOffset To { get; init; }
+        public int BattleCount { get; init; }
+        public double? Wins { get; init; }
+        public long? Damage { get; init; }
+        public double? Frags { get; init; }
+        public bool HasCounterBounds { get; init; }
     }
 
     internal sealed class HistoryFilterOption
@@ -194,6 +215,9 @@ namespace ApeRadar.History
     {
         public int RecordedBattles { get; init; }
         public int EffectiveBattles { get; init; }
+        public int ResultSampleCount { get; init; }
+        public int DamageSampleCount { get; init; }
+        public int PrSampleCount { get; init; }
         public double? Winrate { get; init; }
         public double? AverageDamage { get; init; }
         public double? AverageDamageRating { get; init; }

@@ -149,19 +149,19 @@ namespace ApeRadar.History
                     return;
                 }
 
+                replay.Server = ResolveServer();
+                replay.AccountId = ResolveAccountId(replay.Server, replay.AccountName);
                 BattleRecord? battle = await repository.FindDraftForReplayAsync(replay, cancellationToken);
                 if (battle == null && replay.StartedAt.HasValue && !string.IsNullOrWhiteSpace(replay.AccountName) && !string.IsNullOrWhiteSpace(replay.ShipId))
                 {
-                    string server = ResolveServer();
-                    string accountId = ResolveAccountId(server, replay.AccountName);
                     battle = new BattleRecord
                     {
                         BattleKey = replay.BattleKey,
                         StartedAt = replay.StartedAt.Value,
-                        Server = server,
+                        Server = replay.Server,
                         Mode = replay.Mode,
                         MapName = replay.MapName,
-                        AccountId = accountId,
+                        AccountId = replay.AccountId,
                         AccountName = replay.AccountName,
                         ShipId = replay.ShipId,
                         ShipName = ResolveShipName(replay.ShipId),

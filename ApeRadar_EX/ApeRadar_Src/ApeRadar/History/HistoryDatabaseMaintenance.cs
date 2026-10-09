@@ -9,7 +9,7 @@ namespace ApeRadar.History
 {
     internal sealed class HistoryDatabaseMaintenance
     {
-        private const int CurrentSchemaVersion = 4;
+        private const int CurrentSchemaVersion = 6;
         private readonly string databasePath;
         private readonly string connectionString;
 
@@ -30,12 +30,13 @@ namespace ApeRadar.History
                 command.CommandText = "SELECT COALESCE(MAX(Version),0) FROM SchemaMigrations";
                 int version = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
                 if (version >= CurrentSchemaVersion) return;
-                command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
-                await command.ExecuteNonQueryAsync(cancellationToken);
-                await connection.CloseAsync();
-                SqliteConnection.ClearAllPools();
-                string backup = $"{databasePath}.pre-v{CurrentSchemaVersion}-{DateTimeOffset.Now:yyyyMMddHHmmss}.bak";
-                File.Copy(databasePath, backup, false);
+                string backup = $"{databasePath}.pre-v{CurrentSchemaVersion}-{DateTimeOffset.Now:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}.bak";
+                await using SqliteConnection destination = new(new SqliteConnectionStringBuilder
+                {
+                    DataSource = backup, Mode = SqliteOpenMode.ReadWriteCreate, Pooling = false
+                }.ToString());
+                await destination.OpenAsync(cancellationToken);
+                connection.BackupDatabase(destination);
             }
             catch (SqliteException ex) when (ex.SqliteErrorCode == 1)
             {
