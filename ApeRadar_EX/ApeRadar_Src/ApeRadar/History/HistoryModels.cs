@@ -9,7 +9,7 @@ namespace ApeRadar.History
     internal enum BattleCompleteness { Complete, Partial, Pending, Unsupported, Failed }
     internal enum ReplayParseStatus { Parsed, Partial, Unsupported, Invalid, Pending }
     internal enum MetricAvailability { Unavailable, Stable, Experimental }
-    internal enum DamageDirection { Dealt, Received }
+    internal enum DamageDirection { Dealt = 0, Received = 1, Spotting = 2 }
     internal enum DamageCategory { Unknown, Artillery, Secondary, Torpedo, Fire, Flooding, Bomb, Aircraft, DepthCharge, Other }
 
     internal sealed class BattleRecord
@@ -59,9 +59,11 @@ namespace ApeRadar.History
         public bool? Survived { get; set; }
         public double? SurvivalSeconds { get; set; }
         public long? PotentialDamage { get; set; }
+        public long? SpottingDamage { get; set; }
         public long? DamageTaken { get; set; }
         public MetricAvailability SurvivalAvailability { get; set; }
         public MetricAvailability PotentialDamageAvailability { get; set; }
+        public MetricAvailability SpottingDamageAvailability { get; set; }
         public MetricAvailability DamageTakenAvailability { get; set; }
         public string ParserSchemaVersion { get; set; } = "";
     }
@@ -228,11 +230,13 @@ namespace ApeRadar.History
         public double? SurvivalRate { get; init; }
         public double? AverageSurvivalSeconds { get; init; }
         public double? AveragePotentialDamage { get; init; }
+        public double? AverageSpottingDamage { get; init; }
         public double? AverageDamageTaken { get; init; }
         public double? AverageDamagePerMinute { get; init; }
         public double? AverageTradeRatio { get; init; }
         public int SurvivalSampleCount { get; init; }
         public int PotentialDamageSampleCount { get; init; }
+        public int SpottingDamageSampleCount { get; init; }
         public int DamageTakenSampleCount { get; init; }
     }
 

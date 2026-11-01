@@ -425,11 +425,17 @@
                 </DockPanel>
                 <Grid Grid.Row="2">
                     <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Background="{StaticResource SurfaceMutedBrush}" Margin="0,0,0,12">
-                        <UniformGrid Columns="4">
+                        <UniformGrid x:Name="BattleDetailMetricCells" Columns="5">
                             <Border Style="{StaticResource MetricCell}">
                                 <StackPanel>
                                     <TextBlock Text="{DynamicResource HistoryColumnDamage}" Style="{StaticResource MetricLabel}"/>
                                     <TextBlock Text="{Binding SelectedBattle.Damage}" Style="{StaticResource MetricValue}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource MetricCell}">
+                                <StackPanel>
+                                    <TextBlock x:Name="DetailSpottingDamageLabel" Text="{DynamicResource HistoryMetricSpottingDamage}" Style="{StaticResource MetricLabel}"/>
+                                    <TextBlock x:Name="DetailSpottingDamageValue" Text="{Binding DetailSpottingDamage}" Style="{StaticResource MetricValue}"/>
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource MetricCell}">

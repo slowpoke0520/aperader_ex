@@ -24,7 +24,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
-          .\Publish-Release.ps1 -Version $version
+          [xml]$settings = Get-Content -LiteralPath 'ApeRadar_EX/ApeRadar_Src/ApeRadar/Properties/Settings.settings' -Raw
+          $releaseDate = ($settings.SettingsFile.Settings.Setting | Where-Object Name -eq 'SoftwareDate').Value.InnerText
+          .\Publish-Release.ps1 -Version $version -ReleaseDate $releaseDate
 
       - name: Create GitHub Release
         shell: pwsh

@@ -201,6 +201,8 @@ public sealed class HistoryReconciliationTests : IDisposable
         Assert.Equal("replay-hash", battle.ReplayHash);
         Assert.Equal(2, (await migrated.GetBattlePlayersAsync(original)).Count);
         Assert.Equal(987_000, (await migrated.GetAdvancedMetricsAsync(new[] { original }))[original].PotentialDamage);
+        Assert.Equal(16_235, (await migrated.GetAdvancedMetricsAsync(new[] { original }))[original].SpottingDamage);
+        Assert.Equal(MetricAvailability.Stable, (await migrated.GetAdvancedMetricsAsync(new[] { original }))[original].SpottingDamageAvailability);
         Assert.Single(await migrated.GetDamageBreakdownsAsync(original));
         Assert.True(await migrated.HasReplayAsync("replay-hash", "test"));
         Assert.Empty(await migrated.GetDuePendingChecksAsync(DateTimeOffset.UtcNow));
@@ -210,7 +212,7 @@ public sealed class HistoryReconciliationTests : IDisposable
         Assert.Contains("Original note", review.Note);
         Assert.Contains("Replay note", review.Note);
         Assert.True(Assert.Single(await migrated.GetSessionsAsync()).IsManual);
-        string backupPath = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v6-*.bak"));
+        string backupPath = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v7-*.bak"));
         await using (SqliteConnection backup = new($"Data Source={backupPath};Mode=ReadOnly"))
         {
             await backup.OpenAsync();
@@ -229,7 +231,7 @@ public sealed class HistoryReconciliationTests : IDisposable
             Assert.Null(await command.ExecuteScalarAsync());
         }
         await new SqliteHistoryRepository(DatabasePath).InitializeAsync();
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v6-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v7-*.bak"));
     }
 
     private static BattleRecord Battle() => new()
@@ -253,7 +255,11 @@ public sealed class HistoryReconciliationTests : IDisposable
         AccountName = "Tester", ShipId = "101", MapName = "Map", RosterSignature = "other:202|tester:101",
         FileHash = "replay-hash", ParserVersion = "test", GameVersion = "15.8", Status = ReplayParseStatus.Parsed,
         Source = BattleMetricSource.ReplayDerived, Result = BattleResult.Win, Damage = 119_997, Frags = 1,
-        AdvancedMetrics = new BattleAdvancedMetrics { PotentialDamage = 987_000, PotentialDamageAvailability = MetricAvailability.Stable },
+        AdvancedMetrics = new BattleAdvancedMetrics
+        {
+            PotentialDamage = 987_000, PotentialDamageAvailability = MetricAvailability.Stable,
+            SpottingDamage = 16_235, SpottingDamageAvailability = MetricAvailability.Stable, ParserSchemaVersion = "4"
+        },
         DamageBreakdowns = new[] { new BattleDamageBreakdown { RawTypeCode = 1, Damage = 119_997, Category = DamageCategory.Artillery, Availability = MetricAvailability.Stable } }
     };
     public void Dispose()

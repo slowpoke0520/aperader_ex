@@ -188,9 +188,10 @@ namespace ApeRadar.History
                     AccountBattles,AccountWinrate,AccountPr,ShipBattles,ShipWinrate,ShipPr FROM BattlePlayers WHERE BattleId=$remove;
                 UPDATE ShipSnapshots SET BattleId=$keep WHERE BattleId=$remove;
                 UPDATE ReplayFiles SET BattleId=$keep WHERE BattleId=$remove;
-                INSERT INTO BattleAdvancedMetrics
+                INSERT INTO BattleAdvancedMetrics(BattleId,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
+                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability)
                 SELECT $keep,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
-                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion
+                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability
                 FROM BattleAdvancedMetrics WHERE BattleId=$remove
                 ON CONFLICT(BattleId) DO UPDATE SET
                     BattleDurationSeconds=COALESCE(BattleAdvancedMetrics.BattleDurationSeconds,excluded.BattleDurationSeconds),
@@ -202,8 +203,11 @@ namespace ApeRadar.History
                         THEN excluded.PotentialDamageAvailability ELSE BattleAdvancedMetrics.PotentialDamageAvailability END,
                     DamageTakenAvailability=CASE WHEN BattleAdvancedMetrics.DamageTaken IS NULL
                         THEN excluded.DamageTakenAvailability ELSE BattleAdvancedMetrics.DamageTakenAvailability END,
+                    SpottingDamageAvailability=CASE WHEN BattleAdvancedMetrics.SpottingDamage IS NULL
+                        THEN excluded.SpottingDamageAvailability ELSE BattleAdvancedMetrics.SpottingDamageAvailability END,
                     PotentialDamage=COALESCE(BattleAdvancedMetrics.PotentialDamage,excluded.PotentialDamage),
                     DamageTaken=COALESCE(BattleAdvancedMetrics.DamageTaken,excluded.DamageTaken),
+                    SpottingDamage=COALESCE(BattleAdvancedMetrics.SpottingDamage,excluded.SpottingDamage),
                     ParserSchemaVersion=CASE WHEN BattleAdvancedMetrics.ParserSchemaVersion=''
                         THEN excluded.ParserSchemaVersion ELSE BattleAdvancedMetrics.ParserSchemaVersion END;
                 INSERT OR IGNORE INTO BattleDamageBreakdowns

@@ -35,6 +35,7 @@ namespace ApeRadar.ViewModels
         public string DetailSurvival { get; private set; } = "—";
         public string DetailSurvivalTime { get; private set; } = "—";
         public string DetailPotentialDamage { get; private set; } = "—";
+        public string DetailSpottingDamage { get; private set; } = "—";
         public string DetailSource { get; private set; } = "";
         public string DetailAvailability { get; private set; } = "";
         public bool CanGoPreviousBattle => SelectedBattle != null && Rows.IndexOf(SelectedBattle) > 0;
@@ -110,11 +111,12 @@ namespace ApeRadar.ViewModels
             DetailSurvivalTime=stable ? FormatDuration(advanced?.SurvivalSeconds):"—";
             bool potential=advanced?.PotentialDamageAvailability==MetricAvailability.Stable || ShowExperimentalMetrics && advanced?.PotentialDamageAvailability==MetricAvailability.Experimental;
             DetailPotentialDamage=potential ? advanced?.PotentialDamage?.ToString("N0") ?? "—":"—";
+            DetailSpottingDamage=advanced==null ? "—" : SessionAnalysisService.MetricValue(row.Battle,advanced,"SpottingDamage",ShowExperimentalMetrics)?.ToString("N0") ?? "—";
             DetailSource=row.SourceDetail;
             DetailAvailability=string.IsNullOrWhiteSpace(row.Battle.ReplayHash) ? Resource("HistoryNoReplayNotice","No parsed replay is available; replay details cannot be shown.") : "";
             if (row.Battle.Completeness!=BattleCompleteness.Complete)
                 DetailAvailability=Resource("HistoryPartialBattleNotice","Some metrics are unavailable. Missing values are excluded from their statistics.") + " " + DetailAvailability;
-            foreach (string name in new[] { nameof(DetailSurvival),nameof(DetailSurvivalTime),nameof(DetailPotentialDamage),nameof(DetailSource),nameof(DetailAvailability),nameof(CanGoPreviousBattle),nameof(CanGoNextBattle) }) OnPropertyChanged(name);
+            foreach (string name in new[] { nameof(DetailSurvival),nameof(DetailSurvivalTime),nameof(DetailPotentialDamage),nameof(DetailSpottingDamage),nameof(DetailSource),nameof(DetailAvailability),nameof(CanGoPreviousBattle),nameof(CanGoNextBattle) }) OnPropertyChanged(name);
         }
 
         public async Task ToggleFavoriteAsync(HistoryRowViewModel? row = null)

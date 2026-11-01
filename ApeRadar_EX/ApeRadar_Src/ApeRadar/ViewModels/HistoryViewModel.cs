@@ -82,6 +82,7 @@ namespace ApeRadar.ViewModels
             MetricOptions.Add(new HistoryFilterOption { Value = "PR", Display = "PR" });
             MetricOptions.Add(new HistoryFilterOption { Value = "Survival", Display = Resource("HistoryMetricSurvival", "Survival rate") });
             MetricOptions.Add(new HistoryFilterOption { Value = "PotentialDamage", Display = Resource("HistoryMetricPotentialDamage", "Potential damage") });
+            MetricOptions.Add(new HistoryFilterOption { Value = "SpottingDamage", Display = Resource("HistoryMetricSpottingDamage", "Spotting damage") });
             MetricOptions.Add(new HistoryFilterOption { Value = "DamagePerMinute", Display = Resource("HistoryMetricDamagePerMinute", "Damage/min") });
             if (Properties.Settings.Default.ShowExperimentalReplayMetrics)
             {
@@ -536,6 +537,9 @@ namespace ApeRadar.ViewModels
                 if (metric?.PotentialDamage.HasValue == true && (metric.PotentialDamageAvailability == MetricAvailability.Stable ||
                     ShowExperimentalMetrics && metric.PotentialDamageAvailability == MetricAvailability.Experimental))
                     advancedParts.Add($"{Resource("HistoryMetricPotentialDamage", "Potential damage")}: {metric.PotentialDamage:0}");
+                if (metric?.SpottingDamage.HasValue == true && (metric.SpottingDamageAvailability == MetricAvailability.Stable ||
+                    ShowExperimentalMetrics && metric.SpottingDamageAvailability == MetricAvailability.Experimental))
+                    advancedParts.Add($"{Resource("HistoryMetricSpottingDamage", "Spotting damage")}: {metric.SpottingDamage:0}");
                 if (ShowExperimentalMetrics && metric?.DamageTaken.HasValue == true &&
                     metric.DamageTakenAvailability is MetricAvailability.Stable or MetricAvailability.Experimental)
                     advancedParts.Add($"{Resource("HistoryMetricDamageTakenExperimental", "Damage taken (experimental)")}: {metric.DamageTaken:0}");
@@ -545,6 +549,7 @@ namespace ApeRadar.ViewModels
                     : Resource("HistoryNoDamageDetails", "No damage breakdown was saved for this battle. Some replays cannot provide this data.");
                 foreach (BattleDamageBreakdown item in breakdowns)
                 {
+                    if (item.Availability == MetricAvailability.Unavailable) continue;
                     if (item.Availability == MetricAvailability.Experimental && !ShowExperimentalMetrics) continue;
                     DamageBreakdowns.Add(new DamageBreakdownRowViewModel(item));
                 }
@@ -600,10 +605,12 @@ namespace ApeRadar.ViewModels
             BattleDetailShipType = "";
             BattleDetailMetrics = "-";
             BattleDetailAdvancedSummary = "";
+            DetailSpottingDamage = "—";
             BattleDamageEmptyText = "";
             OnPropertyChanged(nameof(BattleDetailTitle));
             OnPropertyChanged(nameof(BattleDetailMetrics));
             OnPropertyChanged(nameof(BattleDetailAdvancedSummary));
+            OnPropertyChanged(nameof(DetailSpottingDamage));
             OnPropertyChanged(nameof(BattleDamageEmptyText));
         }
 
@@ -682,10 +689,11 @@ namespace ApeRadar.ViewModels
             {
                 $"{Resource("HistoryMetricSurvival", "Survival")}: {(metric.Survived.HasValue ? metric.Survived.Value ? Resource("HistorySurvived", "Survived") : Resource("HistorySunk", "Sunk") : "-")}",
                 $"{Resource("HistorySurvivalTime", "Survival time")}: {FormatDuration(metric.SurvivalSeconds)}",
-                $"{Resource("HistoryMetricPotentialDamage", "Potential damage")}: {(metric.PotentialDamage?.ToString("0") ?? "-")}"
+                $"{Resource("HistoryMetricPotentialDamage", "Potential damage")}: {(SessionAnalysisService.MetricValue(row.Battle, metric, "PotentialDamage", ShowExperimentalMetrics)?.ToString("0") ?? "-")}",
+                $"{Resource("HistoryMetricSpottingDamage", "Spotting damage")}: {(SessionAnalysisService.MetricValue(row.Battle, metric, "SpottingDamage", ShowExperimentalMetrics)?.ToString("0") ?? "-")}"
             });
             if (ShowExperimentalMetrics)
-                parts.Add($"{Resource("HistoryMetricDamageTakenExperimental", "Damage taken (experimental)")}: {(metric.DamageTaken?.ToString("0") ?? "-")}");
+                parts.Add($"{Resource("HistoryMetricDamageTakenExperimental", "Damage taken (experimental)")}: {(SessionAnalysisService.MetricValue(row.Battle, metric, "DamageTaken", true)?.ToString("0") ?? "-")}");
             return string.Join(Environment.NewLine, parts);
         }
 
@@ -850,8 +858,9 @@ namespace ApeRadar.ViewModels
                 Environment.NewLine + string.Format(Resource("HistorySourceIntervalHint", "Combined totals from {0} battles, not individual battle results."), battle.BattleCount) : "");
             Status = battle.StatusMessage ?? "";
             Survival = advanced?.Survived.HasValue == true ? advanced.Survived.Value ? Resource("HistorySurvived", "Survived") : Resource("HistorySunk", "Sunk") : "-";
-            PotentialDamage = advanced?.PotentialDamage?.ToString("0") ?? "-";
-            DamageTaken = showExperimental ? advanced?.DamageTaken?.ToString("0") ?? "-" : "-";
+            PotentialDamage = advanced == null ? "-" : SessionAnalysisService.MetricValue(battle, advanced, "PotentialDamage", showExperimental)?.ToString("0") ?? "-";
+            SpottingDamage = advanced == null ? "-" : SessionAnalysisService.MetricValue(battle, advanced, "SpottingDamage", showExperimental)?.ToString("0") ?? "-";
+            DamageTaken = showExperimental && advanced != null ? SessionAnalysisService.MetricValue(battle, advanced, "DamageTaken", true)?.ToString("0") ?? "-" : "-";
         }
         public BattleRecord Battle { get; }
         public string StartedAt { get; }
@@ -873,6 +882,7 @@ namespace ApeRadar.ViewModels
         public string Status { get; }
         public string Survival { get; }
         public string PotentialDamage { get; }
+        public string SpottingDamage { get; }
         public string DamageTaken { get; }
 
         private static string LocalizeResult(BattleResult value) => Resource($"HistoryResult{value}", value.ToString());
@@ -929,7 +939,13 @@ namespace ApeRadar.ViewModels
     {
         public DamageBreakdownRowViewModel(BattleDamageBreakdown value)
         {
-            Direction = value.Direction == DamageDirection.Dealt ? Resource("HistoryDamageDealt", "Dealt") : Resource("HistoryDamageReceived", "Received");
+            Direction = value.Direction switch
+            {
+                DamageDirection.Dealt => Resource("HistoryDamageDealt", "Dealt"),
+                DamageDirection.Received => Resource("HistoryDamageReceived", "Received"),
+                DamageDirection.Spotting => Resource("HistoryDamageSpotting", "Spotting"),
+                _ => "-"
+            };
             Type = value.Category == DamageCategory.Unknown ? $"{Resource("HistoryRawDamageType", "Type")} #{value.RawTypeCode}" : value.Category.ToString();
             Damage = value.Damage.ToString("0");
             Quality = value.Availability == MetricAvailability.Experimental ? Resource("HistoryExperimental", "Experimental") : Resource("HistoryStable", "Stable");

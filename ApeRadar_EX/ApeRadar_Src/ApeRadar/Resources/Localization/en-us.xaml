@@ -130,6 +130,7 @@
     <system:String x:Key="HistoryMetricFrags">Frags</system:String>
     <system:String x:Key="HistoryMetricSurvival">Survival rate</system:String>
     <system:String x:Key="HistoryMetricPotentialDamage">Potential damage</system:String>
+    <system:String x:Key="HistoryMetricSpottingDamage">Spotting damage</system:String>
     <system:String x:Key="HistoryMetricDamagePerMinute">Damage per minute</system:String>
     <system:String x:Key="HistoryMetricDamageTakenExperimental">Damage taken (experimental)</system:String>
     <system:String x:Key="HistoryMetricTradeRatioExperimental">Trade ratio (experimental)</system:String>
@@ -183,6 +184,7 @@
     <system:String x:Key="HistoryInsightMetricTradeRatio">trade ratio</system:String>
     <system:String x:Key="HistoryDamageDealt">Dealt</system:String>
     <system:String x:Key="HistoryDamageReceived">Received</system:String>
+    <system:String x:Key="HistoryDamageSpotting">Spotting</system:String>
     <system:String x:Key="HistoryRawDamageType">Raw type</system:String>
     <system:String x:Key="HistoryExperimental">Experimental</system:String>
     <system:String x:Key="HistoryStable">Stable</system:String>

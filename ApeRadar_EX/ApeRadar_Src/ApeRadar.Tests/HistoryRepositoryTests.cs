@@ -378,7 +378,7 @@ public sealed class HistoryRepositoryTests : IDisposable
         BattleRecord battle = Assert.Single(await repository.GetBattlesAsync(new HistoryQuery()));
         Assert.NotNull(battle.SessionId);
         Assert.Single(await repository.GetSessionsAsync());
-        string backupPath = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v6-*.bak"));
+        string backupPath = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v7-*.bak"));
         await using SqliteConnection backupConnection = new($"Data Source={backupPath};Mode=ReadOnly");
         await backupConnection.OpenAsync();
         await using SqliteCommand backupCommand = backupConnection.CreateCommand();
@@ -415,7 +415,7 @@ public sealed class HistoryRepositoryTests : IDisposable
         Assert.Equal("Battleship", stored.ShipType);
         HistoryFilterOption ship = Assert.Single(await migrated.GetShipsAsync("ASIA", "1"));
         Assert.Equal("Battleship", ship.ShipType);
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v6-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v7-*.bak"));
     }
 
     [Fact]

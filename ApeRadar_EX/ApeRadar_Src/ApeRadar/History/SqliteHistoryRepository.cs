@@ -239,6 +239,7 @@ namespace ApeRadar.History
             await ExecuteAsync(connection, null, "INSERT OR IGNORE INTO SchemaMigrations(Version, AppliedAt) VALUES(4, strftime('%Y-%m-%dT%H:%M:%fZ','now'));", cancellationToken);
             // Preserve interval totals before reconciliation can replace them with single-battle data.
             await CreateHistoryCenterSchemaAsync(connection, cancellationToken);
+            await MigrateSpottingDamageAsync(connection, cancellationToken);
             await ReconcileLegacyBattlesAsync(connection, cancellationToken);
             await BackfillSessionsAsync(connection, cancellationToken);
         }
@@ -260,9 +261,10 @@ namespace ApeRadar.History
             }
         }
 
-        private static async Task<bool> ColumnExistsAsync(SqliteConnection connection, string table, string column, CancellationToken cancellationToken)
+        private static async Task<bool> ColumnExistsAsync(SqliteConnection connection, string table, string column, CancellationToken cancellationToken, SqliteTransaction? transaction = null)
         {
             await using SqliteCommand command = connection.CreateCommand();
+            command.Transaction = transaction;
             command.CommandText = $"PRAGMA table_info({table})";
             await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
@@ -794,23 +796,25 @@ namespace ApeRadar.History
         private static async Task UpsertAdvancedMetricsAsync(SqliteConnection connection, SqliteTransaction transaction, BattleAdvancedMetrics metrics, CancellationToken cancellationToken)
         {
             bool hasAnyMetric = metrics.BattleDurationSeconds.HasValue || metrics.Survived.HasValue || metrics.SurvivalSeconds.HasValue ||
-                                metrics.PotentialDamage.HasValue || metrics.DamageTaken.HasValue;
+                                metrics.PotentialDamage.HasValue || metrics.SpottingDamage.HasValue || metrics.DamageTaken.HasValue;
             if (!hasAnyMetric) return;
             await ExecuteAsync(connection, transaction, """
                 INSERT INTO BattleAdvancedMetrics(BattleId,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
-                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion)
-                VALUES($id,$duration,$survived,$survival,$potential,$taken,$survivalAvailability,$potentialAvailability,$takenAvailability,$schema)
+                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability)
+                VALUES($id,$duration,$survived,$survival,$potential,$taken,$survivalAvailability,$potentialAvailability,$takenAvailability,$schema,$spotting,$spottingAvailability)
                 ON CONFLICT(BattleId) DO UPDATE SET
                     BattleDurationSeconds=excluded.BattleDurationSeconds,Survived=excluded.Survived,SurvivalSeconds=excluded.SurvivalSeconds,
                     PotentialDamage=excluded.PotentialDamage,DamageTaken=excluded.DamageTaken,
                     SurvivalAvailability=excluded.SurvivalAvailability,PotentialDamageAvailability=excluded.PotentialDamageAvailability,
-                    DamageTakenAvailability=excluded.DamageTakenAvailability,ParserSchemaVersion=excluded.ParserSchemaVersion
+                    DamageTakenAvailability=excluded.DamageTakenAvailability,ParserSchemaVersion=excluded.ParserSchemaVersion,
+                    SpottingDamage=excluded.SpottingDamage,SpottingDamageAvailability=excluded.SpottingDamageAvailability
                 """, cancellationToken,
                 ("$id", metrics.BattleId), ("$duration", metrics.BattleDurationSeconds),
                 ("$survived", metrics.Survived.HasValue ? metrics.Survived.Value ? 1 : 0 : null),
                 ("$survival", metrics.SurvivalSeconds), ("$potential", metrics.PotentialDamage), ("$taken", metrics.DamageTaken),
                 ("$survivalAvailability", (int)metrics.SurvivalAvailability), ("$potentialAvailability", (int)metrics.PotentialDamageAvailability),
-                ("$takenAvailability", (int)metrics.DamageTakenAvailability), ("$schema", metrics.ParserSchemaVersion));
+                ("$takenAvailability", (int)metrics.DamageTakenAvailability), ("$schema", metrics.ParserSchemaVersion),
+                ("$spotting", metrics.SpottingDamage), ("$spottingAvailability", (int)metrics.SpottingDamageAvailability));
         }
 
         private static Task InsertDamageBreakdownAsync(SqliteConnection connection, SqliteTransaction transaction, BattleDamageBreakdown breakdown, CancellationToken cancellationToken) =>
@@ -1015,9 +1019,11 @@ namespace ApeRadar.History
             Survived = reader.IsDBNull(reader.GetOrdinal("Survived")) ? null : reader.GetInt32(reader.GetOrdinal("Survived")) != 0,
             SurvivalSeconds = reader.IsDBNull(reader.GetOrdinal("SurvivalSeconds")) ? null : reader.GetDouble(reader.GetOrdinal("SurvivalSeconds")),
             PotentialDamage = reader.IsDBNull(reader.GetOrdinal("PotentialDamage")) ? null : reader.GetInt64(reader.GetOrdinal("PotentialDamage")),
+            SpottingDamage = reader.IsDBNull(reader.GetOrdinal("SpottingDamage")) ? null : reader.GetInt64(reader.GetOrdinal("SpottingDamage")),
             DamageTaken = reader.IsDBNull(reader.GetOrdinal("DamageTaken")) ? null : reader.GetInt64(reader.GetOrdinal("DamageTaken")),
             SurvivalAvailability = (MetricAvailability)reader.GetInt32(reader.GetOrdinal("SurvivalAvailability")),
             PotentialDamageAvailability = (MetricAvailability)reader.GetInt32(reader.GetOrdinal("PotentialDamageAvailability")),
+            SpottingDamageAvailability = (MetricAvailability)reader.GetInt32(reader.GetOrdinal("SpottingDamageAvailability")),
             DamageTakenAvailability = (MetricAvailability)reader.GetInt32(reader.GetOrdinal("DamageTakenAvailability")),
             ParserSchemaVersion = reader.GetString(reader.GetOrdinal("ParserSchemaVersion"))
         };

@@ -46,58 +46,19 @@ public sealed class HistoryWindowSmokeTests
                         {
                             Source = new Uri("/ApeRadar;component/Resources/Styles/ModernLight.xaml", UriKind.Relative)
                         });
+                        // Opt-in isolation for history layout checks. Normal test runs keep every
+                        // main-window, dashboard and real-pointer regression below.
+                        if (Environment.GetEnvironmentVariable("APERADAR_HISTORY_LAYOUT_ONLY") == "1")
+                        {
+                            progress = $"{language}: history-only layout";
+                            ValidateHistoryWindowLayout(language);
+                            continue;
+                        }
                         ValidateShipTypePresentation(language);
                         progress = $"{language}: player detail numbers";
                         PlayerDetailCardLayoutAssertions.Verify(language);
                         progress = $"{language}: history window";
-                        bool previousShipTypeIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
-                        ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
-                        HistoryAnalysisService historyAnalysis = new();
-                        HistoryServices historyWindowServices = new(new HistoryPagingTests.ReadRepository(), historyAnalysis,
-                            new SessionAnalysisService(historyAnalysis), new ImprovementInsightService(historyAnalysis),
-                            () => new HistoryPagingTests.IdleTrackingCoordinator());
-                        HistoryWindow window = new(historyWindowServices, initializeOnLoaded: false);
-                        Assert.Same(historyWindowServices, window.HistoryServices);
-                        Assert.Equal(0, window.HistoryTabs.SelectedIndex);
-                        HistoryViewModel viewModel = Assert.IsType<HistoryViewModel>(window.DataContext);
-                        // Actual table rows cover complete, partial, metadata-only and failed imports.
-                        BattleRecord[] examples = Enumerable.Range(1, 12).Select(HistoryPagingTests.Record).ToArray();
-                        examples[0].Completeness = BattleCompleteness.Partial;
-                        examples[0].Source = BattleMetricSource.ApiMerged;
-                        examples[0].StatusMessage = "API merged results; partial metrics";
-                        examples[1].Completeness = BattleCompleteness.Pending;
-                        examples[1].Source = BattleMetricSource.MetadataOnly;
-                        examples[1].Damage = null;
-                        examples[1].Frags = null;
-                        examples[1].WinCount = null;
-                        foreach (BattleRecord example in examples)
-                            viewModel.Rows.Add(new HistoryRowViewModel(example, null, null, null));
-                        viewModel.ApplyCurrentSession(CreateOneBattleSession());
-                        Assert.Equal(HistorySampleTier.VerySmall, HistoryViewModel.ClassifySample(1));
-                        Assert.DoesNotContain("100", viewModel.CurrentSessionWinrateText, StringComparison.OrdinalIgnoreCase);
-                        window.Show();
-                        Assert.IsType<TabItem>(window.FindName("ManagementTab")).Visibility = Visibility.Visible;
-                        foreach ((double width, double height) in new[] { (860d, 620d), (1000d, 700d), (1180d, 760d) })
-                        {
-                            window.Width = width;
-                            window.Height = height;
-                            for (int tab = 0; tab < window.HistoryTabs.Items.Count; tab++)
-                            {
-                                window.HistoryTabs.SelectedIndex = tab;
-                                window.UpdateLayout();
-                                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-                                AssertChildrenDoNotOverlap(window, Assert.IsAssignableFrom<Panel>(window.FindName("HistoryFilters")));
-                                AssertChildrenDoNotOverlap(window, Assert.IsAssignableFrom<Panel>(window.FindName("HistoryFooterButtons")));
-                                AssertChildrenDoNotOverlap(window, Assert.IsAssignableFrom<Panel>(window.FindName("TrendSummaryCards")));
-                                foreach (ComboBox combo in FindVisualChildren<ComboBox>(window).Where(c => c.SelectedItem != null))
-                                    AssertSelectorText(combo);
-                                SaveSnapshotIfRequested(window, language, width, height, tab);
-                                if (tab == 0) ValidateRecordDetails(window, viewModel, language);
-                            }
-                        }
-                        window.Close();
-                        historyWindowServices.DisposeAsync().AsTask().GetAwaiter().GetResult();
-                        ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = previousShipTypeIconSetting;
+                        ValidateHistoryWindowLayout(language);
                         ValidateRealHistoryCopyIfRequested(language);
                         progress = $"{language}: note tag layouts";
                         NoteTagsLayoutAssertions.Verify(language, historyServices);
@@ -133,6 +94,73 @@ public sealed class HistoryWindowSmokeTests
         Assert.True(thread.Join(TimeSpan.FromSeconds(120)), $"The UI smoke test did not complete in time; last stage: {progress}.");
         Assert.Null(error);
         Assert.Null(Application.Current);
+    }
+
+    private static void ValidateHistoryWindowLayout(string language)
+    {
+        bool previousShipTypeIconSetting = ApeRadar.Properties.Settings.Default.ShowShipTypeIcon;
+        ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = true;
+        HistoryAnalysisService historyAnalysis = new();
+        HistoryPagingTests.ReadRepository historyRepository = new();
+        historyRepository.AdvancedMetrics.Add(3, new BattleAdvancedMetrics
+        {
+            BattleId = 3, SpottingDamage = 1_234_567, SpottingDamageAvailability = MetricAvailability.Stable,
+            DamageTakenAvailability = MetricAvailability.Unavailable, ParserSchemaVersion = "4"
+        });
+        HistoryServices historyWindowServices = new(historyRepository, historyAnalysis,
+            new SessionAnalysisService(historyAnalysis), new ImprovementInsightService(historyAnalysis),
+            () => new HistoryPagingTests.IdleTrackingCoordinator());
+        HistoryWindow? window = null;
+        try
+        {
+            window = new(historyWindowServices, initializeOnLoaded: false);
+            Assert.Same(historyWindowServices, window.HistoryServices);
+            Assert.Equal(0, window.HistoryTabs.SelectedIndex);
+            HistoryViewModel viewModel = Assert.IsType<HistoryViewModel>(window.DataContext);
+            Assert.Equal(language == "zh-cn" ? "侦察伤害" : "Spotting damage",
+                viewModel.MetricOptions.Single(x => x.Value == "SpottingDamage").Display);
+            // Actual table rows cover complete, partial, metadata-only and failed imports.
+            BattleRecord[] examples = Enumerable.Range(1, 12).Select(HistoryPagingTests.Record).ToArray();
+            examples[0].Completeness = BattleCompleteness.Partial;
+            examples[0].Source = BattleMetricSource.ApiMerged;
+            examples[0].StatusMessage = "API merged results; partial metrics";
+            examples[1].Completeness = BattleCompleteness.Pending;
+            examples[1].Source = BattleMetricSource.MetadataOnly;
+            examples[1].Damage = null;
+            examples[1].Frags = null;
+            examples[1].WinCount = null;
+            foreach (BattleRecord example in examples)
+                viewModel.Rows.Add(new HistoryRowViewModel(example, null, null, null));
+            viewModel.ApplyCurrentSession(CreateOneBattleSession());
+            Assert.Equal(HistorySampleTier.VerySmall, HistoryViewModel.ClassifySample(1));
+            Assert.DoesNotContain("100", viewModel.CurrentSessionWinrateText, StringComparison.OrdinalIgnoreCase);
+            window.Show();
+            Assert.IsType<TabItem>(window.FindName("ManagementTab")).Visibility = Visibility.Visible;
+            foreach ((double width, double height) in new[] { (860d, 620d), (1000d, 700d), (1180d, 760d) })
+            {
+                window.Width = width;
+                window.Height = height;
+                for (int tab = 0; tab < window.HistoryTabs.Items.Count; tab++)
+                {
+                    window.HistoryTabs.SelectedIndex = tab;
+                    window.UpdateLayout();
+                    window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                    AssertChildrenDoNotOverlap(window, Assert.IsAssignableFrom<Panel>(window.FindName("HistoryFilters")));
+                    AssertChildrenDoNotOverlap(window, Assert.IsAssignableFrom<Panel>(window.FindName("HistoryFooterButtons")));
+                    AssertChildrenDoNotOverlap(window, Assert.IsAssignableFrom<Panel>(window.FindName("TrendSummaryCards")));
+                    foreach (ComboBox combo in FindVisualChildren<ComboBox>(window).Where(c => c.SelectedItem != null))
+                        AssertSelectorText(combo);
+                    SaveSnapshotIfRequested(window, language, width, height, tab);
+                    if (tab == 0) ValidateRecordDetails(window, viewModel, language);
+                }
+            }
+        }
+        finally
+        {
+            window?.Close();
+            historyWindowServices.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            ApeRadar.Properties.Settings.Default.ShowShipTypeIcon = previousShipTypeIconSetting;
+        }
     }
 
     [Fact]
@@ -280,6 +308,18 @@ public sealed class HistoryWindowSmokeTests
         Assert.True(body.IsVisible);
         Assert.False(records.IsVisible);
         Assert.True(body.ActualHeight > 400, "Single-battle details use the full page instead of squeezing the list.");
+        TextBlock spottingLabel = Assert.IsType<TextBlock>(window.FindName("DetailSpottingDamageLabel"));
+        TextBlock spottingValue = Assert.IsType<TextBlock>(window.FindName("DetailSpottingDamageValue"));
+        Assert.Equal(language == "zh-cn" ? "侦察伤害" : "Spotting damage", spottingLabel.Text);
+        Assert.Equal(1_234_567L.ToString("N0"), spottingValue.Text);
+        foreach (TextBlock metric in FindVisualChildren<TextBlock>(Assert.IsAssignableFrom<Panel>(window.FindName("BattleDetailMetricCells"))))
+        {
+            FormattedText measured = new(metric.Text, CultureInfo.CurrentCulture, metric.FlowDirection,
+                new Typeface(metric.FontFamily, metric.FontStyle, metric.FontWeight, metric.FontStretch),
+                metric.FontSize, metric.Foreground, VisualTreeHelper.GetDpi(metric).PixelsPerDip);
+            Assert.True(measured.WidthIncludingTrailingWhitespace <= metric.ActualWidth + 1,
+                $"Detail metric '{metric.Text}' must fit at {window.Width}x{window.Height}: {measured.WidthIncludingTrailingWhitespace} > {metric.ActualWidth}.");
+        }
         Button save = Assert.IsType<Button>(window.FindName("SaveReviewButton"));
         TextBox note = Assert.IsType<TextBox>(window.FindName("ReviewNoteBox"));
         TabControl sections = Assert.IsType<TabControl>(window.FindName("BattleDetailTabs"));

@@ -85,25 +85,86 @@ public sealed class ReplayParserAdapterTests : IDisposable
     }
 
     [Fact]
-    public void DamageStats_KeepEnemyPotentialAndExperimentalReceivedDamageSeparate()
+    public void DamageStats_KeepSpottingSeparateFromEnemyPotentialAndDamageTaken()
     {
         BattleHistoryReplay replay = new();
         byte[] enemyDamage = Convert.FromHexString("80027D71014B024B008671025D7103284B03474095A8000000000065732E");
         byte[] potentialDamage = Convert.FromHexString("80027D71014B204B038671025D7103284B054740F136400000000065732E");
-        byte[] receivedDamage = Convert.FromHexString("80027D71014B204B028671025D7103284B054740F136400000000065732E");
+        byte[] spottingDamage = Convert.FromHexString("80027D71014B204B028671025D7103284B054740F136400000000065732E");
 
         BattleHistoryReplayController.ApplyDamageStats(replay, enemyDamage);
         BattleHistoryReplayController.ApplyDamageStats(replay, potentialDamage);
-        BattleHistoryReplayController.ApplyDamageStats(replay, receivedDamage);
+        BattleHistoryReplayController.ApplyDamageStats(replay, spottingDamage);
 
         Assert.True(replay.DamageStatsSeen);
         Assert.Empty(replay.DamageStatsError);
         Assert.Equal(1386, NodsoftReplayParserAdapter.FindDamage(replay));
         BattleAdvancedMetrics advanced = NodsoftReplayParserAdapter.FindAdvancedMetrics(replay);
-        Assert.NotNull(advanced.PotentialDamage);
-        Assert.NotNull(advanced.DamageTaken);
+        Assert.Equal(70_500, advanced.PotentialDamage);
+        Assert.Equal(70_500, advanced.SpottingDamage);
+        Assert.Null(advanced.DamageTaken);
         Assert.Equal(MetricAvailability.Stable, advanced.PotentialDamageAvailability);
-        Assert.Equal(MetricAvailability.Experimental, advanced.DamageTakenAvailability);
+        Assert.Equal(MetricAvailability.Stable, advanced.SpottingDamageAvailability);
+        Assert.Equal(MetricAvailability.Unavailable, advanced.DamageTakenAvailability);
+        Assert.Equal("4", advanced.ParserSchemaVersion);
+
+        var breakdowns = NodsoftReplayParserAdapter.FindDamageBreakdowns(replay);
+        Assert.Equal(1386, Assert.Single(breakdowns, x => x.Direction == DamageDirection.Dealt).Damage);
+        Assert.Equal(70_500, Assert.Single(breakdowns, x => x.Direction == DamageDirection.Spotting).Damage);
+        Assert.DoesNotContain(breakdowns, x => x.Direction == DamageDirection.Received);
+        Assert.All(breakdowns, x => Assert.Equal(DamageCategory.Unknown, x.Category));
+
+        BattleRecord battle = new() { Damage = 100_000 };
+        Assert.Null(SessionAnalysisService.MetricValue(battle, advanced, "DamageTaken", true));
+        Assert.Null(SessionAnalysisService.MetricValue(battle, advanced, "TradeRatio", true));
+    }
+
+    [Fact]
+    public void SpottingDamage_ObservedZeroIsDifferentFromMissingStatistics()
+    {
+        BattleHistoryReplay missing = new();
+        BattleAdvancedMetrics missingMetrics = NodsoftReplayParserAdapter.FindAdvancedMetrics(missing);
+        Assert.Null(missingMetrics.SpottingDamage);
+        Assert.Equal(MetricAvailability.Unavailable, missingMetrics.SpottingDamageAvailability);
+
+        BattleHistoryReplay zero = new();
+        // Pickle {(32, 2): [5, 0.0]}: the category was observed, with a known zero.
+        BattleHistoryReplayController.ApplyDamageStats(zero,
+            Convert.FromHexString("80027D71014B204B028671025D7103284B0547000000000000000065732E"));
+        BattleAdvancedMetrics zeroMetrics = NodsoftReplayParserAdapter.FindAdvancedMetrics(zero);
+        Assert.Equal(0, zeroMetrics.SpottingDamage);
+        Assert.Equal(MetricAvailability.Stable, zeroMetrics.SpottingDamageAvailability);
+        Assert.Null(zeroMetrics.DamageTaken);
+        Assert.Equal(0, Assert.Single(NodsoftReplayParserAdapter.FindDamageBreakdowns(zero)).Damage);
+    }
+
+    [Fact]
+    public void SpottingDamage_CumulativeUpdatesDoNotDoubleCountOrAffectOutput()
+    {
+        BattleHistoryReplay replay = new();
+        byte[] spottingDamage = Convert.FromHexString("80027D71014B204B028671025D7103284B054740F136400000000065732E");
+        BattleHistoryReplayController.ApplyDamageStats(replay, spottingDamage);
+        BattleHistoryReplayController.ApplyDamageStats(replay, spottingDamage);
+        Assert.Equal(70_500, NodsoftReplayParserAdapter.FindAdvancedMetrics(replay).SpottingDamage);
+        Assert.Empty(replay.EnemyDamageByType);
+        Assert.Null(NodsoftReplayParserAdapter.FindAdvancedMetrics(replay).PotentialDamage);
+        Assert.Single(NodsoftReplayParserAdapter.FindDamageBreakdowns(replay));
+    }
+
+    [Fact]
+    public void SpottingDamage_InvalidStatisticsInvalidateValuesAndBreakdowns()
+    {
+        BattleHistoryReplay replay = new();
+        BattleHistoryReplayController.ApplyDamageStats(replay,
+            Convert.FromHexString("80027D71014B204B028671025D7103284B054740F136400000000065732E"));
+        // Valid Pickle with the wrong shape: [1, 2], not a statistics dictionary.
+        BattleHistoryReplayController.ApplyDamageStats(replay, Convert.FromHexString("80025D284B014B02652E"));
+        BattleAdvancedMetrics advanced = NodsoftReplayParserAdapter.FindAdvancedMetrics(replay);
+        Assert.NotEmpty(replay.DamageStatsError);
+        Assert.Null(advanced.SpottingDamage);
+        Assert.Null(advanced.DamageTaken);
+        Assert.Equal(MetricAvailability.Unavailable, advanced.SpottingDamageAvailability);
+        Assert.Empty(NodsoftReplayParserAdapter.FindDamageBreakdowns(replay));
     }
 
     [Theory]

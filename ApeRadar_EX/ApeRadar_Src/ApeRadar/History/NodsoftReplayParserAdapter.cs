@@ -22,7 +22,7 @@ namespace ApeRadar.History
 {
     internal sealed class NodsoftReplayParserAdapter : IReplayParser, IDisposable
     {
-        internal const string AdvancedSchemaVersion = "3";
+        internal const string AdvancedSchemaVersion = "4";
         private readonly ServiceProvider services;
         private readonly IReplayUnpackerFactory factory;
 
@@ -195,8 +195,8 @@ namespace ApeRadar.History
             long? potential = damageStatsValid && replay.DamageStatisticTypesSeen.Contains(3)
                 ? SumDamage(replay.PotentialDamageByType)
                 : null;
-            long? taken = damageStatsValid && replay.DamageStatisticTypesSeen.Contains(2)
-                ? SumDamage(replay.ReceivedDamageByType)
+            long? spotting = damageStatsValid && replay.DamageStatisticTypesSeen.Contains(2)
+                ? SumDamage(replay.SpottingDamageByType)
                 : null;
 
             return new BattleAdvancedMetrics
@@ -205,10 +205,14 @@ namespace ApeRadar.History
                 Survived = survived,
                 SurvivalSeconds = survivalSeconds,
                 PotentialDamage = potential,
-                DamageTaken = taken,
+                SpottingDamage = spotting,
+                // receiveDamageStat has no damage-taken category. Keep this unknown until
+                // a separately validated battle-results source is integrated.
+                DamageTaken = null,
                 SurvivalAvailability = survived.HasValue ? MetricAvailability.Stable : MetricAvailability.Unavailable,
                 PotentialDamageAvailability = potential.HasValue ? MetricAvailability.Stable : MetricAvailability.Unavailable,
-                DamageTakenAvailability = taken.HasValue ? MetricAvailability.Experimental : MetricAvailability.Unavailable,
+                SpottingDamageAvailability = spotting.HasValue ? MetricAvailability.Stable : MetricAvailability.Unavailable,
+                DamageTakenAvailability = MetricAvailability.Unavailable,
                 ParserSchemaVersion = AdvancedSchemaVersion
             };
         }
@@ -218,7 +222,7 @@ namespace ApeRadar.History
             if (!string.IsNullOrWhiteSpace(replay.DamageStatsError)) return Array.Empty<BattleDamageBreakdown>();
             List<BattleDamageBreakdown> result = new();
             AddBreakdowns(result, replay.EnemyDamageByType, DamageDirection.Dealt);
-            AddBreakdowns(result, replay.ReceivedDamageByType, DamageDirection.Received);
+            AddBreakdowns(result, replay.SpottingDamageByType, DamageDirection.Spotting);
             return result;
         }
 

@@ -42,6 +42,6 @@ namespace ApeRadar.History
         }, cancellationToken);
 
         internal static bool RequiresAdvancedMetrics(string metric) => metric is
-            "Survival" or "PotentialDamage" or "DamagePerMinute" or "DamageTaken" or "TradeRatio";
+            "Survival" or "PotentialDamage" or "SpottingDamage" or "DamagePerMinute" or "DamageTaken" or "TradeRatio";
     }
 }
