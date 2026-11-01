@@ -44,11 +44,13 @@ namespace ApeRadar.Utils
         static readonly ConcurrentDictionary<string, SemaphoreSlim> OriginSemaphores = new(StringComparer.OrdinalIgnoreCase);
         static readonly ConcurrentDictionary<string, SharedTextRequest> InflightGetRequests = new(StringComparer.Ordinal);
 
+        private static readonly RefreshableWebProxy proxy = new();
         static readonly HttpClientHandler handler = new()
         {
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
             MaxConnectionsPerServer = MaxConcurrentRequestsPerOrigin,
             UseCookies = false,
+            Proxy = proxy,
         };
 
         static readonly HttpClient hc = new(handler)
@@ -98,7 +100,7 @@ namespace ApeRadar.Utils
                 {
                     request.Content = new StringContent(content, Encoding.UTF8, mediaType ?? "application/json");
                 }
-                using HttpResponseMessage response = await hc.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+                using HttpResponseMessage response = await SendWithCurrentProxyAsync(request, token).ConfigureAwait(false);
                 await EnsureSuccessAsync(response).ConfigureAwait(false);
                 return await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
             }, method == HttpMethod.Get, cancellationToken).ConfigureAwait(false);
@@ -110,7 +112,7 @@ namespace ApeRadar.Utils
             return await ExecuteWithRetryAsync(uri, async token =>
             {
                 using HttpRequestMessage request = new(HttpMethod.Get, uri);
-                using HttpResponseMessage response = await hc.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+                using HttpResponseMessage response = await SendWithCurrentProxyAsync(request, token).ConfigureAwait(false);
                 await EnsureSuccessAsync(response).ConfigureAwait(false);
                 string temporaryFilename = $"{filename}.download";
                 try
@@ -126,6 +128,20 @@ namespace ApeRadar.Utils
                     if (File.Exists(temporaryFilename)) File.Delete(temporaryFilename);
                 }
             }, true, cancellationToken).ConfigureAwait(false);
+        }
+
+        private static async Task<HttpResponseMessage> SendWithCurrentProxyAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            using RefreshableWebProxy.RequestScope route = proxy.BeginRequest();
+            try
+            {
+                return await hc.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex)
+            {
+                route.ReportFailure(ex);
+                throw;
+            }
         }
 
         private static async Task<T> ExecuteWithRetryAsync<T>(Uri uri, Func<CancellationToken, Task<T>> operation, bool isGet, CancellationToken cancellationToken)

@@ -130,6 +130,7 @@
     <system:String x:Key="HistoryMetricFrags">击沉</system:String>
     <system:String x:Key="HistoryMetricSurvival">生存率</system:String>
     <system:String x:Key="HistoryMetricPotentialDamage">潜在伤害</system:String>
+    <system:String x:Key="HistoryMetricSpottingDamage">侦察伤害</system:String>
     <system:String x:Key="HistoryMetricDamagePerMinute">每分钟伤害</system:String>
     <system:String x:Key="HistoryMetricDamageTakenExperimental">承受伤害（实验性）</system:String>
     <system:String x:Key="HistoryMetricTradeRatioExperimental">伤害交换比（实验性）</system:String>
@@ -183,6 +184,7 @@
     <system:String x:Key="HistoryInsightMetricTradeRatio">伤害交换比</system:String>
     <system:String x:Key="HistoryDamageDealt">输出</system:String>
     <system:String x:Key="HistoryDamageReceived">承受</system:String>
+    <system:String x:Key="HistoryDamageSpotting">侦察</system:String>
     <system:String x:Key="HistoryRawDamageType">原始类型</system:String>
     <system:String x:Key="HistoryExperimental">实验性</system:String>
     <system:String x:Key="HistoryStable">稳定</system:String>

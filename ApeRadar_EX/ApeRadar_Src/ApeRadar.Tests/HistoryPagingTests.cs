@@ -249,12 +249,13 @@ public sealed class HistoryPagingTests(ITestOutputHelper output)
         public int ReviewWrites;
         public bool FailReviewRead;
         public List<BattleDamageBreakdown> DamageDetails { get; } = new();
+        public Dictionary<long, BattleAdvancedMetrics> AdvancedMetrics { get; } = new();
         public TaskCompletionSource<BattleReview?> ReleaseReview { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource AllReadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource ReleaseAllRead { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public ReadRepository(int count = 240) => Records = Enumerable.Range(1, count).Select(Record).ToList();
         public override Task<IReadOnlyDictionary<long, BattleAdvancedMetrics>> GetAdvancedMetricsAsync(IEnumerable<long> battleIds, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyDictionary<long, BattleAdvancedMetrics>>(new Dictionary<long, BattleAdvancedMetrics>());
+            Task.FromResult<IReadOnlyDictionary<long, BattleAdvancedMetrics>>(AdvancedMetrics.Where(x => battleIds.Contains(x.Key)).ToDictionary(x => x.Key, x => x.Value));
         public override Task<IReadOnlyList<BattleDamageBreakdown>> GetDamageBreakdownsAsync(long battleId, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<BattleDamageBreakdown>>(DamageDetails);
         public override Task<IReadOnlyList<BattlePlayerRecord>> GetBattlePlayersAsync(long battleId, CancellationToken cancellationToken = default) =>

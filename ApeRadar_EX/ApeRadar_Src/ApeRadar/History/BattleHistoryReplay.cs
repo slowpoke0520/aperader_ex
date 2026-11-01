@@ -21,7 +21,7 @@ namespace ApeRadar.History
         public string VehicleDeathsError { get; set; } = "";
         public Dictionary<int, double> EnemyDamageByType { get; } = new();
         public Dictionary<int, double> PotentialDamageByType { get; } = new();
-        public Dictionary<int, double> ReceivedDamageByType { get; } = new();
+        public Dictionary<int, double> SpottingDamageByType { get; } = new();
         public HashSet<int> DamageStatisticTypesSeen { get; } = new();
         public List<VehicleDeathEvent> VehicleDeaths { get; } = new();
         public float LastPacketTime { get; set; }
@@ -84,7 +84,8 @@ namespace ApeRadar.History
                     Dictionary<int, double>? target = statisticsType switch
                     {
                         0 => replay.EnemyDamageByType,
-                        2 => replay.ReceivedDamageByType,
+                        // Category 2 is damage allies deal to targets we spot, not damage taken.
+                        2 => replay.SpottingDamageByType,
                         3 => replay.PotentialDamageByType,
                         _ => null
                     };

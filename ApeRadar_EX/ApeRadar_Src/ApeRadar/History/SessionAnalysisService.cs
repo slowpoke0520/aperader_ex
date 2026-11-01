@@ -17,6 +17,7 @@ namespace ApeRadar.History
             List<BattleAdvancedMetrics> metrics = battles.Where(x => advancedMetrics.ContainsKey(x.Id)).Select(x => advancedMetrics[x.Id]).ToList();
             List<BattleAdvancedMetrics> survival = metrics.Where(x => x.Survived.HasValue && Available(x.SurvivalAvailability, includeExperimental)).ToList();
             List<BattleAdvancedMetrics> potential = metrics.Where(x => x.PotentialDamage.HasValue && Available(x.PotentialDamageAvailability, includeExperimental)).ToList();
+            List<BattleAdvancedMetrics> spotting = metrics.Where(x => x.SpottingDamage.HasValue && Available(x.SpottingDamageAvailability, includeExperimental)).ToList();
             List<BattleAdvancedMetrics> taken = metrics.Where(x => x.DamageTaken.HasValue && Available(x.DamageTakenAvailability, includeExperimental)).ToList();
             List<double> damagePerMinute = CalculatePerBattle(battles, advancedMetrics, DamagePerMinute, includeExperimental);
             List<double> tradeRatios = CalculatePerBattle(battles, advancedMetrics, TradeRatio, includeExperimental);
@@ -35,11 +36,13 @@ namespace ApeRadar.History
                 SurvivalRate = survival.Count > 0 ? survival.Count(x => x.Survived == true) / (double)survival.Count : null,
                 AverageSurvivalSeconds = Average(survival.Select(x => x.SurvivalSeconds)),
                 AveragePotentialDamage = Average(potential.Select(x => x.PotentialDamage.HasValue ? (double?)x.PotentialDamage.Value : null)),
+                AverageSpottingDamage = Average(spotting.Select(x => (double?)x.SpottingDamage)),
                 AverageDamageTaken = Average(taken.Select(x => x.DamageTaken.HasValue ? (double?)x.DamageTaken.Value : null)),
                 AverageDamagePerMinute = damagePerMinute.Count > 0 ? damagePerMinute.Average() : null,
                 AverageTradeRatio = tradeRatios.Count > 0 ? tradeRatios.Average() : null,
                 SurvivalSampleCount = survival.Count,
                 PotentialDamageSampleCount = potential.Count,
+                SpottingDamageSampleCount = spotting.Count,
                 DamageTakenSampleCount = taken.Count
             };
             return new SessionSummary
@@ -91,6 +94,7 @@ namespace ApeRadar.History
             "Survival" when Available(advanced.SurvivalAvailability, includeExperimental) && advanced.Survived.HasValue => advanced.Survived.Value ? 1 : 0,
             "SurvivalTime" when Available(advanced.SurvivalAvailability, includeExperimental) => advanced.SurvivalSeconds,
             "PotentialDamage" when Available(advanced.PotentialDamageAvailability, includeExperimental) => advanced.PotentialDamage,
+            "SpottingDamage" when Available(advanced.SpottingDamageAvailability, includeExperimental) => advanced.SpottingDamage,
             "DamageTaken" when Available(advanced.DamageTakenAvailability, includeExperimental) => advanced.DamageTaken,
             "DamagePerMinute" => DamagePerMinute(battle, advanced, includeExperimental),
             "TradeRatio" => TradeRatio(battle, advanced, includeExperimental),

@@ -9,7 +9,7 @@ namespace ApeRadar.History
 {
     internal sealed class HistoryDatabaseMaintenance
     {
-        private const int CurrentSchemaVersion = 6;
+        private const int CurrentSchemaVersion = 7;
         private readonly string databasePath;
         private readonly string connectionString;
 
@@ -22,26 +22,25 @@ namespace ApeRadar.History
         internal async Task BackupBeforeMigrationAsync(CancellationToken cancellationToken)
         {
             if (!File.Exists(databasePath)) return;
-            try
+            await using SqliteConnection connection = new(connectionString);
+            await connection.OpenAsync(cancellationToken);
+            await using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='SchemaMigrations'";
+            bool hasMigrations = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) != 0;
+            int version = 0;
+            if (hasMigrations)
             {
-                await using SqliteConnection connection = new(connectionString);
-                await connection.OpenAsync(cancellationToken);
-                await using SqliteCommand command = connection.CreateCommand();
                 command.CommandText = "SELECT COALESCE(MAX(Version),0) FROM SchemaMigrations";
-                int version = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
-                if (version >= CurrentSchemaVersion) return;
-                string backup = $"{databasePath}.pre-v{CurrentSchemaVersion}-{DateTimeOffset.Now:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}.bak";
-                await using SqliteConnection destination = new(new SqliteConnectionStringBuilder
-                {
-                    DataSource = backup, Mode = SqliteOpenMode.ReadWriteCreate, Pooling = false
-                }.ToString());
-                await destination.OpenAsync(cancellationToken);
-                connection.BackupDatabase(destination);
+                version = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
             }
-            catch (SqliteException ex) when (ex.SqliteErrorCode == 1)
+            if (version >= CurrentSchemaVersion) return;
+            string backup = $"{databasePath}.pre-v{CurrentSchemaVersion}-{DateTimeOffset.Now:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}.bak";
+            await using SqliteConnection destination = new(new SqliteConnectionStringBuilder
             {
-                // A database created before SchemaMigrations existed will be upgraded normally.
-            }
+                DataSource = backup, Mode = SqliteOpenMode.ReadWriteCreate, Pooling = false
+            }.ToString());
+            await destination.OpenAsync(cancellationToken);
+            connection.BackupDatabase(destination);
         }
 
         internal void IsolateCorruptDatabase()
