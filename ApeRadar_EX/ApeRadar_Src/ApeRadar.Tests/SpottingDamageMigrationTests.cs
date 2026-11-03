@@ -26,7 +26,7 @@ public sealed class SpottingDamageMigrationTests : IDisposable
         Assert.Equal(MetricAvailability.Unavailable, metrics.DamageTakenAvailability);
         Assert.Equal(schema, metrics.ParserSchemaVersion);
         Assert.Equal(1_000_000, metrics.PotentialDamage);
-        Assert.True(metrics.Survived);
+        Assert.Null(metrics.Survived); // Old event-only survival inference is invalidated by schema 8.
         Assert.Null(SessionAnalysisService.MetricValue((await migrated.GetBattleAsync(id))!, metrics, "TradeRatio", true));
         IReadOnlyList<BattleDamageBreakdown> breakdowns = await migrated.GetDamageBreakdownsAsync(id);
         Assert.Equal(damage, Assert.Single(breakdowns, x => x.Direction == DamageDirection.Spotting).Damage);
@@ -39,15 +39,15 @@ public sealed class SpottingDamageMigrationTests : IDisposable
         Assert.True(await migrated.HasReplayAsync("same-replay", "legacy-parser"));
         Assert.Single(await migrated.GetBattlesAsync(new HistoryQuery()));
 
-        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v7-*.bak"));
+        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
         Assert.Equal(damage, await ScalarAsync("SELECT DamageTaken FROM BattleAdvancedMetrics", backup));
         Assert.Equal(1L, await ScalarAsync("SELECT COUNT(*) FROM BattleDamageBreakdowns WHERE Direction=1", backup));
         Assert.Equal(6L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations", backup));
-        Assert.Equal(7L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations"));
+        Assert.Equal(8L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations"));
         Assert.Null(await ScalarAsync("PRAGMA foreign_key_check"));
 
         await new SqliteHistoryRepository(DatabasePath).InitializeAsync();
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v7-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
         Assert.Equal(damage, (await migrated.GetAdvancedMetricsAsync(new[] { id }))[id].SpottingDamage);
     }
 
@@ -106,7 +106,7 @@ public sealed class SpottingDamageMigrationTests : IDisposable
         SqliteHistoryRepository repository = new(DatabasePath);
         await repository.InitializeAsync();
 
-        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v7-*.bak"));
+        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
         Assert.Equal(0L, await ScalarAsync("SELECT COUNT(*) FROM sqlite_master WHERE name='SchemaMigrations'", backup));
         Assert.Equal(25_000L, await ScalarAsync("SELECT DamageTaken FROM BattleAdvancedMetrics", backup));
         Assert.Equal(25_000, (await repository.GetAdvancedMetricsAsync(new[] { id }))[id].SpottingDamage);
@@ -120,7 +120,7 @@ public sealed class SpottingDamageMigrationTests : IDisposable
         await ExecuteAsync("DELETE FROM BattleAdvancedMetrics");
         SqliteHistoryRepository repository = new(DatabasePath);
         Assert.DoesNotContain(await repository.GetDamageBreakdownsAsync(id), x => x.Direction == DamageDirection.Received);
-        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v7-*.bak"));
+        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
         Assert.Equal(1L, await ScalarAsync("SELECT COUNT(*) FROM BattleDamageBreakdowns WHERE Direction=1", backup));
     }
 
@@ -139,7 +139,7 @@ public sealed class SpottingDamageMigrationTests : IDisposable
         Assert.Equal(0L, await ScalarAsync("SELECT COUNT(*) FROM pragma_table_info('BattleAdvancedMetrics') WHERE name='SpottingDamage'"));
         Assert.Equal(0L, await ScalarAsync("SELECT COUNT(*) FROM SchemaMigrations WHERE Version=7"));
         Assert.Equal(1L, await ScalarAsync("SELECT COUNT(*) FROM BattleDamageBreakdowns WHERE Direction=1"));
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v7-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
     }
 
     [Fact]
@@ -205,7 +205,7 @@ public sealed class SpottingDamageMigrationTests : IDisposable
         await repository.SaveBattleReviewAsync(new BattleReview { BattleId = id, IsFavorite = true, Note = "saved note", Tags = new() { "saved" } });
         await repository.SaveReviewDraftAsync(new BattleReview { BattleId = id, IsFavorite = true, Note = "unsaved draft", Tags = new() { "draft" } });
         await ExecuteAsync("""
-            DELETE FROM SchemaMigrations WHERE Version=7;
+            DELETE FROM SchemaMigrations WHERE Version>=7;
             ALTER TABLE BattleAdvancedMetrics DROP COLUMN SpottingDamage;
             ALTER TABLE BattleAdvancedMetrics DROP COLUMN SpottingDamageAvailability;
             """);

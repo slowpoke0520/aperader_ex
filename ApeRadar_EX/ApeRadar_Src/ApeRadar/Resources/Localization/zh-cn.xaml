@@ -878,4 +878,11 @@
     <system:String x:Key="HistoryDraftSavedHint">编辑内容自动保留为草稿</system:String>
     <system:String x:Key="HistorySurvivalState">存活情况</system:String>
     <system:String x:Key="HistoryBackToTrends">← 返回趋势</system:String>
+    <system:String x:Key="DashboardOpenDataSourceSettings">打开设置并定位到数据来源</system:String>
+    <system:String x:Key="DashboardOpenGamePathSettings">打开设置并定位到游戏路径</system:String>
+    <system:String x:Key="DashboardOpenRosterSettings">阵容显示设置</system:String>
+    <system:String x:Key="DashboardOpenUpdateSettings">版本与更新渠道设置</system:String>
+    <system:String x:Key="DashboardOpenNotifications">查看通知历史</system:String>
+    <system:String x:Key="DashboardCloseAnalysis">关闭图表与分析（Esc）</system:String>
+    <system:String x:Key="DashboardInterfaceLanguage">界面语言</system:String>
 </ResourceDictionary>

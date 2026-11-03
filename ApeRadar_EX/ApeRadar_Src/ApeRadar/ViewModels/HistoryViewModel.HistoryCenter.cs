@@ -108,7 +108,8 @@ namespace ApeRadar.ViewModels
         {
             bool stable=advanced?.SurvivalAvailability==MetricAvailability.Stable || ShowExperimentalMetrics && advanced?.SurvivalAvailability==MetricAvailability.Experimental;
             DetailSurvival=stable && advanced?.Survived.HasValue==true ? advanced.Survived.Value ? Resource("HistorySurvived","Survived"):Resource("HistorySunk","Sunk"):"—";
-            DetailSurvivalTime=stable ? FormatDuration(advanced?.SurvivalSeconds):"—";
+            double? survivalTime=advanced==null ? null : SessionAnalysisService.MetricValue(row.Battle,advanced,"SurvivalTime",ShowExperimentalMetrics);
+            DetailSurvivalTime=survivalTime.HasValue ? FormatDuration(survivalTime):"—";
             bool potential=advanced?.PotentialDamageAvailability==MetricAvailability.Stable || ShowExperimentalMetrics && advanced?.PotentialDamageAvailability==MetricAvailability.Experimental;
             DetailPotentialDamage=potential ? advanced?.PotentialDamage?.ToString("N0") ?? "—":"—";
             DetailSpottingDamage=advanced==null ? "—" : SessionAnalysisService.MetricValue(row.Battle,advanced,"SpottingDamage",ShowExperimentalMetrics)?.ToString("N0") ?? "—";

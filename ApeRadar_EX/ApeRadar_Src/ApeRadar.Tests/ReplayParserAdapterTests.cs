@@ -106,7 +106,7 @@ public sealed class ReplayParserAdapterTests : IDisposable
         Assert.Equal(MetricAvailability.Stable, advanced.PotentialDamageAvailability);
         Assert.Equal(MetricAvailability.Stable, advanced.SpottingDamageAvailability);
         Assert.Equal(MetricAvailability.Unavailable, advanced.DamageTakenAvailability);
-        Assert.Equal("4", advanced.ParserSchemaVersion);
+        Assert.Equal("7", advanced.ParserSchemaVersion);
 
         var breakdowns = NodsoftReplayParserAdapter.FindDamageBreakdowns(replay);
         Assert.Equal(1386, Assert.Single(breakdowns, x => x.Direction == DamageDirection.Dealt).Damage);

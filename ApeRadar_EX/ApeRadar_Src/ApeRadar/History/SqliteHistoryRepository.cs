@@ -240,6 +240,7 @@ namespace ApeRadar.History
             // Preserve interval totals before reconciliation can replace them with single-battle data.
             await CreateHistoryCenterSchemaAsync(connection, cancellationToken);
             await MigrateSpottingDamageAsync(connection, cancellationToken);
+            await MigrateReplayTimingAsync(connection, cancellationToken);
             await ReconcileLegacyBattlesAsync(connection, cancellationToken);
             await BackfillSessionsAsync(connection, cancellationToken);
         }
@@ -360,6 +361,8 @@ namespace ApeRadar.History
                 await using SqliteTransaction transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
                 BattleRecord? stored = await ReadBattleByIdAsync(connection, transaction, battleId, cancellationToken);
                 if (stored == null) return;
+                bool incomingExactResults = replay.Source == BattleMetricSource.ReplayExact && replay.HasCompleteMetrics;
+                bool preserveReplayDetails = HasExactReplayResults(stored) && !incomingExactResults;
                 BattleCompleteness completeness = replay.Status switch
                 {
                     ReplayParseStatus.Parsed when replay.HasCompleteMetrics => BattleCompleteness.Complete,
@@ -380,13 +383,21 @@ namespace ApeRadar.History
                 await UpdateReconciledBattleAsync(connection, transaction, stored, cancellationToken);
                 await UpsertReplayAsync(connection, transaction, battleId, replay, replayPath, cancellationToken);
                 await DeleteReconnectDraftsAsync(connection, transaction, battleId, cancellationToken);
-                replay.AdvancedMetrics.BattleId = battleId;
-                await UpsertAdvancedMetricsAsync(connection, transaction, replay.AdvancedMetrics, cancellationToken);
-                await ExecuteAsync(connection, transaction, "DELETE FROM BattleDamageBreakdowns WHERE BattleId=$id", cancellationToken, ("$id", battleId));
-                foreach (BattleDamageBreakdown breakdown in replay.DamageBreakdowns)
+                if (!preserveReplayDetails)
                 {
-                    breakdown.BattleId = battleId;
-                    await InsertDamageBreakdownAsync(connection, transaction, breakdown, cancellationToken);
+                    // A validated settlement replaces the previous metric snapshot,
+                    // including unavailable values. Later partial reconnect segments
+                    // still get a ReplayFiles association but cannot erase this data.
+                    if (incomingExactResults)
+                        await ExecuteAsync(connection, transaction, "DELETE FROM BattleAdvancedMetrics WHERE BattleId=$id", cancellationToken, ("$id", battleId));
+                    replay.AdvancedMetrics.BattleId = battleId;
+                    await UpsertAdvancedMetricsAsync(connection, transaction, replay.AdvancedMetrics, cancellationToken);
+                    await ExecuteAsync(connection, transaction, "DELETE FROM BattleDamageBreakdowns WHERE BattleId=$id", cancellationToken, ("$id", battleId));
+                    foreach (BattleDamageBreakdown breakdown in replay.DamageBreakdowns)
+                    {
+                        breakdown.BattleId = battleId;
+                        await InsertDamageBreakdownAsync(connection, transaction, breakdown, cancellationToken);
+                    }
                 }
                 if (stored.Completeness == BattleCompleteness.Complete)
                     await ExecuteAsync(connection, transaction, "DELETE FROM PendingResultChecks WHERE BattleId=$id", cancellationToken, ("$id", battleId));
@@ -458,10 +469,19 @@ namespace ApeRadar.History
         public async Task AddOrUpdatePendingCheckAsync(PendingResultCheck check, CancellationToken cancellationToken = default)
         {
             await EnsureInitialized(cancellationToken);
+            // A late partial replay or already-running API callback may try to
+            // enqueue after a verified settlement has removed its pending check.
+            // Test the current row in the same statement as the enqueue.
             await WriteAsync("""
-                INSERT INTO PendingResultChecks(BattleId,Attempt,NextAttemptAt,LastError) VALUES($id,$attempt,$next,$error)
+                INSERT INTO PendingResultChecks(BattleId,Attempt,NextAttemptAt,LastError)
+                SELECT $id,$attempt,$next,$error WHERE NOT EXISTS(
+                    SELECT 1 FROM Battles WHERE Id=$id AND Source=$exact AND BattleCount=1
+                        AND Completeness=$complete AND Damage IS NOT NULL AND Frags IS NOT NULL AND Result<>$unknown)
                 ON CONFLICT(BattleId) DO UPDATE SET Attempt=excluded.Attempt,NextAttemptAt=excluded.NextAttemptAt,LastError=excluded.LastError
-                """, cancellationToken, ("$id", check.BattleId), ("$attempt", check.Attempt), ("$next", check.NextAttemptAt.UtcDateTime.ToString("O")), ("$error", check.LastError));
+                """, cancellationToken, ("$id", check.BattleId), ("$attempt", check.Attempt),
+                ("$next", check.NextAttemptAt.UtcDateTime.ToString("O")), ("$error", check.LastError),
+                ("$exact", (int)BattleMetricSource.ReplayExact), ("$complete", (int)BattleCompleteness.Complete),
+                ("$unknown", (int)BattleResult.Unknown));
         }
 
         public async Task<IReadOnlyList<PendingResultCheck>> GetDuePendingChecksAsync(DateTimeOffset now, CancellationToken cancellationToken = default)
@@ -797,24 +817,30 @@ namespace ApeRadar.History
         {
             bool hasAnyMetric = metrics.BattleDurationSeconds.HasValue || metrics.Survived.HasValue || metrics.SurvivalSeconds.HasValue ||
                                 metrics.PotentialDamage.HasValue || metrics.SpottingDamage.HasValue || metrics.DamageTaken.HasValue;
-            if (!hasAnyMetric) return;
+            // A newer parser may explicitly invalidate every prior advanced value.
+            // Persist that empty snapshot instead of leaving stale timing behind.
+            if (!hasAnyMetric && string.IsNullOrWhiteSpace(metrics.ParserSchemaVersion)) return;
             await ExecuteAsync(connection, transaction, """
                 INSERT INTO BattleAdvancedMetrics(BattleId,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
-                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability)
-                VALUES($id,$duration,$survived,$survival,$potential,$taken,$survivalAvailability,$potentialAvailability,$takenAvailability,$schema,$spotting,$spottingAvailability)
+                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability,
+                    BattleDurationSource,SurvivalTimeSource)
+                VALUES($id,$duration,$survived,$survival,$potential,$taken,$survivalAvailability,$potentialAvailability,$takenAvailability,$schema,$spotting,$spottingAvailability,
+                    $durationSource,$survivalSource)
                 ON CONFLICT(BattleId) DO UPDATE SET
                     BattleDurationSeconds=excluded.BattleDurationSeconds,Survived=excluded.Survived,SurvivalSeconds=excluded.SurvivalSeconds,
                     PotentialDamage=excluded.PotentialDamage,DamageTaken=excluded.DamageTaken,
                     SurvivalAvailability=excluded.SurvivalAvailability,PotentialDamageAvailability=excluded.PotentialDamageAvailability,
                     DamageTakenAvailability=excluded.DamageTakenAvailability,ParserSchemaVersion=excluded.ParserSchemaVersion,
-                    SpottingDamage=excluded.SpottingDamage,SpottingDamageAvailability=excluded.SpottingDamageAvailability
+                    SpottingDamage=excluded.SpottingDamage,SpottingDamageAvailability=excluded.SpottingDamageAvailability,
+                    BattleDurationSource=excluded.BattleDurationSource,SurvivalTimeSource=excluded.SurvivalTimeSource
                 """, cancellationToken,
                 ("$id", metrics.BattleId), ("$duration", metrics.BattleDurationSeconds),
                 ("$survived", metrics.Survived.HasValue ? metrics.Survived.Value ? 1 : 0 : null),
                 ("$survival", metrics.SurvivalSeconds), ("$potential", metrics.PotentialDamage), ("$taken", metrics.DamageTaken),
                 ("$survivalAvailability", (int)metrics.SurvivalAvailability), ("$potentialAvailability", (int)metrics.PotentialDamageAvailability),
                 ("$takenAvailability", (int)metrics.DamageTakenAvailability), ("$schema", metrics.ParserSchemaVersion),
-                ("$spotting", metrics.SpottingDamage), ("$spottingAvailability", (int)metrics.SpottingDamageAvailability));
+                ("$spotting", metrics.SpottingDamage), ("$spottingAvailability", (int)metrics.SpottingDamageAvailability),
+                ("$durationSource", (int)metrics.BattleDurationSource), ("$survivalSource", (int)metrics.SurvivalTimeSource));
         }
 
         private static Task InsertDamageBreakdownAsync(SqliteConnection connection, SqliteTransaction transaction, BattleDamageBreakdown breakdown, CancellationToken cancellationToken) =>
@@ -1018,6 +1044,8 @@ namespace ApeRadar.History
             BattleDurationSeconds = reader.IsDBNull(reader.GetOrdinal("BattleDurationSeconds")) ? null : reader.GetDouble(reader.GetOrdinal("BattleDurationSeconds")),
             Survived = reader.IsDBNull(reader.GetOrdinal("Survived")) ? null : reader.GetInt32(reader.GetOrdinal("Survived")) != 0,
             SurvivalSeconds = reader.IsDBNull(reader.GetOrdinal("SurvivalSeconds")) ? null : reader.GetDouble(reader.GetOrdinal("SurvivalSeconds")),
+            BattleDurationSource = (ReplayTimingSource)reader.GetInt32(reader.GetOrdinal("BattleDurationSource")),
+            SurvivalTimeSource = (ReplayTimingSource)reader.GetInt32(reader.GetOrdinal("SurvivalTimeSource")),
             PotentialDamage = reader.IsDBNull(reader.GetOrdinal("PotentialDamage")) ? null : reader.GetInt64(reader.GetOrdinal("PotentialDamage")),
             SpottingDamage = reader.IsDBNull(reader.GetOrdinal("SpottingDamage")) ? null : reader.GetInt64(reader.GetOrdinal("SpottingDamage")),
             DamageTaken = reader.IsDBNull(reader.GetOrdinal("DamageTaken")) ? null : reader.GetInt64(reader.GetOrdinal("DamageTaken")),

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Nodsoft.WowsReplaysUnpack;
 using Nodsoft.WowsReplaysUnpack.Core.Exceptions;
 using Nodsoft.WowsReplaysUnpack.Core.Entities;
+using Nodsoft.WowsReplaysUnpack.Core.Definitions;
 using Nodsoft.WowsReplaysUnpack.Core.Models;
 using Nodsoft.WowsReplaysUnpack.Services;
 using System;
@@ -22,7 +23,7 @@ namespace ApeRadar.History
 {
     internal sealed class NodsoftReplayParserAdapter : IReplayParser, IDisposable
     {
-        internal const string AdvancedSchemaVersion = "4";
+        internal const string AdvancedSchemaVersion = "7";
         private readonly ServiceProvider services;
         private readonly IReplayUnpackerFactory factory;
 
@@ -32,6 +33,8 @@ namespace ApeRadar.History
             collection.AddLogging();
             collection.AddWowsReplayUnpacker(builder =>
                 builder.AddReplayController<BattleHistoryReplayController, BattleHistoryReplay>());
+            collection.AddTransient<IReplayDataParser, BattleResultsReplayDataParser>();
+            collection.AddTransient<IDefinitionStore, ReplayDefinitionStore>();
             services = collection.BuildServiceProvider();
             factory = services.GetRequiredService<IReplayUnpackerFactory>();
         }
@@ -55,22 +58,29 @@ namespace ApeRadar.History
                     cancellationToken);
                 header = header.Merge(replay.ArenaInfo, replay.MapName, replay.ClientVersion);
 
-                ReplayMetrics metrics = FindResultMetrics(replay, header.AccountName);
-                BattleAdvancedMetrics advanced = FindAdvancedMetrics(replay);
+                ReplayBattleResults? results = FindValidatedBattleResults(replay, header.AccountName, header.ShipId, out string resultsError);
+                if (results != null) header = header with { BattleKey = $"arena:{results.ArenaId}" };
+                ReplayMetrics metrics = FindResultMetrics(replay, results);
+                BattleAdvancedMetrics advanced = FindAdvancedMetrics(replay, results);
                 IReadOnlyList<BattleDamageBreakdown> breakdowns = FindDamageBreakdowns(replay);
-                bool exitedAfterDeath = !replay.BattleEnded && advanced.Survived == false;
-                bool complete = metrics.Damage.HasValue && metrics.Frags.HasValue && metrics.Result != BattleResult.Unknown;
+                bool exitedAfterDeath = results == null && !replay.HasBattleEnded && advanced.Survived == false;
+                bool complete = results != null;
                 string errorCode = complete
-                    ? ""
+                    ? results!.DamageTakenError ?? (replay.EntityParsingError.Length > 0 ? "ReplayEventDetailsUnavailable" : "")
+                    : resultsError.Length > 0 ? resultsError
+                    : replay.EntityParsingError.Length > 0 ? "ReplayEventDetailsUnavailable"
                     : exitedAfterDeath ? "BattleExitedAfterDeath"
-                    : !replay.BattleEnded ? "BattleNotFinished"
+                    : !replay.HasBattleEnded ? "BattleNotFinished"
                     : !string.IsNullOrWhiteSpace(GetMetricError(replay)) ? "ReplayMetricsInvalid"
                     : "BattleResultsMissing";
                 string errorMessage = complete
-                    ? ""
+                    ? results!.DamageTakenError != null ? "Battle results were imported; damage taken could not be verified and remains unavailable."
+                        : replay.EntityParsingError.Length > 0 ? "Battle results were imported; event-derived details could not be decoded and remain unavailable." : ""
+                    : resultsError.Length > 0 ? "Battle results could not be verified. Available event statistics were retained as partial data."
+                    : replay.EntityParsingError.Length > 0 ? "Event details could not be decoded and no verified battle result is available."
                     : exitedAfterDeath
                         ? "The player ship was destroyed before the recording ended. Damage and frags at exit were retained; the final result will be checked after the battle can finish."
-                    : !replay.BattleEnded
+                    : !replay.HasBattleEnded
                         ? "Replay metadata was imported, but the recording ended before the battle result was received."
                         : !string.IsNullOrWhiteSpace(GetMetricError(replay))
                             ? $"Replay metadata was imported, but battle metrics could not be decoded: {GetMetricError(replay)}"
@@ -128,22 +138,38 @@ namespace ApeRadar.History
             mode.Equals("random", StringComparison.OrdinalIgnoreCase) ||
             mode.Equals("RandomBattle", StringComparison.OrdinalIgnoreCase);
 
-        private static ReplayMetrics FindResultMetrics(BattleHistoryReplay replay, string accountName)
+        internal static ReplayBattleResults? FindValidatedBattleResults(BattleHistoryReplay replay, string accountName, string shipId, out string error)
         {
-            foreach (JsonElement root in replay.ExtraJsonData)
+            error = replay.BattleResultsError;
+            if (error == "BattleResultsTooManyPackets") return null;
+            ReplayBattleResults? selected = null;
+            foreach (JsonElement root in replay.BattleResults.Concat(replay.ExtraJsonData.Where(x =>
+                         x.ValueKind == JsonValueKind.Object && x.TryGetProperty("playersPublicInfo", out _))))
             {
-                foreach (JsonElement candidate in FindPersonalResultObjects(root, accountName))
+                if (!ReplayBattleResultsDecoder.TryDecode(root, replay.ClientVersion, accountName, shipId, out ReplayBattleResults? candidate, out string candidateError))
                 {
-                    long? damage = FindNumber(candidate, "damage_dealt", "damageDealt", "totalDamage");
-                    double? frags = FindNumber(candidate, "frags", "kills", "shipsDestroyed");
-                    BattleResult result = FindResult(candidate);
-                    if (damage.HasValue && frags.HasValue && result != BattleResult.Unknown)
-                        return new ReplayMetrics(damage, frags, result, BattleMetricSource.ReplayExact);
+                    error = candidateError;
+                    continue;
                 }
+                if (selected != null && selected != candidate)
+                {
+                    error = "BattleResultsConflict";
+                    return null;
+                }
+                selected = candidate;
             }
+            if (selected != null) error = "";
+            return selected;
+        }
+
+        internal static ReplayMetrics FindResultMetrics(BattleHistoryReplay replay, ReplayBattleResults? results = null)
+        {
+            if (results != null) return new(results.Damage, results.Frags, results.Result, BattleMetricSource.ReplayExact);
+            if (replay.EntityParsingError.Length > 0)
+                return new(null, null, BattleResult.Unknown, BattleMetricSource.MetadataOnly);
 
             uint? ownShipId = FindOwnShipId(replay);
-            if (!replay.BattleEnded)
+            if (!replay.HasBattleEnded)
             {
                 if (!TryFindEarlyExitMetrics(replay, ownShipId, out long? exitDamage, out double? exitFrags))
                     return new ReplayMetrics(null, null, BattleResult.Unknown, BattleMetricSource.MetadataOnly);
@@ -163,7 +189,7 @@ namespace ApeRadar.History
 
         internal static long? FindDamage(BattleHistoryReplay replay)
         {
-            if (!replay.DamageStatsSeen || !string.IsNullOrWhiteSpace(replay.DamageStatsError)) return null;
+            if (!replay.DamageStatsSeen || !string.IsNullOrWhiteSpace(replay.DamageStatsError) || replay.EntityParsingError.Length > 0) return null;
             double damage = replay.EnemyDamageByType.Values.Sum();
             if (double.IsNaN(damage) || double.IsInfinity(damage) || damage < 0 || damage > long.MaxValue) return null;
             return checked((long)Math.Round(damage, MidpointRounding.AwayFromZero));
@@ -181,21 +207,25 @@ namespace ApeRadar.History
             return true;
         }
 
-        internal static BattleAdvancedMetrics FindAdvancedMetrics(BattleHistoryReplay replay)
+        internal static BattleAdvancedMetrics FindAdvancedMetrics(BattleHistoryReplay replay, ReplayBattleResults? results = null)
         {
-            uint? ownShipId = FindOwnShipId(replay);
-            VehicleDeathEvent? ownDeath = ownShipId.HasValue
+            bool eventsValid = replay.EntityParsingError.Length == 0;
+            uint? ownShipId = eventsValid ? FindOwnShipId(replay) : null;
+            VehicleDeathEvent? ownDeath = ownShipId.HasValue && string.IsNullOrEmpty(replay.VehicleDeathsError)
                 ? replay.VehicleDeaths.Where(x => x.VictimId == ownShipId.Value).OrderBy(x => x.PacketTime).Cast<VehicleDeathEvent?>().FirstOrDefault()
                 : null;
 
-            bool? survived = ownDeath.HasValue ? false : replay.BattleEnded ? true : null;
-            double? survivalSeconds = ownDeath?.PacketTime ?? (replay.BattleEnded ? replay.BattleEndTime : null);
-            double? duration = replay.BattleEnded ? replay.BattleEndTime : null;
-            bool damageStatsValid = string.IsNullOrWhiteSpace(replay.DamageStatsError);
+            bool? survived = results != null ? results.Survived : ownDeath.HasValue ? false
+                : eventsValid && replay.BattleEnded && replay.BattleClock.HasEnded &&
+                    string.IsNullOrEmpty(replay.VehicleDeathsError) && OwnShipIsAlive(replay, ownShipId) ? true : null;
+            double? duration = results != null ? results.BattleDurationSeconds : eventsValid ? replay.BattleClock.DurationSeconds : null;
+            double? survivalSeconds = results != null ? results.SurvivalSeconds : ownDeath.HasValue
+                ? replay.BattleClock.SurvivalUntil(ownDeath.Value.PacketTime) : survived == true ? duration : null;
+            bool damageStatsValid = eventsValid && string.IsNullOrWhiteSpace(replay.DamageStatsError);
             long? potential = damageStatsValid && replay.DamageStatisticTypesSeen.Contains(3)
                 ? SumDamage(replay.PotentialDamageByType)
                 : null;
-            long? spotting = damageStatsValid && replay.DamageStatisticTypesSeen.Contains(2)
+            long? spotting = results != null ? results.SpottingDamage : damageStatsValid && replay.DamageStatisticTypesSeen.Contains(2)
                 ? SumDamage(replay.SpottingDamageByType)
                 : null;
 
@@ -204,22 +234,30 @@ namespace ApeRadar.History
                 BattleDurationSeconds = duration,
                 Survived = survived,
                 SurvivalSeconds = survivalSeconds,
+                BattleDurationSource = duration.HasValue ? results != null ? ReplayTimingSource.BattleResults : ReplayTimingSource.BattleClock : ReplayTimingSource.Unknown,
+                SurvivalTimeSource = survivalSeconds.HasValue ? results != null ? ReplayTimingSource.BattleResults : ReplayTimingSource.BattleClock : ReplayTimingSource.Unknown,
                 PotentialDamage = potential,
                 SpottingDamage = spotting,
-                // receiveDamageStat has no damage-taken category. Keep this unknown until
-                // a separately validated battle-results source is integrated.
-                DamageTaken = null,
+                DamageTaken = results?.DamageTaken,
                 SurvivalAvailability = survived.HasValue ? MetricAvailability.Stable : MetricAvailability.Unavailable,
                 PotentialDamageAvailability = potential.HasValue ? MetricAvailability.Stable : MetricAvailability.Unavailable,
                 SpottingDamageAvailability = spotting.HasValue ? MetricAvailability.Stable : MetricAvailability.Unavailable,
-                DamageTakenAvailability = MetricAvailability.Unavailable,
+                DamageTakenAvailability = results?.DamageTaken.HasValue == true ? MetricAvailability.Experimental : MetricAvailability.Unavailable,
                 ParserSchemaVersion = AdvancedSchemaVersion
             };
         }
 
+        private static bool OwnShipIsAlive(BattleHistoryReplay replay, uint? ownShipId)
+        {
+            if (!ownShipId.HasValue || !replay.Entities.TryGetValue(ownShipId.Value, out Entity? own)) return false;
+            bool alive = own.ClientProperties.GetValueOrDefault("isAlive") is true or (byte)1;
+            object? health = own.ClientProperties.GetValueOrDefault("health");
+            return alive && health is float hp && float.IsFinite(hp) && hp > 0;
+        }
+
         internal static IReadOnlyList<BattleDamageBreakdown> FindDamageBreakdowns(BattleHistoryReplay replay)
         {
-            if (!string.IsNullOrWhiteSpace(replay.DamageStatsError)) return Array.Empty<BattleDamageBreakdown>();
+            if (!string.IsNullOrWhiteSpace(replay.DamageStatsError) || replay.EntityParsingError.Length > 0) return Array.Empty<BattleDamageBreakdown>();
             List<BattleDamageBreakdown> result = new();
             AddBreakdowns(result, replay.EnemyDamageByType, DamageDirection.Dealt);
             AddBreakdowns(result, replay.SpottingDamageByType, DamageDirection.Spotting);
@@ -334,78 +372,6 @@ namespace ApeRadar.History
             return false;
         }
 
-        private static System.Collections.Generic.IEnumerable<JsonElement> FindPersonalResultObjects(JsonElement element, string accountName)
-        {
-            if (element.ValueKind == JsonValueKind.Object)
-            {
-                bool identityMatches = element.EnumerateObject().Any(property =>
-                    (property.Name is "name" or "playerName" or "nickname" or "accountName") &&
-                    property.Value.ValueKind == JsonValueKind.String &&
-                    property.Value.GetString()?.Equals(accountName, StringComparison.OrdinalIgnoreCase) == true);
-                if (identityMatches) yield return element;
-                foreach (JsonProperty property in element.EnumerateObject())
-                {
-                    if (property.Name.Equals(accountName, StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.Object)
-                        yield return property.Value;
-                    foreach (JsonElement nested in FindPersonalResultObjects(property.Value, accountName)) yield return nested;
-                }
-            }
-            else if (element.ValueKind == JsonValueKind.Array)
-                foreach (JsonElement child in element.EnumerateArray())
-                    foreach (JsonElement nested in FindPersonalResultObjects(child, accountName)) yield return nested;
-        }
-
-        private static long? FindNumber(JsonElement element, params string[] names)
-        {
-            if (element.ValueKind == JsonValueKind.Object)
-            {
-                foreach (JsonProperty property in element.EnumerateObject())
-                {
-                    if (names.Any(x => property.Name.Equals(x, StringComparison.OrdinalIgnoreCase)) && property.Value.TryGetInt64(out long value))
-                        return value;
-                    long? nested = FindNumber(property.Value, names);
-                    if (nested.HasValue) return nested;
-                }
-            }
-            else if (element.ValueKind == JsonValueKind.Array)
-            {
-                foreach (JsonElement child in element.EnumerateArray())
-                {
-                    long? nested = FindNumber(child, names);
-                    if (nested.HasValue) return nested;
-                }
-            }
-            return null;
-        }
-
-        private static BattleResult FindResult(JsonElement element)
-        {
-            if (element.ValueKind == JsonValueKind.Object)
-            {
-                foreach (JsonProperty property in element.EnumerateObject())
-                {
-                    if (property.Name.Equals("isWinner", StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind is JsonValueKind.True or JsonValueKind.False)
-                        return property.Value.GetBoolean() ? BattleResult.Win : BattleResult.Loss;
-                    if (property.Name.Equals("result", StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String)
-                    {
-                        string value = property.Value.GetString() ?? "";
-                        if (value.Contains("win", StringComparison.OrdinalIgnoreCase)) return BattleResult.Win;
-                        if (value.Contains("loss", StringComparison.OrdinalIgnoreCase) || value.Contains("defeat", StringComparison.OrdinalIgnoreCase)) return BattleResult.Loss;
-                        if (value.Contains("draw", StringComparison.OrdinalIgnoreCase)) return BattleResult.Draw;
-                    }
-                    BattleResult nested = FindResult(property.Value);
-                    if (nested != BattleResult.Unknown) return nested;
-                }
-            }
-            else if (element.ValueKind == JsonValueKind.Array)
-                foreach (JsonElement child in element.EnumerateArray())
-                {
-                    BattleResult nested = FindResult(child);
-                    if (nested != BattleResult.Unknown) return nested;
-                }
-            return BattleResult.Unknown;
-        }
-
         private static async Task<string> CalculateHashAsync(string path, CancellationToken cancellationToken)
         {
             await using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 64 * 1024, true);
@@ -465,7 +431,7 @@ namespace ApeRadar.History
 
         public void Dispose() => services.Dispose();
 
-        private readonly record struct ReplayMetrics(long? Damage, double? Frags, BattleResult Result, BattleMetricSource Source);
+        internal readonly record struct ReplayMetrics(long? Damage, double? Frags, BattleResult Result, BattleMetricSource Source);
 
         private sealed record ReplayHeader(string Mode, string MapName, string AccountName, string ShipId, string GameVersion, DateTimeOffset? StartedAt, string BattleKey, string RosterSignature)
         {

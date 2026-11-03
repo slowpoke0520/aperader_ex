@@ -16,6 +16,7 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Fixtures\ReplayBattleResultsSamples.json" />
     <ProjectReference Include="..\ApeRadar\ApeRadar.csproj" />
     <ProjectReference Include="..\ApeRadar.Updater\ApeRadar.Updater.csproj" />
   </ItemGroup>

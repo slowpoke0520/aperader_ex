@@ -89,6 +89,16 @@
             <Setter Property="BorderBrush" Value="#D4DFEC"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
+        <Style x:Key="SettingsLink" TargetType="Button" BasedOn="{StaticResource ToolbarButton}">
+            <Setter Property="Height" Value="Auto"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Padding" Value="5,2"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
         <Style x:Key="FilterButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Height" Value="28"/>
             <Setter Property="MinHeight" Value="28"/>
@@ -361,19 +371,19 @@
                 </Grid>
                 <StackPanel x:Name="NavigationButtons" Grid.Row="1" Margin="0,6,0,0">
                     <TextBlock x:Name="NavBattleGroupText" Style="{StaticResource NavGroupText}" Text="{DynamicResource DashboardNavBattleGroup}"/>
-                    <Button Style="{StaticResource NavButtonSelected}" ToolTip="{DynamicResource DashboardNavBattle}" AutomationProperties.Name="{DynamicResource DashboardNavBattle}"><StackPanel Orientation="Horizontal"><TextBlock Text="▥" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavBattleText" Text="{DynamicResource DashboardNavBattle}" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button x:Name="BattleNavButton" Style="{StaticResource NavButtonSelected}" Click="Battle_Click" ToolTip="{DynamicResource DashboardNavBattle}" AutomationProperties.Name="{DynamicResource DashboardNavBattle}"><StackPanel Orientation="Horizontal"><TextBlock Text="▥" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavBattleText" Text="{DynamicResource DashboardNavBattle}" VerticalAlignment="Center"/></StackPanel></Button>
                     <Button Style="{StaticResource NavButton}" Click="History_Click" ToolTip="{DynamicResource BtnHistory}" AutomationProperties.Name="{DynamicResource BtnHistory}"><StackPanel Orientation="Horizontal"><TextBlock Text="◴" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavHistoryText" Text="{DynamicResource BtnHistory}" VerticalAlignment="Center"/></StackPanel></Button>
-                    <Button Style="{StaticResource NavButton}" Click="ToggleAnalysis_Click" ToolTip="{DynamicResource BtnAnalysis}" AutomationProperties.Name="{DynamicResource BtnAnalysis}"><StackPanel Orientation="Horizontal"><TextBlock Text="⌁" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavAnalysisText" Text="{DynamicResource BtnAnalysis}" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button x:Name="AnalysisNavButton" Style="{StaticResource NavButton}" Click="ToggleAnalysis_Click" ToolTip="{DynamicResource BtnAnalysis}" AutomationProperties.Name="{DynamicResource BtnAnalysis}"><StackPanel Orientation="Horizontal"><TextBlock Text="⌁" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavAnalysisText" Text="{DynamicResource BtnAnalysis}" VerticalAlignment="Center"/></StackPanel></Button>
                     <TextBlock x:Name="NavToolsGroupText" Style="{StaticResource NavGroupText}" Text="{DynamicResource DashboardNavToolsGroup}" Margin="24,16,0,6"/>
                     <Button x:Name="OpenReplayButton" Style="{StaticResource NavButton}" Click="OpenReplay_Click" ToolTip="{DynamicResource BtnOpen}" AutomationProperties.Name="{DynamicResource BtnOpen}"><StackPanel Orientation="Horizontal"><TextBlock Text="▷" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavReplayText" Text="{DynamicResource BtnOpen}" VerticalAlignment="Center"/></StackPanel></Button>
-                    <Button Style="{StaticResource NavButton}" Click="Settings_Click" ToolTip="{DynamicResource BtnConfig}" AutomationProperties.Name="{DynamicResource BtnConfig}"><StackPanel Orientation="Horizontal"><TextBlock Text="⚙" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavSettingsText" Text="{DynamicResource BtnConfig}" VerticalAlignment="Center"/></StackPanel></Button>
+                    <Button x:Name="SettingsNavButton" Style="{StaticResource NavButton}" Click="Settings_Click" ToolTip="{DynamicResource BtnConfig}" AutomationProperties.Name="{DynamicResource BtnConfig}"><StackPanel Orientation="Horizontal"><TextBlock Text="⚙" Style="{StaticResource NavIcon}"/><TextBlock x:Name="NavSettingsText" Text="{DynamicResource BtnConfig}" VerticalAlignment="Center"/></StackPanel></Button>
                 </StackPanel>
                 <StackPanel Grid.Row="2" Margin="10,8,10,16">
-                    <Border x:Name="SessionCard" Style="{StaticResource Card}" Padding="8,6" Margin="0,0,0,8" Cursor="Hand" MouseLeftButtonDown="SessionCard_MouseLeftButtonDown" ToolTip="{Binding SessionToolTip, ElementName=Root}">
+                    <Button x:Name="SessionCard" Style="{StaticResource ToolbarButton}" Height="Auto" HorizontalContentAlignment="Stretch" Padding="8,6" Margin="0,0,0,8" Click="History_Click" AutomationProperties.Name="{DynamicResource MainSessionTitle}" ToolTip="{Binding SessionToolTip, ElementName=Root}">
                         <StackPanel><TextBlock Text="{DynamicResource MainSessionTitle}" FontWeight="SemiBold" FontSize="12"/><TextBlock x:Name="SessionText" Text="—" Foreground="{StaticResource DashboardMuted}" FontSize="12" TextWrapping="Wrap"/></StackPanel>
-                    </Border>
+                    </Button>
                     <Button x:Name="CompactSessionButton" MinWidth="0" Content="◷" Style="{StaticResource FilterButton}" Visibility="Collapsed" ToolTip="{Binding SessionToolTip, ElementName=Root}" AutomationProperties.Name="{DynamicResource MainSessionTitle}" Click="History_Click"/>
-                    <StackPanel x:Name="SidebarVersion" Margin="1,0,0,0"><TextBlock Text="{Binding Source={x:Static p:Settings.Default}, Path=SoftwareVersion, Mode=OneWay}" Foreground="{StaticResource DashboardMuted}" FontSize="12"/><TextBlock Foreground="{StaticResource DashboardMuted}" FontSize="12"><Run Text="{DynamicResource DashboardBuild}"/><Run Text=" "/><Run Text="{Binding Source={x:Static p:Settings.Default}, Path=SoftwareDate, Mode=OneWay}"/></TextBlock></StackPanel>
+                    <Button x:Name="SidebarVersion" Style="{StaticResource SettingsLink}" Padding="1,2" Tag="Updates" Click="SettingsShortcut_Click" ToolTip="{DynamicResource DashboardOpenUpdateSettings}" AutomationProperties.Name="{DynamicResource DashboardOpenUpdateSettings}"><StackPanel><TextBlock Text="{Binding Source={x:Static p:Settings.Default}, Path=SoftwareVersion, Mode=OneWay}" Foreground="{StaticResource DashboardMuted}" FontSize="12"/><TextBlock Foreground="{StaticResource DashboardMuted}" FontSize="12"><Run Text="{DynamicResource DashboardBuild}"/><Run Text=" "/><Run Text="{Binding Source={x:Static p:Settings.Default}, Path=SoftwareDate, Mode=OneWay}"/></TextBlock></StackPanel></Button>
                     <Grid x:Name="SidebarLinks" Margin="0,7,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <Button x:Name="UpdateNavButton" MinWidth="0" Content="{DynamicResource BtnSoftwareUpdate}" Style="{StaticResource FilterButton}" Margin="0,0,3,0" ToolTip="{DynamicResource BtnSoftwareUpdate}" AutomationProperties.Name="{DynamicResource BtnSoftwareUpdate}" Click="Update_Click"/>
@@ -387,16 +397,20 @@
             <Grid.RowDefinitions><RowDefinition Height="52"/><RowDefinition Height="*"/></Grid.RowDefinitions>
             <Border Background="White" BorderBrush="#E0E7F0" BorderThickness="0,0,0,1">
                 <Grid Margin="18,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="{DynamicResource DashboardDataSource}" Foreground="{StaticResource DashboardMuted}" FontSize="12"/>
-                        <TextBlock Text="{Binding Metadata.Provider}" Foreground="{StaticResource DashboardText}" FontWeight="SemiBold" FontSize="12"/>
-                        <TextBlock Text="   " FontSize="12"/><TextBlock Text="{DynamicResource DashboardLastUpdated}" Foreground="{StaticResource DashboardMuted}" FontSize="12"/>
-                        <TextBlock Text="{Binding Metadata.UpdatedAtText}" Foreground="{StaticResource DashboardText}" FontSize="12"/>
-                        <TextBlock Text="   " FontSize="12"/><TextBlock x:Name="GamePathStatusText" Text="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetText}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetColor}}" FontSize="12" FontWeight="SemiBold"/>
+                    <StackPanel x:Name="HeaderInformation" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="DataSourceButton" Style="{StaticResource SettingsLink}" Tag="DataSource" Click="SettingsShortcut_Click" AutomationProperties.Name="{DynamicResource DashboardOpenDataSourceSettings}">
+                            <Button.ToolTip><StackPanel><TextBlock Text="{DynamicResource DashboardOpenDataSourceSettings}"/><TextBlock Text="{Binding Metadata.Provider}"/></StackPanel></Button.ToolTip>
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="{DynamicResource DashboardDataSource}" Foreground="{StaticResource DashboardMuted}"/><TextBlock Text="{Binding Metadata.Provider}" FontWeight="SemiBold" MaxWidth="115" TextTrimming="CharacterEllipsis"/><TextBlock Text=" ›" Foreground="{StaticResource DashboardMuted}"/></StackPanel>
+                        </Button>
+                        <Button x:Name="GamePathButton" Style="{StaticResource SettingsLink}" Tag="GamePath" Margin="6,0,0,0" Click="SettingsShortcut_Click" AutomationProperties.Name="{DynamicResource DashboardOpenGamePathSettings}">
+                            <Button.ToolTip><StackPanel MaxWidth="480"><TextBlock Text="{DynamicResource DashboardOpenGamePathSettings}"/><TextBlock Text="{Binding Source={x:Static p:Settings.Default}, Path=GamePath}" TextWrapping="Wrap"/></StackPanel></Button.ToolTip>
+                            <StackPanel Orientation="Horizontal"><TextBlock x:Name="GamePathStatusText" Text="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetText}}" Foreground="{Binding Source={x:Static p:Settings.Default}, Path=GamePath, Converter={StaticResource CvtGamePathIsSetColor}}" FontWeight="SemiBold"/><TextBlock Text=" ›" Foreground="{StaticResource DashboardMuted}"/></StackPanel>
+                        </Button>
+                        <StackPanel x:Name="LastUpdatedPanel" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0"><TextBlock Text="{DynamicResource DashboardLastUpdated}" Foreground="{StaticResource DashboardMuted}" FontSize="12"/><TextBlock Text="{Binding Metadata.UpdatedAtText}" Foreground="{StaticResource DashboardText}" FontSize="12"/></StackPanel>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="StatusButton" Visibility="{Binding Status.IsVisible, ElementName=Root, Converter={StaticResource BoolToVisibility}}" Background="Transparent" BorderThickness="0" Click="Status_Click" ToolTip="{Binding Status.Text, ElementName=Root}"><StackPanel Orientation="Horizontal"><Ellipse Width="10" Height="10" Fill="{Binding Status.Accent, ElementName=Root}" Margin="0,0,7,0"/><TextBlock Text="{Binding Status.Text, ElementName=Root}" Foreground="#40516A" FontWeight="SemiBold" FontSize="12" MaxWidth="220" TextTrimming="CharacterEllipsis"/></StackPanel></Button>
-                        <ComboBox x:Name="LanguageCombo" Width="88" Margin="12,0,0,0" SelectionChanged="LanguageCombo_SelectionChanged"/>
+                    <StackPanel x:Name="HeaderActions" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="StatusButton" Visibility="{Binding Status.IsVisible, ElementName=Root, Converter={StaticResource BoolToVisibility}}" Style="{StaticResource SettingsLink}" Click="Status_Click" AutomationProperties.Name="{DynamicResource DashboardOpenNotifications}"><Button.ToolTip><StackPanel><TextBlock Text="{DynamicResource DashboardOpenNotifications}"/><TextBlock Text="{Binding Status.Text, ElementName=Root}"/></StackPanel></Button.ToolTip><StackPanel Orientation="Horizontal"><Ellipse Width="10" Height="10" Fill="{Binding Status.Accent, ElementName=Root}" Margin="0,0,7,0"/><TextBlock x:Name="StatusLabel" Text="{Binding Status.Text, ElementName=Root}" Foreground="#40516A" FontWeight="SemiBold" FontSize="12" MaxWidth="220" TextTrimming="CharacterEllipsis"/></StackPanel></Button>
+                        <ComboBox x:Name="LanguageCombo" Width="88" Margin="12,0,0,0" AutomationProperties.Name="{DynamicResource DashboardInterfaceLanguage}" SelectionChanged="LanguageCombo_SelectionChanged"/>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -456,6 +470,7 @@
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="{DynamicResource DashboardSortBy}" Foreground="{StaticResource DashboardMuted}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
                         <ComboBox x:Name="SortCombo" Width="190" Height="30" SelectionChanged="SortCombo_SelectionChanged"/>
+                        <Button x:Name="RosterSettingsButton" Style="{StaticResource FilterButton}" MinWidth="30" Content="⚙" Margin="8,0,0,0" Tag="RosterAppearance" Click="SettingsShortcut_Click" ToolTip="{DynamicResource DashboardOpenRosterSettings}" AutomationProperties.Name="{DynamicResource DashboardOpenRosterSettings}"/>
                     </StackPanel>
                 </Grid>
 
@@ -491,7 +506,7 @@
             <Border x:Name="AnalysisDrawer" Grid.RowSpan="2" Width="420" HorizontalAlignment="Right" Background="White" BorderBrush="#CFD9E6" BorderThickness="1,0,0,0" Panel.ZIndex="30" Visibility="Collapsed" Padding="10">
                 <Border.Effect><DropShadowEffect Color="#29415F" BlurRadius="18" ShadowDepth="-3" Opacity="0.22"/></Border.Effect>
                 <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="3*"/><RowDefinition Height="1*"/><RowDefinition Height="92"/></Grid.RowDefinitions>
-                    <StackPanel><DockPanel Margin="4,0,0,6"><Button DockPanel.Dock="Right" Content="×" Width="30" Height="30" Click="ToggleAnalysis_Click"/><TextBlock Text="{DynamicResource AnalysisPanelTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel>
+                    <StackPanel><DockPanel Margin="4,0,0,6"><Button x:Name="CloseAnalysisButton" DockPanel.Dock="Right" Content="×" Width="30" Height="30" Click="ToggleAnalysis_Click" ToolTip="{DynamicResource DashboardCloseAnalysis}" AutomationProperties.Name="{DynamicResource DashboardCloseAnalysis}"/><TextBlock Text="{DynamicResource AnalysisPanelTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel>
                         <TextBlock Text="{Binding Summary.Carrier.AllySummaryText}" Foreground="{StaticResource DashboardBlue}" FontSize="12" TextWrapping="Wrap" Visibility="{Binding Summary.Carrier.IsVisible, Converter={StaticResource BoolToVisibility}}"/>
                         <TextBlock Text="{Binding Summary.Carrier.EnemySummaryText}" Foreground="{StaticResource DashboardRed}" FontSize="12" TextWrapping="Wrap" Visibility="{Binding Summary.Carrier.IsVisible, Converter={StaticResource BoolToVisibility}}"/>
                         <TextBlock Text="{Binding Summary.Destroyer.AllySummaryText}" Foreground="{StaticResource DashboardBlue}" FontSize="12" TextWrapping="Wrap" Visibility="{Binding Summary.Destroyer.IsVisible, Converter={StaticResource BoolToVisibility}}"/>

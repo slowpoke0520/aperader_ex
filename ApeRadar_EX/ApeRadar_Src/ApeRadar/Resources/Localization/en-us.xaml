@@ -878,4 +878,11 @@
     <system:String x:Key="HistoryDraftSavedHint">Edits are kept as a draft</system:String>
     <system:String x:Key="HistorySurvivalState">Survival</system:String>
     <system:String x:Key="HistoryBackToTrends">← Back to trends</system:String>
+    <system:String x:Key="DashboardOpenDataSourceSettings">Open data source settings</system:String>
+    <system:String x:Key="DashboardOpenGamePathSettings">Open game path settings</system:String>
+    <system:String x:Key="DashboardOpenRosterSettings">Roster display settings</system:String>
+    <system:String x:Key="DashboardOpenUpdateSettings">Version and update channel settings</system:String>
+    <system:String x:Key="DashboardOpenNotifications">View notification history</system:String>
+    <system:String x:Key="DashboardCloseAnalysis">Close charts and analysis (Esc)</system:String>
+    <system:String x:Key="DashboardInterfaceLanguage">Interface language</system:String>
 </ResourceDictionary>
