@@ -1131,11 +1131,23 @@ public sealed class HistoryWindowSmokeTests
             target = row.PointToScreen(new Point(row.ActualWidth / 2, row.ActualHeight / 2));
             visualHit = window.InputHitTest(window.PointFromScreen(target));
             rowHit = row.InputHitTest(row.PointFromScreen(target)) != null;
-            Assert.True(source!.Handle == NativeMouseInput.WindowAt(target), $"{scenario}: native target is obscured: {Diagnostic()}");
-            // The first row's column header is a neutral client-area target, not another row.
-            NativeMouseInput.MoveTo(row.PointToScreen(new Point(row.ActualWidth / 2, -8)));
+            // Layout checks can leave another row's card over the usual header target.
+            // Choose an unobscured, non-row point in this test window, then dismiss
+            // the old card with real input. Keep the actual row hit-test unchanged.
+            Point? neutral = new[]
+            {
+                row.PointToScreen(new Point(row.ActualWidth / 2, -8)),
+                window.MainWindowGrid.PointToScreen(new Point(8, 8)),
+                window.MainWindowGrid.PointToScreen(new Point(window.MainWindowGrid.ActualWidth - 8, 8)),
+                window.MainWindowGrid.PointToScreen(new Point(8, window.MainWindowGrid.ActualHeight - 8))
+            }.Where(point => NativeMouseInput.WindowAt(point) == source!.Handle &&
+                FindVisualParent<DataGridRow>(window.InputHitTest(window.PointFromScreen(point)) as DependencyObject) == null)
+                .Select(point => (Point?)point).FirstOrDefault();
+            Assert.True(neutral.HasValue, $"{scenario}: no unobscured neutral target: {Diagnostic()}");
+            NativeMouseInput.MoveTo(neutral!.Value);
             WaitForUiCondition(() => ReferenceEquals(System.Windows.Input.Mouse.PrimaryDevice.ActiveSource, source) &&
-                !row.IsMouseOver, TimeSpan.FromSeconds(2), $"{scenario}: neutral mouse target", Diagnostic);
+                !row.IsMouseOver && !popup.IsOpen, TimeSpan.FromSeconds(2), $"{scenario}: neutral mouse target", Diagnostic);
+            Assert.True(source!.Handle == NativeMouseInput.WindowAt(target), $"{scenario}: native target is obscured: {Diagnostic()}");
             enteredBeforeTarget = entered;
             NativeMouseInput.MoveTo(target);
             // Popup layout can re-evaluate mouse hit testing and raise another enter event.
@@ -1447,6 +1459,10 @@ public sealed class HistoryWindowSmokeTests
                     Assert.True(view.AlliesGrid.Columns[0].ActualWidth >= 210);
                     Assert.True(view.HelpNavButton.IsVisible);
                     Assert.True(view.UpdateNavButton.IsVisible);
+                    Assert.True(view.DataSourceButton.IsVisible);
+                    Assert.True(view.GamePathButton.IsVisible);
+                    AssertElementsDoNotOverlap(window, view.DataSourceButton, view.GamePathButton, width, height);
+                    AssertElementsDoNotOverlap(window, view.GamePathButton, view.HeaderActions, width, height);
                     Assert.NotEmpty(System.Windows.Automation.AutomationProperties.GetName(view.HelpNavButton));
                     Rect help = view.HelpNavButton.TransformToAncestor(view).TransformBounds(new Rect(view.HelpNavButton.RenderSize));
                     Assert.InRange(help.Right, 0, view.SidebarColumn.ActualWidth + 0.5);
@@ -1768,8 +1784,11 @@ public sealed class HistoryWindowSmokeTests
         window.ComboBoxAPIType.SelectedIndex = 0;
         window.ComboBoxMainInterfaceStyle.SelectedValue = "Dashboard";
         window.ComboBoxSoftwareUpdateChannel.SelectedValue = SoftwareReleaseSelector.StableSettingValue;
+        window.NavigateTo(SettingsDestination.DataSource);
         window.Show();
-        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
+        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        Assert.Same(window.AdvancedSettingsTab, window.ConfigTabs.SelectedItem);
+        Assert.True(window.ComboBoxAPIType.IsKeyboardFocusWithin, $"{language}: initial settings destination was not focused");
         window.ConfigTabs.SelectedIndex = 0;
         window.UpdateLayout();
         TextBlock version = Assert.Single(FindVisualChildren<TextBlock>(window), text => text.Inlines.OfType<System.Windows.Documents.Run>()
@@ -1840,7 +1859,76 @@ public sealed class HistoryWindowSmokeTests
                 SaveWindowSnapshot(window, $"config-advanced-{language}-{width:0}x{height:0}.png");
             }
         }
+        ValidateDashboardSettingsNavigation(window, language);
         window.Close();
+    }
+
+    private static void ValidateDashboardSettingsNavigation(ConfigWindow settings, string language)
+    {
+        DashboardMainView view = new();
+        view.SetDashboard(new BattleDashboardViewModel(new DashboardPresentationService()));
+        Window host = new() { Content = view, Width = 1040, Height = 680, ShowInTaskbar = false };
+        string originalPath = ApeRadar.Properties.Settings.Default.GamePath;
+        string draftPath = @"C:\Unsaved game path";
+        settings.ComboBoxGamePath.Text = draftPath;
+        settings.Width = 900;
+        settings.Height = 560;
+        SettingsDestination? requested = null;
+        view.SettingsRequested += destination =>
+        {
+            requested = destination;
+            settings.NavigateTo(destination);
+            settings.Activate();
+        };
+        try
+        {
+            host.Show();
+            foreach ((Button button, SettingsDestination destination, TabItem page, Control target) in new[]
+            {
+                (view.SettingsNavButton, SettingsDestination.General, settings.GeneralSettingsTab, (Control)settings.ComboBoxServer),
+                (view.GamePathButton, SettingsDestination.GamePath, settings.GeneralSettingsTab, (Control)settings.ComboBoxGamePath),
+                (view.RosterSettingsButton, SettingsDestination.RosterAppearance, settings.AppearanceSettingsTab, (Control)settings.ChkBoxShowAccountRosterColumn),
+                (view.SidebarVersion, SettingsDestination.Updates, settings.AdvancedSettingsTab, (Control)settings.ComboBoxSoftwareUpdateChannel),
+                (view.DataSourceButton, SettingsDestination.DataSource, settings.AdvancedSettingsTab, (Control)settings.ComboBoxAPIType)
+            })
+            {
+                host.Activate();
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                PumpDispatcher(TimeSpan.FromMilliseconds(80));
+                Assert.Equal(destination, requested);
+                Assert.Same(page, settings.ConfigTabs.SelectedItem);
+                Assert.True(target.IsKeyboardFocusWithin, $"{language}: {destination} did not focus {target.Name}");
+                Rect bounds = target.TransformToAncestor(settings).TransformBounds(new Rect(target.RenderSize));
+                Assert.InRange(bounds.Top, 0, settings.ActualHeight);
+                Assert.InRange(bounds.Bottom, 0, settings.ActualHeight);
+                Assert.Equal(draftPath, settings.ComboBoxGamePath.Text);
+                Assert.Equal(originalPath, ApeRadar.Properties.Settings.Default.GamePath);
+                Assert.NotEmpty(System.Windows.Automation.AutomationProperties.GetName(button));
+                Assert.True(button.Focusable);
+            }
+            SaveWindowSnapshot(settings, $"config-shortcut-{language}-data-source.png");
+
+            host.Activate();
+            view.AnalysisNavButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal(Visibility.Visible, view.AnalysisDrawer.Visibility);
+            Assert.Same(view.FindResource("NavButtonSelected"), view.AnalysisNavButton.Style);
+            view.BattleNavButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal(Visibility.Collapsed, view.AnalysisDrawer.Visibility);
+            Assert.Same(view.FindResource("NavButtonSelected"), view.BattleNavButton.Style);
+            view.AnalysisNavButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            view.CloseAnalysisButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal(Visibility.Collapsed, view.AnalysisDrawer.Visibility);
+            Assert.True(view.AnalysisNavButton.IsKeyboardFocused);
+
+            int historyRequests = 0;
+            view.HistoryRequested += (_, _) => historyRequests++;
+            Assert.True(view.SessionCard.Focusable);
+            Assert.NotEmpty(System.Windows.Automation.AutomationProperties.GetName(view.SessionCard));
+            view.SessionCard.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            view.CompactSessionButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal(2, historyRequests);
+        }
+        finally { host.Close(); }
     }
 
     private static void AssertElementsDoNotOverlap(Window window, FrameworkElement firstElement, FrameworkElement secondElement, double width, double height)

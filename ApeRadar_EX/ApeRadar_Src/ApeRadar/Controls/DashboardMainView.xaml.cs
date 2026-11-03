@@ -63,7 +63,7 @@ namespace ApeRadar.Controls
         internal event EventHandler? RefreshRequested;
         internal event EventHandler? OpenReplayRequested;
         internal event EventHandler? HistoryRequested;
-        internal event EventHandler? SettingsRequested;
+        internal event Action<SettingsDestination>? SettingsRequested;
         internal event EventHandler? UpdateRequested;
         internal event EventHandler? ScreenshotRequested;
         internal event Action<int>? SortModeChanged;
@@ -328,6 +328,8 @@ namespace ApeRadar.Controls
             SummaryContextCaption.Padding = SummaryShipCaption.Padding = new Thickness(compactSummary ? 4 : 8, 0, compactSummary ? 4 : 8, 0);
             SummaryContextHint.Visibility = SummaryShipHint.Visibility = compactSummary ? Visibility.Collapsed : Visibility.Visible;
             BattleMetadataText.Visibility = ActualWidth < 1240 ? Visibility.Collapsed : Visibility.Visible;
+            LastUpdatedPanel.Visibility = ActualWidth < 1120 ? Visibility.Collapsed : Visibility.Visible;
+            StatusLabel.Visibility = ActualWidth < 900 ? Visibility.Collapsed : Visibility.Visible;
 
             // Use the viewport budget, independent of filters or the overlay drawer.
             // Keep the readable two-line minimum on genuinely smaller windows.
@@ -380,8 +382,16 @@ namespace ApeRadar.Controls
 
         private void ToggleAnalysis_Click(object sender, RoutedEventArgs e)
         {
-            analysisOpen = !analysisOpen;
+            SetAnalysisOpen(!analysisOpen);
+            if (!analysisOpen && ReferenceEquals(sender, CloseAnalysisButton)) AnalysisNavButton.Focus();
+        }
+
+        private void SetAnalysisOpen(bool open)
+        {
+            analysisOpen = open;
             AnalysisDrawer.Visibility = analysisOpen ? Visibility.Visible : Visibility.Collapsed;
+            AnalysisNavButton.Style = (Style)FindResource(analysisOpen ? "NavButtonSelected" : "NavButton");
+            BattleNavButton.Style = (Style)FindResource(analysisOpen ? "NavButton" : "NavButtonSelected");
             if (analysisOpen)
             {
                 ChartUtils.EnsureLoaded(DashboardWinrateChart);
@@ -390,12 +400,29 @@ namespace ApeRadar.Controls
             ClosePlayerDetail();
         }
 
+        private void Battle_Click(object sender, RoutedEventArgs e)
+        {
+            SetAnalysisOpen(false);
+            CloseTransientUi();
+        }
+
+        private void SettingsShortcut_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { Tag: string tag } && Enum.TryParse(tag, out SettingsDestination destination))
+                RequestSettings(destination);
+        }
+
+        private void RequestSettings(SettingsDestination destination)
+        {
+            CloseTransientUi();
+            SettingsRequested?.Invoke(destination);
+        }
+
         private void Status_Click(object sender, RoutedEventArgs e) => NotificationPopup.IsOpen = !NotificationPopup.IsOpen;
         private void Refresh_Click(object sender, RoutedEventArgs e) => RefreshRequested?.Invoke(this, EventArgs.Empty);
         private void OpenReplay_Click(object sender, RoutedEventArgs e) => OpenReplayRequested?.Invoke(this, EventArgs.Empty);
         private void History_Click(object sender, RoutedEventArgs e) => HistoryRequested?.Invoke(this, EventArgs.Empty);
-        private void SessionCard_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => HistoryRequested?.Invoke(this, EventArgs.Empty);
-        private void Settings_Click(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
+        private void Settings_Click(object sender, RoutedEventArgs e) => RequestSettings(SettingsDestination.General);
         private void Update_Click(object sender, RoutedEventArgs e) => UpdateRequested?.Invoke(this, EventArgs.Empty);
         private void Screenshot_Click(object sender, RoutedEventArgs e) => ScreenshotRequested?.Invoke(this, EventArgs.Empty);
         private void Help_Click(object sender, RoutedEventArgs e) => Process.Start("explorer.exe", "https://lxdev.org/aperadar/");
@@ -478,8 +505,8 @@ namespace ApeRadar.Controls
             }
             else if (analysisOpen)
             {
-                analysisOpen = false;
-                AnalysisDrawer.Visibility = Visibility.Collapsed;
+                SetAnalysisOpen(false);
+                AnalysisNavButton.Focus();
                 e.Handled = true;
             }
         }

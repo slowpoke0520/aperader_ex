@@ -362,7 +362,7 @@ namespace ApeRadar
             DashboardView.RefreshRequested += (_, _) => BtnRefresh_Click(DashboardView, new RoutedEventArgs());
             DashboardView.OpenReplayRequested += (_, _) => BtnOpen_Click(DashboardView, new RoutedEventArgs());
             DashboardView.HistoryRequested += (_, _) => BtnHistory_Click(DashboardView, new RoutedEventArgs());
-            DashboardView.SettingsRequested += (_, _) => BtnConfig_Click(DashboardView, new RoutedEventArgs());
+            DashboardView.SettingsRequested += OpenSettings;
             DashboardView.UpdateRequested += (_, _) => BtnSoftwareUpdate_Click(DashboardView, new RoutedEventArgs());
             DashboardView.ScreenshotRequested += (_, _) => BtnScreenshot_Click(DashboardView, new RoutedEventArgs());
             DashboardView.SortModeChanged += DashboardSortModeChanged;
@@ -935,11 +935,15 @@ namespace ApeRadar
         }
 
         private void BtnConfig_Click(object sender, RoutedEventArgs e)
+            => OpenSettings(SettingsDestination.General);
+
+        private void OpenSettings(SettingsDestination destination)
         {
             ConfigWindow configWindow = new()
             {
                 Owner = this
             };
+            configWindow.NavigateTo(destination);
             configWindow.ShowDialog();
             _ = InitializeHistoryAsync();
             RefreshDataGridColumns(Properties.Settings.Default.EnemiesDisplayMirrored);

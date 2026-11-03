@@ -34,7 +34,7 @@ namespace ApeRadar.History
                 AveragePr = basic.AveragePr,
                 CompletenessRate = basic.CompletenessRate,
                 SurvivalRate = survival.Count > 0 ? survival.Count(x => x.Survived == true) / (double)survival.Count : null,
-                AverageSurvivalSeconds = Average(survival.Select(x => x.SurvivalSeconds)),
+                AverageSurvivalSeconds = Average(survival.Select(x => CalibratedSeconds(x.SurvivalSeconds, x.SurvivalTimeSource))),
                 AveragePotentialDamage = Average(potential.Select(x => x.PotentialDamage.HasValue ? (double?)x.PotentialDamage.Value : null)),
                 AverageSpottingDamage = Average(spotting.Select(x => (double?)x.SpottingDamage)),
                 AverageDamageTaken = Average(taken.Select(x => x.DamageTaken.HasValue ? (double?)x.DamageTaken.Value : null)),
@@ -92,7 +92,7 @@ namespace ApeRadar.History
         internal static double? MetricValue(BattleRecord battle, BattleAdvancedMetrics advanced, string metric, bool includeExperimental) => metric switch
         {
             "Survival" when Available(advanced.SurvivalAvailability, includeExperimental) && advanced.Survived.HasValue => advanced.Survived.Value ? 1 : 0,
-            "SurvivalTime" when Available(advanced.SurvivalAvailability, includeExperimental) => advanced.SurvivalSeconds,
+            "SurvivalTime" when Available(advanced.SurvivalAvailability, includeExperimental) && advanced.Survived.HasValue => CalibratedSeconds(advanced.SurvivalSeconds, advanced.SurvivalTimeSource),
             "PotentialDamage" when Available(advanced.PotentialDamageAvailability, includeExperimental) => advanced.PotentialDamage,
             "SpottingDamage" when Available(advanced.SpottingDamageAvailability, includeExperimental) => advanced.SpottingDamage,
             "DamageTaken" when Available(advanced.DamageTakenAvailability, includeExperimental) => advanced.DamageTaken,
@@ -106,10 +106,24 @@ namespace ApeRadar.History
 
         private static double? DamagePerMinute(BattleRecord battle, BattleAdvancedMetrics advanced, bool includeExperimental = true)
         {
-            if (!battle.Damage.HasValue || !Available(advanced.SurvivalAvailability, includeExperimental)) return null;
-            double? activeSeconds = advanced.Survived == false ? advanced.SurvivalSeconds : advanced.BattleDurationSeconds;
-            return activeSeconds > 0 ? battle.Damage.Value / (activeSeconds.Value / 60d) : null;
+            // Partial damage and a full time window measure different portions of
+            // a battle. Only combine a complete single-battle numerator with a
+            // calibrated denominator and a known survival outcome.
+            if (battle.Completeness != BattleCompleteness.Complete || battle.BattleCount != 1 ||
+                !battle.Damage.HasValue || battle.Damage.Value < 0 || !advanced.Survived.HasValue ||
+                !Available(advanced.SurvivalAvailability, includeExperimental)) return null;
+            double? activeSeconds = advanced.Survived.Value
+                ? CalibratedSeconds(advanced.BattleDurationSeconds, advanced.BattleDurationSource)
+                : CalibratedSeconds(advanced.SurvivalSeconds, advanced.SurvivalTimeSource);
+            if (!(activeSeconds > 0)) return null;
+            double value = battle.Damage.Value / (activeSeconds.Value / 60d);
+            return double.IsFinite(value) ? value : null;
         }
+
+        private static double? CalibratedSeconds(double? seconds, ReplayTimingSource source) =>
+            source is (ReplayTimingSource.BattleResults or ReplayTimingSource.BattleClock) &&
+            seconds.HasValue && double.IsFinite(seconds.Value) && seconds.Value >= 0 && seconds.Value <= 3600
+                ? seconds : null;
 
         private static double? TradeRatio(BattleRecord battle, BattleAdvancedMetrics advanced, bool includeExperimental = true)
         {

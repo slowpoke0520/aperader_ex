@@ -83,8 +83,14 @@ namespace ApeRadar.History
             return knownFields;
         }
 
+        private static bool HasExactReplayResults(BattleRecord battle) =>
+            battle.Source == BattleMetricSource.ReplayExact && battle.BattleCount == 1 &&
+            battle.Completeness == BattleCompleteness.Complete && battle.Damage.HasValue &&
+            battle.Frags.HasValue && battle.Result != BattleResult.Unknown;
+
         private static void MergeBattleValues(BattleRecord target, BattleRecord other)
         {
+            bool preserveExactReplay = HasExactReplayResults(target) && !HasExactReplayResults(other);
             if (other.StartedAt < target.StartedAt) target.StartedAt = other.StartedAt;
             if (target.Server is "" or "AUTO" && other.Server is not ("" or "AUTO")) target.Server = other.Server;
             if ((target.AccountId == "" || target.AccountId.StartsWith("name:", StringComparison.OrdinalIgnoreCase)) &&
@@ -105,7 +111,7 @@ namespace ApeRadar.History
                 target.Completeness = other.Completeness;
                 target.StatusMessage = other.StatusMessage;
             }
-            if (!string.IsNullOrWhiteSpace(other.ReplayHash))
+            if (!preserveExactReplay && !string.IsNullOrWhiteSpace(other.ReplayHash))
             {
                 target.ReplayHash = other.ReplayHash;
                 target.ReplayVersion = other.ReplayVersion;
@@ -171,6 +177,10 @@ namespace ApeRadar.History
         private static async Task MergeDuplicateBattleAsync(SqliteConnection connection, SqliteTransaction transaction,
             BattleRecord target, BattleRecord duplicate, CancellationToken cancellationToken)
         {
+            bool replaceReplayDetails = HasExactReplayResults(duplicate);
+            bool preserveReplayDetails = HasExactReplayResults(target) && !replaceReplayDetails;
+            (bool replaceTiming, string mergedSchema) = await SelectTimingSnapshotAsync(connection, transaction,
+                target.Id, duplicate.Id, cancellationToken);
             await using (SqliteCommand manual = connection.CreateCommand())
             {
                 manual.Transaction = transaction;
@@ -182,6 +192,16 @@ namespace ApeRadar.History
             }
             MergeBattleValues(target, duplicate);
             await UpdateReconciledBattleAsync(connection, transaction, target, cancellationToken);
+            if (replaceReplayDetails)
+            {
+                // The same source that wins the single-battle totals must also own
+                // its advanced metrics and categories. Do not retain earlier partial
+                // values through COALESCE when a complete settlement supersedes them.
+                await ExecuteAsync(connection, transaction, """
+                    DELETE FROM BattleAdvancedMetrics WHERE BattleId=$keep;
+                    DELETE FROM BattleDamageBreakdowns WHERE BattleId=$keep;
+                    """, cancellationToken, ("$keep", target.Id));
+            }
             await ExecuteAsync(connection, transaction, """
                 INSERT OR IGNORE INTO BattlePlayers
                 SELECT $keep,PlayerKey,AccountId,AccountName,Relation,ShipId,ShipName,ShipType,ShipTier,IsHidden,IsDataStale,
@@ -189,16 +209,19 @@ namespace ApeRadar.History
                 UPDATE ShipSnapshots SET BattleId=$keep WHERE BattleId=$remove;
                 UPDATE ReplayFiles SET BattleId=$keep WHERE BattleId=$remove;
                 INSERT INTO BattleAdvancedMetrics(BattleId,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
-                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability)
+                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability,
+                    BattleDurationSource,SurvivalTimeSource)
                 SELECT $keep,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
-                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability
-                FROM BattleAdvancedMetrics WHERE BattleId=$remove
+                    SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability,
+                    BattleDurationSource,SurvivalTimeSource
+                FROM BattleAdvancedMetrics WHERE BattleId=$remove AND $preserveDetails=0
                 ON CONFLICT(BattleId) DO UPDATE SET
-                    BattleDurationSeconds=COALESCE(BattleAdvancedMetrics.BattleDurationSeconds,excluded.BattleDurationSeconds),
-                    Survived=COALESCE(BattleAdvancedMetrics.Survived,excluded.Survived),
-                    SurvivalSeconds=COALESCE(BattleAdvancedMetrics.SurvivalSeconds,excluded.SurvivalSeconds),
-                    SurvivalAvailability=CASE WHEN BattleAdvancedMetrics.Survived IS NULL AND BattleAdvancedMetrics.SurvivalSeconds IS NULL
-                        THEN excluded.SurvivalAvailability ELSE BattleAdvancedMetrics.SurvivalAvailability END,
+                    BattleDurationSeconds=CASE WHEN $replaceTiming=1 THEN excluded.BattleDurationSeconds ELSE BattleAdvancedMetrics.BattleDurationSeconds END,
+                    Survived=CASE WHEN $replaceTiming=1 THEN excluded.Survived ELSE BattleAdvancedMetrics.Survived END,
+                    SurvivalSeconds=CASE WHEN $replaceTiming=1 THEN excluded.SurvivalSeconds ELSE BattleAdvancedMetrics.SurvivalSeconds END,
+                    SurvivalAvailability=CASE WHEN $replaceTiming=1 THEN excluded.SurvivalAvailability ELSE BattleAdvancedMetrics.SurvivalAvailability END,
+                    BattleDurationSource=CASE WHEN $replaceTiming=1 THEN excluded.BattleDurationSource ELSE BattleAdvancedMetrics.BattleDurationSource END,
+                    SurvivalTimeSource=CASE WHEN $replaceTiming=1 THEN excluded.SurvivalTimeSource ELSE BattleAdvancedMetrics.SurvivalTimeSource END,
                     PotentialDamageAvailability=CASE WHEN BattleAdvancedMetrics.PotentialDamage IS NULL
                         THEN excluded.PotentialDamageAvailability ELSE BattleAdvancedMetrics.PotentialDamageAvailability END,
                     DamageTakenAvailability=CASE WHEN BattleAdvancedMetrics.DamageTaken IS NULL
@@ -208,14 +231,14 @@ namespace ApeRadar.History
                     PotentialDamage=COALESCE(BattleAdvancedMetrics.PotentialDamage,excluded.PotentialDamage),
                     DamageTaken=COALESCE(BattleAdvancedMetrics.DamageTaken,excluded.DamageTaken),
                     SpottingDamage=COALESCE(BattleAdvancedMetrics.SpottingDamage,excluded.SpottingDamage),
-                    ParserSchemaVersion=CASE WHEN BattleAdvancedMetrics.ParserSchemaVersion=''
-                        THEN excluded.ParserSchemaVersion ELSE BattleAdvancedMetrics.ParserSchemaVersion END;
+                    ParserSchemaVersion=$mergedSchema;
                 INSERT OR IGNORE INTO BattleDamageBreakdowns
-                SELECT $keep,Direction,RawTypeCode,Category,Damage,Availability FROM BattleDamageBreakdowns WHERE BattleId=$remove;
+                SELECT $keep,Direction,RawTypeCode,Category,Damage,Availability FROM BattleDamageBreakdowns WHERE BattleId=$remove AND $preserveDetails=0;
                 INSERT INTO PendingResultChecks
                 SELECT $keep,Attempt,NextAttemptAt,LastError FROM PendingResultChecks WHERE BattleId=$remove
                 ON CONFLICT(BattleId) DO UPDATE SET NextAttemptAt=MIN(PendingResultChecks.NextAttemptAt,excluded.NextAttemptAt);
-                """, cancellationToken, ("$keep", target.Id), ("$remove", duplicate.Id));
+                """, cancellationToken, ("$keep", target.Id), ("$remove", duplicate.Id), ("$preserveDetails", preserveReplayDetails ? 1 : 0),
+                ("$replaceTiming", replaceTiming ? 1 : 0), ("$mergedSchema", mergedSchema));
             await MergeReviewsAsync(connection, transaction, target.Id, duplicate.Id, cancellationToken);
             await MergeReviewsAsync(connection, transaction, target.Id, duplicate.Id, cancellationToken, "BattleReviewDrafts");
             await ExecuteAsync(connection, transaction, "DELETE FROM Battles WHERE Id=$remove", cancellationToken, ("$remove", duplicate.Id));

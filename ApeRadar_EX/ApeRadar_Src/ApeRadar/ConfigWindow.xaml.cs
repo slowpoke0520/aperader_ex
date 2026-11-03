@@ -15,6 +15,15 @@ using Newtonsoft.Json.Linq;
 
 namespace ApeRadar
 {
+    internal enum SettingsDestination
+    {
+        General,
+        GamePath,
+        DataSource,
+        RosterAppearance,
+        Updates
+    }
+
     partial class ConfigWindow : Window
     {
         private readonly bool initializeRuntime;
@@ -324,10 +333,45 @@ namespace ApeRadar
             initialMainInterfaceStyle = NormalizeMainInterfaceStyle(Properties.Settings.Default.MainInterfaceStyle);
             settingsDraft = new SettingsDraft(Properties.Settings.Default);
             InitializeComponent();
+            Loaded += (_, _) => QueueNavigationFocus();
             if (!initializeRuntime) return;
             LoadSettings();
             AutoDetectGamePath();
             RefreshWatchList();
+        }
+
+        private System.Windows.Controls.Control? navigationTarget;
+        private TabItem? navigationPage;
+
+        internal void NavigateTo(SettingsDestination destination)
+        {
+            (TabItem Page, System.Windows.Controls.Control Target) navigation = destination switch
+            {
+                SettingsDestination.GamePath => (GeneralSettingsTab, ComboBoxGamePath),
+                SettingsDestination.DataSource => (AdvancedSettingsTab, ComboBoxAPIType),
+                SettingsDestination.RosterAppearance => (AppearanceSettingsTab, ChkBoxShowAccountRosterColumn),
+                SettingsDestination.Updates => (AdvancedSettingsTab, ComboBoxSoftwareUpdateChannel),
+                _ => (GeneralSettingsTab, ComboBoxServer)
+            };
+            navigationTarget = navigation.Target;
+            navigationPage = navigation.Page;
+            ConfigTabs.SelectedItem = navigationPage;
+            if (IsLoaded) QueueNavigationFocus();
+        }
+
+        private void QueueNavigationFocus() =>
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(FocusNavigationTarget));
+
+        private void FocusNavigationTarget()
+        {
+            if (navigationTarget == null || !IsLoaded) return;
+            // Window activation can restore focus to a control on the previous tab.
+            // Reapply the destination after that restoration, before focusing it.
+            ConfigTabs.SelectedItem = navigationPage;
+            UpdateLayout();
+            if (!navigationTarget.IsVisible) return;
+            navigationTarget.BringIntoView();
+            navigationTarget.Focus();
         }
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e)

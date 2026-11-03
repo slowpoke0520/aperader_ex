@@ -89,7 +89,7 @@ public sealed class HistoryAnalysisTests
         BattleRecord second = Complete(2, 1, 60_000, 0, 0);
         Dictionary<long, BattleAdvancedMetrics> advanced = new()
         {
-            [1] = new() { BattleId = 1, Survived = true, SurvivalSeconds = 900, BattleDurationSeconds = 900, PotentialDamage = 1_000_000, SurvivalAvailability = MetricAvailability.Stable, PotentialDamageAvailability = MetricAvailability.Stable },
+            [1] = new() { BattleId = 1, Survived = true, SurvivalSeconds = 900, BattleDurationSeconds = 900, BattleDurationSource = ReplayTimingSource.BattleResults, SurvivalTimeSource = ReplayTimingSource.BattleResults, PotentialDamage = 1_000_000, SurvivalAvailability = MetricAvailability.Stable, PotentialDamageAvailability = MetricAvailability.Stable },
             [2] = new() { BattleId = 2, Survived = null, PotentialDamage = 0, SurvivalAvailability = MetricAvailability.Unavailable, PotentialDamageAvailability = MetricAvailability.Unavailable }
         };
         SessionAnalysisService sessionAnalysis = new(service);

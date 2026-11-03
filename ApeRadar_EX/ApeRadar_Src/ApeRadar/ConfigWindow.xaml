@@ -82,7 +82,7 @@
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
             <Grid MinWidth="900" MinHeight="500">
                 <TabControl x:Name="ConfigTabs" TabStripPlacement="Left" SelectionChanged="ConfigTabs_SelectionChanged">
-                    <TabItem Header="{DynamicResource TabHeaderGeneral}" MinHeight="46" Width="168">
+                    <TabItem x:Name="GeneralSettingsTab" Header="{DynamicResource TabHeaderGeneral}" MinHeight="46" Width="168">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
@@ -199,7 +199,7 @@
                             </Grid>
                         </Grid>
                     </TabItem>
-                    <TabItem Header="{DynamicResource TabHeaderAppearance}"  MinHeight="46" Width="168">
+                    <TabItem x:Name="AppearanceSettingsTab" Header="{DynamicResource TabHeaderAppearance}"  MinHeight="46" Width="168">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>
@@ -825,7 +825,7 @@
                               </Grid>
                           </Grid>
                     </TabItem>
-                    <TabItem Header="{DynamicResource TabHeaderAdvanced}" MinHeight="46" Width="168">
+                    <TabItem x:Name="AdvancedSettingsTab" Header="{DynamicResource TabHeaderAdvanced}" MinHeight="46" Width="168">
                         <Grid x:Name="AdvancedOptionsGrid">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="30"/>

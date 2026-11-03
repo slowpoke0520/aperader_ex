@@ -9,6 +9,7 @@ namespace ApeRadar.History
     internal enum BattleCompleteness { Complete, Partial, Pending, Unsupported, Failed }
     internal enum ReplayParseStatus { Parsed, Partial, Unsupported, Invalid, Pending }
     internal enum MetricAvailability { Unavailable, Stable, Experimental }
+    internal enum ReplayTimingSource { Unknown = 0, BattleResults = 1, BattleClock = 2 }
     internal enum DamageDirection { Dealt = 0, Received = 1, Spotting = 2 }
     internal enum DamageCategory { Unknown, Artillery, Secondary, Torpedo, Fire, Flooding, Bomb, Aircraft, DepthCharge, Other }
 
@@ -58,6 +59,8 @@ namespace ApeRadar.History
         public double? BattleDurationSeconds { get; set; }
         public bool? Survived { get; set; }
         public double? SurvivalSeconds { get; set; }
+        public ReplayTimingSource BattleDurationSource { get; set; }
+        public ReplayTimingSource SurvivalTimeSource { get; set; }
         public long? PotentialDamage { get; set; }
         public long? SpottingDamage { get; set; }
         public long? DamageTaken { get; set; }

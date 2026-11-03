@@ -532,8 +532,9 @@ namespace ApeRadar.ViewModels
                     ShowExperimentalMetrics && metric.SurvivalAvailability == MetricAvailability.Experimental);
                 if (showSurvival && metric?.Survived.HasValue == true)
                     advancedParts.Add(metric.Survived.Value ? Resource("HistorySurvived", "Survived") : Resource("HistorySunk", "Sunk"));
-                if (showSurvival && metric?.SurvivalSeconds.HasValue == true)
-                    advancedParts.Add($"{Resource("HistorySurvivalTime", "Survival time")}: {FormatDuration(metric.SurvivalSeconds)}");
+                double? survivalTime = metric == null ? null : SessionAnalysisService.MetricValue(row.Battle, metric, "SurvivalTime", ShowExperimentalMetrics);
+                if (survivalTime.HasValue)
+                    advancedParts.Add($"{Resource("HistorySurvivalTime", "Survival time")}: {FormatDuration(survivalTime)}");
                 if (metric?.PotentialDamage.HasValue == true && (metric.PotentialDamageAvailability == MetricAvailability.Stable ||
                     ShowExperimentalMetrics && metric.PotentialDamageAvailability == MetricAvailability.Experimental))
                     advancedParts.Add($"{Resource("HistoryMetricPotentialDamage", "Potential damage")}: {metric.PotentialDamage:0}");
@@ -542,7 +543,11 @@ namespace ApeRadar.ViewModels
                     advancedParts.Add($"{Resource("HistoryMetricSpottingDamage", "Spotting damage")}: {metric.SpottingDamage:0}");
                 if (ShowExperimentalMetrics && metric?.DamageTaken.HasValue == true &&
                     metric.DamageTakenAvailability is MetricAvailability.Stable or MetricAvailability.Experimental)
+                {
                     advancedParts.Add($"{Resource("HistoryMetricDamageTakenExperimental", "Damage taken (experimental)")}: {metric.DamageTaken:0}");
+                    double? ratio = SessionAnalysisService.MetricValue(row.Battle, metric, "TradeRatio", true);
+                    advancedParts.Add($"{Resource("HistoryMetricTradeRatioExperimental", "Trade ratio (experimental)")}: {ratio?.ToString("0.00") ?? "-"}");
+                }
                 BattleDetailAdvancedSummary = string.Join(" · ", advancedParts);
                 BattleDamageEmptyText = !ShowExperimentalMetrics && breakdowns.Any(x => x.Availability == MetricAvailability.Experimental)
                     ? Resource("HistoryDamageDetailsHidden", "This battle's damage breakdown is experimental and currently hidden. Enable experimental replay metrics in Settings → Advanced to view it.")
@@ -685,19 +690,24 @@ namespace ApeRadar.ViewModels
                 parts.Add(Resource("HistoryAdvancedUnavailable", "Advanced Replay metrics are unavailable."));
                 return string.Join(Environment.NewLine, parts);
             }
+            double? survival = SessionAnalysisService.MetricValue(row.Battle, metric, "Survival", ShowExperimentalMetrics);
             parts.AddRange(new[]
             {
-                $"{Resource("HistoryMetricSurvival", "Survival")}: {(metric.Survived.HasValue ? metric.Survived.Value ? Resource("HistorySurvived", "Survived") : Resource("HistorySunk", "Sunk") : "-")}",
-                $"{Resource("HistorySurvivalTime", "Survival time")}: {FormatDuration(metric.SurvivalSeconds)}",
+                $"{Resource("HistoryMetricSurvival", "Survival")}: {(survival.HasValue ? survival.Value == 1 ? Resource("HistorySurvived", "Survived") : Resource("HistorySunk", "Sunk") : "-")}",
+                $"{Resource("HistorySurvivalTime", "Survival time")}: {FormatDuration(SessionAnalysisService.MetricValue(row.Battle, metric, "SurvivalTime", ShowExperimentalMetrics))}",
                 $"{Resource("HistoryMetricPotentialDamage", "Potential damage")}: {(SessionAnalysisService.MetricValue(row.Battle, metric, "PotentialDamage", ShowExperimentalMetrics)?.ToString("0") ?? "-")}",
                 $"{Resource("HistoryMetricSpottingDamage", "Spotting damage")}: {(SessionAnalysisService.MetricValue(row.Battle, metric, "SpottingDamage", ShowExperimentalMetrics)?.ToString("0") ?? "-")}"
             });
             if (ShowExperimentalMetrics)
+            {
                 parts.Add($"{Resource("HistoryMetricDamageTakenExperimental", "Damage taken (experimental)")}: {(SessionAnalysisService.MetricValue(row.Battle, metric, "DamageTaken", true)?.ToString("0") ?? "-")}");
+                parts.Add($"{Resource("HistoryMetricTradeRatioExperimental", "Trade ratio (experimental)")}: {(SessionAnalysisService.MetricValue(row.Battle, metric, "TradeRatio", true)?.ToString("0.00") ?? "-")}");
+            }
             return string.Join(Environment.NewLine, parts);
         }
 
-        private static string FormatDuration(double? seconds) => seconds.HasValue ? TimeSpan.FromSeconds(seconds.Value).ToString(@"mm\:ss") : "-";
+        private static string FormatDuration(double? seconds) => seconds.HasValue && double.IsFinite(seconds.Value) && seconds.Value >= 0 && seconds.Value <= 3600
+            ? $"{(int)(seconds.Value / 60):00}:{(int)(seconds.Value % 60):00}" : "-";
 
         private async Task LoadServersAsync()
         {
@@ -857,7 +867,8 @@ namespace ApeRadar.ViewModels
             SourceDetail = Source + " · " + Completeness + (battle.BattleCount > 1 ?
                 Environment.NewLine + string.Format(Resource("HistorySourceIntervalHint", "Combined totals from {0} battles, not individual battle results."), battle.BattleCount) : "");
             Status = battle.StatusMessage ?? "";
-            Survival = advanced?.Survived.HasValue == true ? advanced.Survived.Value ? Resource("HistorySurvived", "Survived") : Resource("HistorySunk", "Sunk") : "-";
+            double? survival = advanced == null ? null : SessionAnalysisService.MetricValue(battle, advanced, "Survival", showExperimental);
+            Survival = survival.HasValue ? survival.Value == 1 ? Resource("HistorySurvived", "Survived") : Resource("HistorySunk", "Sunk") : "-";
             PotentialDamage = advanced == null ? "-" : SessionAnalysisService.MetricValue(battle, advanced, "PotentialDamage", showExperimental)?.ToString("0") ?? "-";
             SpottingDamage = advanced == null ? "-" : SessionAnalysisService.MetricValue(battle, advanced, "SpottingDamage", showExperimental)?.ToString("0") ?? "-";
             DamageTaken = showExperimental && advanced != null ? SessionAnalysisService.MetricValue(battle, advanced, "DamageTaken", true)?.ToString("0") ?? "-" : "-";
