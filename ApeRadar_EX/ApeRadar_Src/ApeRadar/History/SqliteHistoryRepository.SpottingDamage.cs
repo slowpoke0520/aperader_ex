@@ -8,6 +8,31 @@ namespace ApeRadar.History
 {
     internal sealed partial class SqliteHistoryRepository
     {
+        private static async Task MigrateDamageOwnershipAsync(SqliteConnection connection, CancellationToken token)
+        {
+            await using SqliteTransaction transaction = connection.BeginTransaction();
+            await using SqliteCommand check = connection.CreateCommand();
+            check.Transaction = transaction;
+            check.CommandText = "SELECT 1 FROM SchemaMigrations WHERE Version=10";
+            if (await check.ExecuteScalarAsync(token) != null) return;
+            foreach (string column in new[] { "SpottingReplayHash", "PotentialReplayHash" })
+                if (!await ColumnExistsAsync(connection, "BattleAdvancedMetrics", column, token, transaction))
+                    await ExecuteAsync(connection, transaction,
+                        $"ALTER TABLE BattleAdvancedMetrics ADD COLUMN {column} TEXT NOT NULL DEFAULT ''", token);
+
+            // Older histories did not record separate sources for these counters.
+            // A battle with one linked recording has an unambiguous source.
+            await ExecuteAsync(connection, transaction, """
+                UPDATE BattleAdvancedMetrics AS m SET
+                    SpottingReplayHash=CASE WHEN m.SpottingDamage IS NOT NULL THEN r.FileHash ELSE '' END,
+                    PotentialReplayHash=CASE WHEN m.PotentialDamage IS NOT NULL THEN r.FileHash ELSE '' END
+                FROM (SELECT BattleId, MIN(FileHash) AS FileHash FROM ReplayFiles
+                      GROUP BY BattleId HAVING COUNT(*)=1) AS r WHERE r.BattleId=m.BattleId;
+                INSERT INTO SchemaMigrations(Version,AppliedAt) VALUES(10,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+                """, token);
+            await transaction.CommitAsync(token);
+        }
+
         private static async Task MigrateSpottingDamageAsync(SqliteConnection connection, CancellationToken token)
         {
             await using SqliteTransaction transaction = (SqliteTransaction)await connection.BeginTransactionAsync(token);

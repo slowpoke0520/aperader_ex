@@ -243,6 +243,7 @@ namespace ApeRadar.History
             await MigrateSpottingDamageAsync(connection, cancellationToken);
             await MigrateReplayTimingAsync(connection, cancellationToken);
             await MigrateReplayOwnershipAsync(connection, cancellationToken);
+            await MigrateDamageOwnershipAsync(connection, cancellationToken);
             await ReconcileLegacyBattlesAsync(connection, cancellationToken);
             await BackfillSessionsAsync(connection, cancellationToken);
         }
@@ -370,6 +371,7 @@ namespace ApeRadar.History
                 bool incomingExactResults = replay.Source == BattleMetricSource.ReplayExact && replay.HasCompleteMetrics;
                 bool storedExactResults = HasExactReplayResults(stored);
                 bool preserveReplayDetails = storedExactResults && !incomingExactResults;
+                bool sameTotalsFile = !string.IsNullOrEmpty(replay.FileHash) && replay.FileHash == stored.ReplayHash;
                 BattleCompleteness completeness = replay.Status switch
                 {
                     ReplayParseStatus.Parsed when replay.HasCompleteMetrics => BattleCompleteness.Complete,
@@ -399,13 +401,21 @@ namespace ApeRadar.History
                     // including unavailable values. Later partial reconnect segments
                     // still get a ReplayFiles association but cannot erase this data.
                     replay.AdvancedMetrics.BattleId = battleId;
-                    await UpsertAdvancedMetricsAsync(connection, transaction, replay.AdvancedMetrics, replay.FileHash,
+                    bool replaceSpotting = await UpsertAdvancedMetricsAsync(connection, transaction, replay.AdvancedMetrics, replay.FileHash,
                         incomingExactResults, storedExactResults, cancellationToken);
-                    await ExecuteAsync(connection, transaction, "DELETE FROM BattleDamageBreakdowns WHERE BattleId=$id", cancellationToken, ("$id", battleId));
-                    foreach (BattleDamageBreakdown breakdown in replay.DamageBreakdowns)
+                    foreach (DamageDirection direction in Enum.GetValues<DamageDirection>())
                     {
-                        breakdown.BattleId = battleId;
-                        await InsertDamageBreakdownAsync(connection, transaction, breakdown, cancellationToken);
+                        var rows = replay.DamageBreakdowns.Where(row => row.Direction == direction).ToArray();
+                        bool replace = direction == DamageDirection.Spotting ? replaceSpotting :
+                            sameTotalsFile || rows.Length > 0 || (direction == DamageDirection.Dealt && replay.Damage == 0);
+                        if (!incomingExactResults && !replace) continue;
+                        await ExecuteAsync(connection, transaction, "DELETE FROM BattleDamageBreakdowns WHERE BattleId=$id AND Direction=$direction",
+                            cancellationToken, ("$id", battleId), ("$direction", (int)direction));
+                        foreach (BattleDamageBreakdown breakdown in rows)
+                        {
+                            breakdown.BattleId = battleId;
+                            await InsertDamageBreakdownAsync(connection, transaction, breakdown, cancellationToken);
+                        }
                     }
                 }
                 if (stored.Completeness == BattleCompleteness.Complete)
@@ -826,16 +836,20 @@ namespace ApeRadar.History
                 ("$losses", snapshot.Losses), ("$damage", snapshot.Damage), ("$frags", snapshot.Frags));
         }
 
-        private static async Task UpsertAdvancedMetricsAsync(SqliteConnection connection, SqliteTransaction transaction,
+        private static async Task<bool> UpsertAdvancedMetricsAsync(SqliteConnection connection, SqliteTransaction transaction,
             BattleAdvancedMetrics metrics, string fileHash, bool incomingExact, bool storedExact, CancellationToken cancellationToken)
         {
             bool hasAnyMetric = metrics.BattleDurationSeconds.HasValue || metrics.Survived.HasValue || metrics.SurvivalSeconds.HasValue ||
                                 metrics.PotentialDamage.HasValue || metrics.SpottingDamage.HasValue || metrics.DamageTaken.HasValue;
             // A newer parser may explicitly invalidate every prior advanced value.
             // Persist that empty snapshot instead of leaving stale timing behind.
-            if (!incomingExact && !hasAnyMetric && string.IsNullOrWhiteSpace(metrics.ParserSchemaVersion)) return;
+            if (!incomingExact && !hasAnyMetric && string.IsNullOrWhiteSpace(metrics.ParserSchemaVersion)) return false;
             BattleAdvancedMetrics timing = metrics;
+            BattleAdvancedMetrics spotting = metrics, potential = metrics;
             string timingHash = fileHash;
+            string spottingHash = metrics.SpottingDamage.HasValue ? fileHash : "";
+            string potentialHash = metrics.PotentialDamage.HasValue ? fileHash : "";
+            bool replaceSpotting = true;
             string schema = metrics.ParserSchemaVersion;
             if (!incomingExact || storedExact)
             {
@@ -847,6 +861,23 @@ namespace ApeRadar.History
                 if (await reader.ReadAsync(cancellationToken))
                 {
                     BattleAdvancedMetrics stored = ReadAdvancedMetrics(reader);
+                    if (!incomingExact)
+                    {
+                        bool mayCorrect = fileHash.Length > 0 && NumericSchema(schema) >= NumericSchema(stored.ParserSchemaVersion);
+                        if (!metrics.SpottingDamage.HasValue && stored.SpottingDamage.HasValue &&
+                            !(mayCorrect && fileHash == stored.SpottingReplayHash))
+                        {
+                            spotting = stored;
+                            spottingHash = stored.SpottingReplayHash;
+                            replaceSpotting = false;
+                        }
+                        if (!metrics.PotentialDamage.HasValue && stored.PotentialDamage.HasValue &&
+                            !(mayCorrect && fileHash == stored.PotentialReplayHash))
+                        {
+                            potential = stored;
+                            potentialHash = stored.PotentialReplayHash;
+                        }
+                    }
                     bool sameFile = fileHash.Length > 0 && fileHash == stored.TimingReplayHash;
                     bool reparse = sameFile && NumericSchema(schema) >= NumericSchema(stored.ParserSchemaVersion);
                     if (!reparse && !PreferIncomingTiming(stored, metrics))
@@ -860,9 +891,9 @@ namespace ApeRadar.History
             await ExecuteAsync(connection, transaction, """
                 INSERT INTO BattleAdvancedMetrics(BattleId,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
                     SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability,
-                    BattleDurationSource,SurvivalTimeSource,TimingReplayHash)
+                    BattleDurationSource,SurvivalTimeSource,TimingReplayHash,SpottingReplayHash,PotentialReplayHash)
                 VALUES($id,$duration,$survived,$survival,$potential,$taken,$survivalAvailability,$potentialAvailability,$takenAvailability,$schema,$spotting,$spottingAvailability,
-                    $durationSource,$survivalSource,$timingHash)
+                    $durationSource,$survivalSource,$timingHash,$spottingHash,$potentialHash)
                 ON CONFLICT(BattleId) DO UPDATE SET
                     BattleDurationSeconds=excluded.BattleDurationSeconds,Survived=excluded.Survived,SurvivalSeconds=excluded.SurvivalSeconds,
                     PotentialDamage=excluded.PotentialDamage,DamageTaken=excluded.DamageTaken,
@@ -870,16 +901,18 @@ namespace ApeRadar.History
                     DamageTakenAvailability=excluded.DamageTakenAvailability,ParserSchemaVersion=excluded.ParserSchemaVersion,
                     SpottingDamage=excluded.SpottingDamage,SpottingDamageAvailability=excluded.SpottingDamageAvailability,
                     BattleDurationSource=excluded.BattleDurationSource,SurvivalTimeSource=excluded.SurvivalTimeSource,
-                    TimingReplayHash=excluded.TimingReplayHash
+                    TimingReplayHash=excluded.TimingReplayHash,SpottingReplayHash=excluded.SpottingReplayHash,
+                    PotentialReplayHash=excluded.PotentialReplayHash
                 """, cancellationToken,
                 ("$id", metrics.BattleId), ("$duration", timing.BattleDurationSeconds),
                 ("$survived", timing.Survived.HasValue ? timing.Survived.Value ? 1 : 0 : null),
-                ("$survival", timing.SurvivalSeconds), ("$potential", metrics.PotentialDamage), ("$taken", metrics.DamageTaken),
-                ("$survivalAvailability", (int)timing.SurvivalAvailability), ("$potentialAvailability", (int)metrics.PotentialDamageAvailability),
+                ("$survival", timing.SurvivalSeconds), ("$potential", potential.PotentialDamage), ("$taken", metrics.DamageTaken),
+                ("$survivalAvailability", (int)timing.SurvivalAvailability), ("$potentialAvailability", (int)potential.PotentialDamageAvailability),
                 ("$takenAvailability", (int)metrics.DamageTakenAvailability), ("$schema", schema),
-                ("$spotting", metrics.SpottingDamage), ("$spottingAvailability", (int)metrics.SpottingDamageAvailability),
+                ("$spotting", spotting.SpottingDamage), ("$spottingAvailability", (int)spotting.SpottingDamageAvailability),
                 ("$durationSource", (int)timing.BattleDurationSource), ("$survivalSource", (int)timing.SurvivalTimeSource),
-                ("$timingHash", timingHash));
+                ("$timingHash", timingHash), ("$spottingHash", spottingHash), ("$potentialHash", potentialHash));
+            return replaceSpotting;
         }
 
         private static Task InsertDamageBreakdownAsync(SqliteConnection connection, SqliteTransaction transaction, BattleDamageBreakdown breakdown, CancellationToken cancellationToken) =>
@@ -1080,6 +1113,8 @@ namespace ApeRadar.History
         private static BattleAdvancedMetrics ReadAdvancedMetrics(SqliteDataReader reader) => new()
         {
             TimingReplayHash = reader.GetString(reader.GetOrdinal("TimingReplayHash")),
+            SpottingReplayHash = reader.GetString(reader.GetOrdinal("SpottingReplayHash")),
+            PotentialReplayHash = reader.GetString(reader.GetOrdinal("PotentialReplayHash")),
             BattleId = reader.GetInt64(reader.GetOrdinal("BattleId")),
             BattleDurationSeconds = reader.IsDBNull(reader.GetOrdinal("BattleDurationSeconds")) ? null : reader.GetDouble(reader.GetOrdinal("BattleDurationSeconds")),
             Survived = reader.IsDBNull(reader.GetOrdinal("Survived")) ? null : reader.GetInt32(reader.GetOrdinal("Survived")) != 0,

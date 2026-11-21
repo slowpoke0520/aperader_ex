@@ -232,10 +232,10 @@ namespace ApeRadar.History
                 UPDATE ReplayFiles SET BattleId=$keep WHERE BattleId=$remove;
                 INSERT INTO BattleAdvancedMetrics(BattleId,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
                     SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability,
-                    BattleDurationSource,SurvivalTimeSource,TimingReplayHash)
+                    BattleDurationSource,SurvivalTimeSource,TimingReplayHash,SpottingReplayHash,PotentialReplayHash)
                 SELECT $keep,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
                     SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability,
-                    BattleDurationSource,SurvivalTimeSource,TimingReplayHash
+                    BattleDurationSource,SurvivalTimeSource,TimingReplayHash,SpottingReplayHash,PotentialReplayHash
                 FROM BattleAdvancedMetrics WHERE BattleId=$remove AND $preserveDetails=0
                 ON CONFLICT(BattleId) DO UPDATE SET
                     BattleDurationSeconds=CASE WHEN $replaceTiming=1 THEN excluded.BattleDurationSeconds ELSE BattleAdvancedMetrics.BattleDurationSeconds END,
@@ -247,10 +247,14 @@ namespace ApeRadar.History
                     TimingReplayHash=CASE WHEN $replaceTiming=1 THEN excluded.TimingReplayHash ELSE BattleAdvancedMetrics.TimingReplayHash END,
                     PotentialDamageAvailability=CASE WHEN BattleAdvancedMetrics.PotentialDamage IS NULL
                         THEN excluded.PotentialDamageAvailability ELSE BattleAdvancedMetrics.PotentialDamageAvailability END,
+                    PotentialReplayHash=CASE WHEN BattleAdvancedMetrics.PotentialDamage IS NULL
+                        THEN excluded.PotentialReplayHash ELSE BattleAdvancedMetrics.PotentialReplayHash END,
                     DamageTakenAvailability=CASE WHEN BattleAdvancedMetrics.DamageTaken IS NULL
                         THEN excluded.DamageTakenAvailability ELSE BattleAdvancedMetrics.DamageTakenAvailability END,
                     SpottingDamageAvailability=CASE WHEN BattleAdvancedMetrics.SpottingDamage IS NULL
                         THEN excluded.SpottingDamageAvailability ELSE BattleAdvancedMetrics.SpottingDamageAvailability END,
+                    SpottingReplayHash=CASE WHEN BattleAdvancedMetrics.SpottingDamage IS NULL
+                        THEN excluded.SpottingReplayHash ELSE BattleAdvancedMetrics.SpottingReplayHash END,
                     PotentialDamage=COALESCE(BattleAdvancedMetrics.PotentialDamage,excluded.PotentialDamage),
                     DamageTaken=COALESCE(BattleAdvancedMetrics.DamageTaken,excluded.DamageTaken),
                     SpottingDamage=COALESCE(BattleAdvancedMetrics.SpottingDamage,excluded.SpottingDamage),

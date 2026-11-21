@@ -9,7 +9,7 @@ namespace ApeRadar.History
 {
     internal sealed class HistoryDatabaseMaintenance
     {
-        private const int CurrentSchemaVersion = 9;
+        private const int CurrentSchemaVersion = 10;
         private readonly string databasePath;
         private readonly string connectionString;
 

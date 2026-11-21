@@ -211,6 +211,75 @@ public sealed class BattleResultsRepositoryTests : IDisposable
         Assert.Equal(2L, await ScalarAsync("SELECT COUNT(DISTINCT BattleId) FROM ReplayFiles"));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReconnectWithoutCounters_PreservesDamageTimingAndCategoriesInEitherOrder(bool reverse)
+    {
+        var repo = new SqliteHistoryRepository(DatabasePath);
+        long id = await CreateBattleAsync(repo);
+        var first = new ReplayParseResult
+        {
+            FileHash = "first", Status = ReplayParseStatus.Partial, Source = BattleMetricSource.ReplayDerived,
+            Damage = 76_474, Frags = 0, AdvancedMetrics = new()
+            {
+                SpottingDamage = 25_005, PotentialDamage = 1_092_600, SurvivalSeconds = 462.22, Survived = false,
+                SurvivalTimeSource = ReplayTimingSource.BattleClock, SurvivalAvailability = MetricAvailability.Stable,
+                SpottingDamageAvailability = MetricAvailability.Stable, PotentialDamageAvailability = MetricAvailability.Stable,
+                ParserSchemaVersion = "10"
+            },
+            DamageBreakdowns = new[] {
+                new BattleDamageBreakdown { Direction = DamageDirection.Spotting, Damage = 25_005 },
+                new BattleDamageBreakdown { Direction = DamageDirection.Dealt, Damage = 76_474 }
+            }
+        };
+        var reconnect = new ReplayParseResult { FileHash = "reconnect", Status = ReplayParseStatus.Partial,
+            AdvancedMetrics = new() { ParserSchemaVersion = "10" } };
+        foreach (var replay in reverse ? new[] { reconnect, first, reconnect } : new[] { first, reconnect, reconnect })
+            await repo.CompleteFromReplayAsync(id, replay, replay.FileHash);
+        var saved = (await repo.GetAdvancedMetricsAsync(new[] { id }))[id];
+        Assert.Equal(25_005, saved.SpottingDamage);
+        Assert.Equal(1_092_600, saved.PotentialDamage);
+        Assert.Equal(MetricAvailability.Stable, saved.SpottingDamageAvailability);
+        Assert.Equal(MetricAvailability.Stable, saved.PotentialDamageAvailability);
+        Assert.Equal(462.22, saved.SurvivalSeconds);
+        Assert.Equal(76_474, (await repo.GetBattleAsync(id))!.Damage);
+        var rows = await repo.GetDamageBreakdownsAsync(id);
+        Assert.Equal(25_005, Assert.Single(rows, x => x.Direction == DamageDirection.Spotting).Damage);
+        Assert.Equal(76_474, Assert.Single(rows, x => x.Direction == DamageDirection.Dealt).Damage);
+        Assert.Equal(2L, await ScalarAsync("SELECT COUNT(*) FROM ReplayFiles"));
+    }
+
+    [Fact]
+    public async Task EachCounterCanBeCorrectedByItsOwnRecordingAndRetainsObservedZero()
+    {
+        var repo = new SqliteHistoryRepository(DatabasePath);
+        long id = await CreateBattleAsync(repo);
+        Task Save(string hash, long? spotting, long? potential) => repo.CompleteFromReplayAsync(id, new ReplayParseResult
+        {
+            FileHash = hash, Status = ReplayParseStatus.Partial, AdvancedMetrics = new()
+            {
+                ParserSchemaVersion = "10", SpottingDamage = spotting, PotentialDamage = potential,
+                SpottingDamageAvailability = spotting.HasValue ? MetricAvailability.Stable : MetricAvailability.Unavailable,
+                PotentialDamageAvailability = potential.HasValue ? MetricAvailability.Stable : MetricAvailability.Unavailable
+            }
+        }, hash);
+        await Save("A", 27, null);
+        await Save("B", null, 0);
+        await Save("A", 0, null);
+        await Save("C", null, null);
+        var saved = (await repo.GetAdvancedMetricsAsync(new[] { id }))[id];
+        Assert.Equal(0, saved.SpottingDamage);
+        Assert.Equal(0, saved.PotentialDamage);
+        Assert.Equal(MetricAvailability.Stable, saved.PotentialDamageAvailability);
+        await Save("B", null, null);
+        saved = (await repo.GetAdvancedMetricsAsync(new[] { id }))[id];
+        Assert.Equal(0, saved.SpottingDamage);
+        Assert.Null(saved.PotentialDamage);
+        await Save("A", null, null);
+        Assert.Null((await repo.GetAdvancedMetricsAsync(new[] { id }))[id].SpottingDamage);
+    }
+
     private static Task<long> CreateBattleAsync(SqliteHistoryRepository repository) => repository.UpsertDraftAsync(new BattleRecord
     {
         BattleKey = "battle", StartedAt = Started, Server = "ASIA", AccountId = "1", AccountName = "Tester",

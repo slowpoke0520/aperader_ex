@@ -41,12 +41,12 @@ public sealed class TimingRepositoryTests : IDisposable
         Assert.Equal("saved", (await migrated.GetBattleReviewAsync(id))!.Note);
         Assert.Equal("draft", (await migrated.GetReviewDraftAsync(id))!.Note);
         Assert.Equal(1L, await ScalarAsync("SELECT COUNT(*) FROM ReplayFiles"));
-        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
+        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v10-*.bak"));
         Assert.Equal(900d, await ScalarAsync("SELECT BattleDurationSeconds FROM BattleAdvancedMetrics", backup));
         Assert.Equal(7L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations", backup));
-        Assert.Equal(9L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations"));
+        Assert.Equal(10L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations"));
         await new SqliteHistoryRepository(DatabasePath).InitializeAsync();
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v10-*.bak"));
     }
 
     [Theory]
@@ -100,7 +100,7 @@ public sealed class TimingRepositoryTests : IDisposable
         Assert.Equal(1L, await ScalarAsync("SELECT Survived FROM BattleAdvancedMetrics"));
         Assert.Equal(0L, await ScalarAsync("SELECT COUNT(*) FROM pragma_table_info('BattleAdvancedMetrics') WHERE name='BattleDurationSource'"));
         Assert.Equal(7L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations"));
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v10-*.bak"));
     }
 
     [Theory]
@@ -257,7 +257,7 @@ public sealed class TimingRepositoryTests : IDisposable
         await ExecuteAsync($"""
             UPDATE Battles SET Completeness={(int)BattleCompleteness.Complete} WHERE Id={id};
             ALTER TABLE BattleAdvancedMetrics DROP COLUMN TimingReplayHash;
-            DELETE FROM SchemaMigrations WHERE Version=9;
+            DELETE FROM SchemaMigrations WHERE Version>=9;
             """);
         SqliteHistoryRepository upgraded = new(DatabasePath);
         BattleRecord battle = (await upgraded.GetBattleAsync(id))!;
@@ -267,9 +267,35 @@ public sealed class TimingRepositoryTests : IDisposable
         Assert.Null(SessionAnalysisService.MetricValue(battle, timing, "DamagePerMinute", false));
         Assert.Equal(multipleFiles ? "" : "one", timing.TimingReplayHash);
         Assert.Equal(480, timing.SurvivalSeconds);
-        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
+        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v10-*.bak"));
         Assert.Equal(8L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations", backup));
         Assert.Equal((long)BattleCompleteness.Complete, await ScalarAsync("SELECT Completeness FROM Battles", backup));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SchemaNineUpgrade_OnlyAssignsCounterSourcesWhenOneRecordingIsLinked(bool multiple)
+    {
+        var repository = new SqliteHistoryRepository(DatabasePath);
+        long id = await CreateBattleAsync(repository);
+        var measured = Metrics("9", false, null, 420, ReplayTimingSource.BattleClock);
+        await repository.CompleteFromReplayAsync(id, Replay("first", "9", false, measured), "first.wowsreplay");
+        if (multiple)
+            await repository.CompleteFromReplayAsync(id, Replay("second", "9", false, measured), "second.wowsreplay");
+        await ExecuteAsync("""
+            ALTER TABLE BattleAdvancedMetrics DROP COLUMN SpottingReplayHash;
+            ALTER TABLE BattleAdvancedMetrics DROP COLUMN PotentialReplayHash;
+            DELETE FROM SchemaMigrations WHERE Version=10;
+            """);
+        var upgraded = new SqliteHistoryRepository(DatabasePath);
+        var saved = (await upgraded.GetAdvancedMetricsAsync(new[] { id }))[id];
+        Assert.Equal(multiple ? "" : "first", saved.SpottingReplayHash);
+        Assert.Equal(multiple ? "" : "first", saved.PotentialReplayHash);
+        Assert.Equal(measured.SpottingDamage, saved.SpottingDamage);
+        Assert.Equal(measured.PotentialDamage, saved.PotentialDamage);
+        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v10-*.bak"));
+        Assert.Equal(9L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations", backup));
     }
 
     private static Task<long> CreateBattleAsync(SqliteHistoryRepository repository) => repository.UpsertDraftAsync(new BattleRecord
