@@ -1,10 +1,10 @@
 {
-  "version": "15.9",
-  "date": "20261006",
+  "version": "15.10",
+  "date": "20261103",
   "source": {
     "repository": "wowsinfo/data",
-    "tag": "15.9.0.0.13357625",
-    "commit": "49aaf3fccf84ebd48e4cb70d6a3b91c7351aa220"
+    "tag": "15.10.0.0.13533378",
+    "commit": "a61256d1ff48b7c91a5abe363bd599bec5c1fa08"
   },
   "ships": {
     "3246831056": {
@@ -307,6 +307,13 @@
       "nation": "russia",
       "tier": 9,
       "type": "Destroyer"
+    },
+    "3331241168": {
+      "name_en-us": "Chao Heng",
+      "name_zh-cn": "晁衡",
+      "nation": "pan_asia",
+      "tier": 9,
+      "type": "Cruiser"
     },
     "3331241680": {
       "name_en-us": "Tone 3",
@@ -1421,6 +1428,13 @@
       "tier": 9,
       "type": "Destroyer"
     },
+    "3540923824": {
+      "name_en-us": "Halcón",
+      "name_zh-cn": "猎鹰",
+      "nation": "spain",
+      "tier": 9,
+      "type": "Destroyer"
+    },
     "3540924112": {
       "name_en-us": "Minegumo",
       "name_zh-cn": "峰云",
@@ -1959,6 +1973,13 @@
       "nation": "usa",
       "tier": 10,
       "type": "Cruiser"
+    },
+    "3550426320": {
+      "name_en-us": "Jiuhua",
+      "name_zh-cn": "九华",
+      "nation": "pan_asia",
+      "tier": 10,
+      "type": "Battleship"
     },
     "3550426448": {
       "name_en-us": "Sete de Setembro",
@@ -4991,6 +5012,13 @@
       "tier": 11,
       "type": "AirCarrier"
     },
+    "4178556720": {
+      "name_en-us": "Oswald Boelcke",
+      "name_zh-cn": "奥斯瓦尔德·伯尔克",
+      "nation": "germany",
+      "tier": 11,
+      "type": "AirCarrier"
+    },
     "4178556880": {
       "name_en-us": "Eagle",
       "name_zh-cn": "老鹰",
@@ -6881,6 +6909,13 @@
       "tier": 9,
       "type": "Battleship"
     },
+    "4274992912": {
+      "name_en-us": "Eenhoorn",
+      "name_zh-cn": "独角兽",
+      "nation": "netherlands",
+      "tier": 9,
+      "type": "Battleship"
+    },
     "4275975504": {
       "name_en-us": "Cuauhtémoc",
       "name_zh-cn": "瓜特穆斯",
@@ -6951,6 +6986,13 @@
       "tier": 10,
       "type": "Battleship"
     },
+    "4276041488": {
+      "name_en-us": "Prins Maurits",
+      "name_zh-cn": "毛里茨亲王",
+      "nation": "netherlands",
+      "tier": 8,
+      "type": "Battleship"
+    },
     "4276041712": {
       "name_en-us": "Iowa",
       "name_zh-cn": "依阿华",
@@ -7014,6 +7056,13 @@
       "tier": 7,
       "type": "Battleship"
     },
+    "4277090064": {
+      "name_en-us": "Graaf van Egmont",
+      "name_zh-cn": "埃格蒙特伯爵",
+      "nation": "netherlands",
+      "tier": 7,
+      "type": "Battleship"
+    },
     "4277090288": {
       "name_en-us": "Montana",
       "name_zh-cn": "蒙大拿",
@@ -7074,6 +7123,13 @@
       "name_en-us": "Laudon",
       "name_zh-cn": "劳东",
       "nation": "europe",
+      "tier": 6,
+      "type": "Battleship"
+    },
+    "4278138640": {
+      "name_en-us": "Grote Geus",
+      "name_zh-cn": "大乞丐",
+      "nation": "netherlands",
       "tier": 6,
       "type": "Battleship"
     },
@@ -7390,6 +7446,13 @@
       "name_zh-cn": "长门",
       "nation": "japan",
       "tier": 7,
+      "type": "Battleship"
+    },
+    "4284430096": {
+      "name_en-us": "Neptunus",
+      "name_zh-cn": "海神",
+      "nation": "netherlands",
+      "tier": 10,
       "type": "Battleship"
     },
     "4284463088": {

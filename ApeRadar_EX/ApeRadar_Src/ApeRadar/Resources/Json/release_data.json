@@ -1,21 +1,21 @@
 {
   "shipList": {
-    "version": "15.9",
-    "date": "20261006",
-    "ships": 1104,
+    "version": "15.10",
+    "date": "20261103",
+    "ships": 1113,
     "repository": "wowsinfo/data",
-    "tag": "15.9.0.0.13357625",
-    "commit": "49aaf3fccf84ebd48e4cb70d6a3b91c7351aa220",
-    "sha256": "E69A45061B17661C7B2B79165621D536CDF41B8518B7F3BC3CE872D486F528D3"
+    "tag": "15.10.0.0.13533378",
+    "commit": "a61256d1ff48b7c91a5abe363bd599bec5c1fa08",
+    "sha256": "F1CDA5FBF232A5AA67B092246CD487481243AE9C7F5DF81994EF876DCDC4D20F"
   },
   "prData": {
-    "timestamp": 1793585175,
-    "date": "2026-11-02",
-    "ships": 1050,
-    "usableShips": 981,
+    "timestamp": 1794535599,
+    "date": "2026-11-13",
+    "ships": 1060,
+    "usableShips": 991,
     "repository": "wowsinfo/WoWs-Info-Seven",
     "ref": "API",
-    "commit": "0270c2ead7053ce9ad6807655733178be22bf743",
-    "sha256": "138F17963790508469D9DC2F26467B23D6D1DBBBA0E7158EB2C51FBCF8C2A5CD"
+    "commit": "1bfd93cb636a7ce29c2371dcdc16bbcd059175b5",
+    "sha256": "5C2EF240653B90E2A8E2C974AE31E40DFF085FB797BE1C96AD092DED0F41BE13"
   }
 }

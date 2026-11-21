@@ -212,7 +212,7 @@ public sealed class HistoryReconciliationTests : IDisposable
         Assert.Contains("Original note", review.Note);
         Assert.Contains("Replay note", review.Note);
         Assert.True(Assert.Single(await migrated.GetSessionsAsync()).IsManual);
-        string backupPath = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        string backupPath = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
         await using (SqliteConnection backup = new($"Data Source={backupPath};Mode=ReadOnly"))
         {
             await backup.OpenAsync();
@@ -231,7 +231,7 @@ public sealed class HistoryReconciliationTests : IDisposable
             Assert.Null(await command.ExecuteScalarAsync());
         }
         await new SqliteHistoryRepository(DatabasePath).InitializeAsync();
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
     }
 
     private static BattleRecord Battle() => new()

@@ -23,7 +23,7 @@ namespace ApeRadar.History
 {
     internal sealed class NodsoftReplayParserAdapter : IReplayParser, IDisposable
     {
-        internal const string AdvancedSchemaVersion = "7";
+        internal const string AdvancedSchemaVersion = "9";
         private readonly ServiceProvider services;
         private readonly IReplayUnpackerFactory factory;
 
@@ -96,6 +96,7 @@ namespace ApeRadar.History
                     Mode = header.Mode,
                     MapName = header.MapName,
                     AccountName = header.AccountName,
+                    AccountId = results?.AccountId ?? "",
                     ShipId = header.ShipId,
                     RosterSignature = header.RosterSignature,
                     Result = metrics.Result,

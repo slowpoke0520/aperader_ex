@@ -61,6 +61,32 @@ namespace ApeRadar.History
             await transaction.CommitAsync(token);
         }
 
+        private static async Task MigrateReplayOwnershipAsync(SqliteConnection connection, CancellationToken token)
+        {
+            await using SqliteTransaction transaction = connection.BeginTransaction();
+            await using SqliteCommand check = connection.CreateCommand();
+            check.Transaction = transaction;
+            check.CommandText = "SELECT 1 FROM SchemaMigrations WHERE Version=9";
+            if (await check.ExecuteScalarAsync(token) != null) return;
+            if (!await ColumnExistsAsync(connection, "BattleAdvancedMetrics", "TimingReplayHash", token, transaction))
+                await ExecuteAsync(connection, transaction,
+                    "ALTER TABLE BattleAdvancedMetrics ADD COLUMN TimingReplayHash TEXT NOT NULL DEFAULT ''", token);
+
+            // A single linked file is unambiguous. With several files the old DB
+            // did not record which one supplied the timing, so leave ownership open.
+            await ExecuteAsync(connection, transaction, """
+                UPDATE BattleAdvancedMetrics AS m SET TimingReplayHash=r.FileHash
+                FROM (SELECT BattleId, MIN(FileHash) AS FileHash FROM ReplayFiles
+                      GROUP BY BattleId HAVING COUNT(*)=1) AS r
+                WHERE m.BattleId=r.BattleId AND m.TimingReplayHash='';
+                UPDATE Battles SET Completeness=$partial
+                WHERE Source=$derived AND Completeness=$complete;
+                INSERT INTO SchemaMigrations(Version,AppliedAt) VALUES(9,strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+                """, token, ("$partial", (int)BattleCompleteness.Partial), ("$derived", (int)BattleMetricSource.ReplayDerived),
+                ("$complete", (int)BattleCompleteness.Complete));
+            await transaction.CommitAsync(token);
+        }
+
         private static async Task<(bool Replace, string Schema)> SelectTimingSnapshotAsync(SqliteConnection connection,
             SqliteTransaction transaction, long targetId, long otherId, CancellationToken token)
         {
@@ -83,10 +109,15 @@ namespace ApeRadar.History
             // A schema-7 invalidation must never be refilled from an uncalibrated
             // legacy recording. Within one generation prefer a complete timing
             // snapshot from the stronger source; never splice its individual fields.
-            bool replace = target == null || (other != null &&
-                ((otherSchema >= 7 && targetSchema < 7) ||
-                 ((otherSchema >= 7) == (targetSchema >= 7) && TimingRank(other) > TimingRank(target))));
+            bool replace = target == null || (other != null && PreferIncomingTiming(target, other));
             return (replace, schema);
+        }
+
+        private static bool PreferIncomingTiming(BattleAdvancedMetrics stored, BattleAdvancedMetrics incoming)
+        {
+            int storedSchema = NumericSchema(stored.ParserSchemaVersion), incomingSchema = NumericSchema(incoming.ParserSchemaVersion);
+            if ((incomingSchema >= 7) != (storedSchema >= 7)) return incomingSchema >= 7;
+            return TimingRank(incoming) > TimingRank(stored);
         }
 
         private static int NumericSchema(string? value) => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int schema) ? schema : 0;

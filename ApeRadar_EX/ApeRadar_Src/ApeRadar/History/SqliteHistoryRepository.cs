@@ -103,6 +103,7 @@ namespace ApeRadar.History
                 );
                 CREATE INDEX IF NOT EXISTS IX_Battles_Filter ON Battles(Server, AccountId, ShipId, StartedAt DESC);
                 CREATE INDEX IF NOT EXISTS IX_Battles_AccountTime ON Battles(Server, AccountId, StartedAt DESC);
+                CREATE INDEX IF NOT EXISTS IX_Battles_AccountName ON Battles(Server, AccountName COLLATE NOCASE, AccountId);
                 CREATE TABLE IF NOT EXISTS BattlePlayers(
                     BattleId INTEGER NOT NULL,
                     PlayerKey TEXT NOT NULL,
@@ -241,6 +242,7 @@ namespace ApeRadar.History
             await CreateHistoryCenterSchemaAsync(connection, cancellationToken);
             await MigrateSpottingDamageAsync(connection, cancellationToken);
             await MigrateReplayTimingAsync(connection, cancellationToken);
+            await MigrateReplayOwnershipAsync(connection, cancellationToken);
             await ReconcileLegacyBattlesAsync(connection, cancellationToken);
             await BackfillSessionsAsync(connection, cancellationToken);
         }
@@ -290,7 +292,11 @@ namespace ApeRadar.History
                     battle.BattleKey = reconnect.BattleKey;
                     battle.StartedAt = reconnect.StartedAt;
                     battle.SessionId = reconnect.SessionId;
+                    if (!HistoryBattleIdentity.KnownServer(battle.Server)) battle.Server = reconnect.Server;
+                    if (!HistoryBattleIdentity.KnownAccount(battle.AccountId) && HistoryBattleIdentity.KnownAccount(reconnect.AccountId))
+                        battle.AccountId = reconnect.AccountId;
                 }
+                else battle.BattleKey = HistoryBattleIdentity.PlayerBattleKey(battle);
                 const string upsert = """
                     INSERT INTO Battles(SessionId,BattleKey,StartedAt,Server,Mode,MapName,AccountId,AccountName,ShipId,ShipName,ShipType,RosterSignature,Result,WinCount,Damage,Frags,BattleCount,Source,Completeness,ReplayHash,ReplayVersion,StatusMessage,UpdatedAt)
                     VALUES($session,$key,$started,$server,$mode,$map,$accountId,$accountName,$shipId,$shipName,$shipType,$roster,$result,$wins,$damage,$frags,$count,$source,$complete,$hash,$version,$status,$updated)
@@ -362,7 +368,8 @@ namespace ApeRadar.History
                 BattleRecord? stored = await ReadBattleByIdAsync(connection, transaction, battleId, cancellationToken);
                 if (stored == null) return;
                 bool incomingExactResults = replay.Source == BattleMetricSource.ReplayExact && replay.HasCompleteMetrics;
-                bool preserveReplayDetails = HasExactReplayResults(stored) && !incomingExactResults;
+                bool storedExactResults = HasExactReplayResults(stored);
+                bool preserveReplayDetails = storedExactResults && !incomingExactResults;
                 BattleCompleteness completeness = replay.Status switch
                 {
                     ReplayParseStatus.Parsed when replay.HasCompleteMetrics => BattleCompleteness.Complete,
@@ -370,6 +377,9 @@ namespace ApeRadar.History
                     ReplayParseStatus.Invalid => BattleCompleteness.Failed,
                     _ => BattleCompleteness.Partial
                 };
+                bool correctDerivedReplay = stored.Source == BattleMetricSource.ReplayDerived &&
+                    stored.ReplayHash is { Length: > 0 } && stored.ReplayHash == replay.FileHash &&
+                    replay.Status == ReplayParseStatus.Partial;
                 MergeBattleValues(stored, new BattleRecord
                 {
                     StartedAt = replay.StartedAt ?? stored.StartedAt, Server = replay.Server, AccountId = replay.AccountId,
@@ -379,7 +389,7 @@ namespace ApeRadar.History
                     Damage = replay.Damage, Frags = replay.Frags, BattleCount = 1,
                     Source = replay.Source, Completeness = completeness, ReplayHash = replay.FileHash,
                     ReplayVersion = replay.GameVersion, StatusMessage = replay.ErrorMessage
-                });
+                }, correctDerivedReplay);
                 await UpdateReconciledBattleAsync(connection, transaction, stored, cancellationToken);
                 await UpsertReplayAsync(connection, transaction, battleId, replay, replayPath, cancellationToken);
                 await DeleteReconnectDraftsAsync(connection, transaction, battleId, cancellationToken);
@@ -388,10 +398,9 @@ namespace ApeRadar.History
                     // A validated settlement replaces the previous metric snapshot,
                     // including unavailable values. Later partial reconnect segments
                     // still get a ReplayFiles association but cannot erase this data.
-                    if (incomingExactResults)
-                        await ExecuteAsync(connection, transaction, "DELETE FROM BattleAdvancedMetrics WHERE BattleId=$id", cancellationToken, ("$id", battleId));
                     replay.AdvancedMetrics.BattleId = battleId;
-                    await UpsertAdvancedMetricsAsync(connection, transaction, replay.AdvancedMetrics, cancellationToken);
+                    await UpsertAdvancedMetricsAsync(connection, transaction, replay.AdvancedMetrics, replay.FileHash,
+                        incomingExactResults, storedExactResults, cancellationToken);
                     await ExecuteAsync(connection, transaction, "DELETE FROM BattleDamageBreakdowns WHERE BattleId=$id", cancellationToken, ("$id", battleId));
                     foreach (BattleDamageBreakdown breakdown in replay.DamageBreakdowns)
                     {
@@ -449,10 +458,14 @@ namespace ApeRadar.History
             GetOptionsAsync("SELECT DISTINCT Server,Server FROM Battles ORDER BY Server", Array.Empty<(string, object?)>(), cancellationToken);
 
         public Task<IReadOnlyList<HistoryFilterOption>> GetAccountsAsync(string? server, CancellationToken cancellationToken = default) =>
-            GetOptionsAsync("SELECT DISTINCT AccountId,AccountName FROM Battles WHERE ($server='' OR Server=$server) ORDER BY AccountName", new[] { ("$server", (object?)(server ?? "")) }, cancellationToken);
+            GetOptionsAsync($"""
+                SELECT DISTINCT {FilterAccountId("owner")}, owner.AccountName COLLATE NOCASE
+                FROM (SELECT DISTINCT Server,AccountId,AccountName FROM Battles WHERE ($server='' OR Server=$server)) owner
+                ORDER BY owner.AccountName COLLATE NOCASE
+                """, new[] { ("$server", (object?)(server ?? "")) }, cancellationToken);
 
         public Task<IReadOnlyList<HistoryFilterOption>> GetShipsAsync(string? server, string? accountId, CancellationToken cancellationToken = default) =>
-            GetOptionsAsync("SELECT DISTINCT ShipId,ShipName,ShipType FROM Battles WHERE ($server='' OR Server=$server) AND ($account='' OR AccountId=$account) ORDER BY ShipName", new[] { ("$server", (object?)(server ?? "")), ("$account", (object?)(accountId ?? "")) }, cancellationToken);
+            GetOptionsAsync($"SELECT DISTINCT ShipId,ShipName,ShipType FROM Battles WHERE ($server='' OR Server=$server) AND ($account='' OR {FilterAccountId("Battles")}=$account) ORDER BY ShipName", new[] { ("$server", (object?)(server ?? "")), ("$account", (object?)(accountId ?? "")) }, cancellationToken);
 
         public async Task<ShipStatSnapshot?> GetPreBattleSnapshotAsync(long battleId, CancellationToken cancellationToken = default)
         {
@@ -560,12 +573,12 @@ namespace ApeRadar.History
             await using SqliteConnection connection = new(ConnectionString);
             await connection.OpenAsync(cancellationToken);
             await using SqliteCommand command = connection.CreateCommand();
-            command.CommandText = """
-                SELECT s.Id,s.Server,s.AccountId,s.AccountName,s.StartedAt,s.EndedAt,s.IsManual,
+            command.CommandText = $"""
+                SELECT s.Id,s.Server,{FilterAccountId("s")} AS AccountId,s.AccountName,s.StartedAt,s.EndedAt,s.IsManual,
                        COALESCE(SUM(MAX(1,b.BattleCount)),0) AS BattleCount
                 FROM BattleSessions s
                 LEFT JOIN Battles b ON b.SessionId=s.Id
-                WHERE ($server='' OR s.Server=$server) AND ($account='' OR s.AccountId=$account)
+                WHERE ($server='' OR s.Server=$server) AND ($account='' OR {FilterAccountId("s")}=$account)
                 GROUP BY s.Id
                 HAVING COUNT(b.Id)>0
                 ORDER BY s.StartedAt DESC
@@ -591,12 +604,12 @@ namespace ApeRadar.History
             }
             if (!string.IsNullOrWhiteSpace(accountId))
             {
-                predicates.Add("s.AccountId=$account");
+                predicates.Add($"{FilterAccountId("s")}=$account");
                 command.Parameters.AddWithValue("$account", accountId);
             }
             string where = predicates.Count == 0 ? "" : "WHERE " + string.Join(" AND ", predicates);
             command.CommandText = $"""
-                SELECT s.Id,s.Server,s.AccountId,s.AccountName,s.StartedAt,s.EndedAt,s.IsManual,
+                SELECT s.Id,s.Server,{FilterAccountId("s")} AS AccountId,s.AccountName,s.StartedAt,s.EndedAt,s.IsManual,
                        COALESCE(SUM(MAX(1,b.BattleCount)),0) AS BattleCount
                 FROM BattleSessions s
                 INNER JOIN Battles b ON b.SessionId=s.Id
@@ -813,34 +826,60 @@ namespace ApeRadar.History
                 ("$losses", snapshot.Losses), ("$damage", snapshot.Damage), ("$frags", snapshot.Frags));
         }
 
-        private static async Task UpsertAdvancedMetricsAsync(SqliteConnection connection, SqliteTransaction transaction, BattleAdvancedMetrics metrics, CancellationToken cancellationToken)
+        private static async Task UpsertAdvancedMetricsAsync(SqliteConnection connection, SqliteTransaction transaction,
+            BattleAdvancedMetrics metrics, string fileHash, bool incomingExact, bool storedExact, CancellationToken cancellationToken)
         {
             bool hasAnyMetric = metrics.BattleDurationSeconds.HasValue || metrics.Survived.HasValue || metrics.SurvivalSeconds.HasValue ||
                                 metrics.PotentialDamage.HasValue || metrics.SpottingDamage.HasValue || metrics.DamageTaken.HasValue;
             // A newer parser may explicitly invalidate every prior advanced value.
             // Persist that empty snapshot instead of leaving stale timing behind.
-            if (!hasAnyMetric && string.IsNullOrWhiteSpace(metrics.ParserSchemaVersion)) return;
+            if (!incomingExact && !hasAnyMetric && string.IsNullOrWhiteSpace(metrics.ParserSchemaVersion)) return;
+            BattleAdvancedMetrics timing = metrics;
+            string timingHash = fileHash;
+            string schema = metrics.ParserSchemaVersion;
+            if (!incomingExact || storedExact)
+            {
+                await using SqliteCommand read = connection.CreateCommand();
+                read.Transaction = transaction;
+                read.CommandText = "SELECT * FROM BattleAdvancedMetrics WHERE BattleId=$id";
+                read.Parameters.AddWithValue("$id", metrics.BattleId);
+                await using SqliteDataReader reader = await read.ExecuteReaderAsync(cancellationToken);
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    BattleAdvancedMetrics stored = ReadAdvancedMetrics(reader);
+                    bool sameFile = fileHash.Length > 0 && fileHash == stored.TimingReplayHash;
+                    bool reparse = sameFile && NumericSchema(schema) >= NumericSchema(stored.ParserSchemaVersion);
+                    if (!reparse && !PreferIncomingTiming(stored, metrics))
+                    {
+                        timing = stored;
+                        timingHash = stored.TimingReplayHash;
+                    }
+                    if (NumericSchema(stored.ParserSchemaVersion) > NumericSchema(schema)) schema = stored.ParserSchemaVersion;
+                }
+            }
             await ExecuteAsync(connection, transaction, """
                 INSERT INTO BattleAdvancedMetrics(BattleId,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
                     SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability,
-                    BattleDurationSource,SurvivalTimeSource)
+                    BattleDurationSource,SurvivalTimeSource,TimingReplayHash)
                 VALUES($id,$duration,$survived,$survival,$potential,$taken,$survivalAvailability,$potentialAvailability,$takenAvailability,$schema,$spotting,$spottingAvailability,
-                    $durationSource,$survivalSource)
+                    $durationSource,$survivalSource,$timingHash)
                 ON CONFLICT(BattleId) DO UPDATE SET
                     BattleDurationSeconds=excluded.BattleDurationSeconds,Survived=excluded.Survived,SurvivalSeconds=excluded.SurvivalSeconds,
                     PotentialDamage=excluded.PotentialDamage,DamageTaken=excluded.DamageTaken,
                     SurvivalAvailability=excluded.SurvivalAvailability,PotentialDamageAvailability=excluded.PotentialDamageAvailability,
                     DamageTakenAvailability=excluded.DamageTakenAvailability,ParserSchemaVersion=excluded.ParserSchemaVersion,
                     SpottingDamage=excluded.SpottingDamage,SpottingDamageAvailability=excluded.SpottingDamageAvailability,
-                    BattleDurationSource=excluded.BattleDurationSource,SurvivalTimeSource=excluded.SurvivalTimeSource
+                    BattleDurationSource=excluded.BattleDurationSource,SurvivalTimeSource=excluded.SurvivalTimeSource,
+                    TimingReplayHash=excluded.TimingReplayHash
                 """, cancellationToken,
-                ("$id", metrics.BattleId), ("$duration", metrics.BattleDurationSeconds),
-                ("$survived", metrics.Survived.HasValue ? metrics.Survived.Value ? 1 : 0 : null),
-                ("$survival", metrics.SurvivalSeconds), ("$potential", metrics.PotentialDamage), ("$taken", metrics.DamageTaken),
-                ("$survivalAvailability", (int)metrics.SurvivalAvailability), ("$potentialAvailability", (int)metrics.PotentialDamageAvailability),
-                ("$takenAvailability", (int)metrics.DamageTakenAvailability), ("$schema", metrics.ParserSchemaVersion),
+                ("$id", metrics.BattleId), ("$duration", timing.BattleDurationSeconds),
+                ("$survived", timing.Survived.HasValue ? timing.Survived.Value ? 1 : 0 : null),
+                ("$survival", timing.SurvivalSeconds), ("$potential", metrics.PotentialDamage), ("$taken", metrics.DamageTaken),
+                ("$survivalAvailability", (int)timing.SurvivalAvailability), ("$potentialAvailability", (int)metrics.PotentialDamageAvailability),
+                ("$takenAvailability", (int)metrics.DamageTakenAvailability), ("$schema", schema),
                 ("$spotting", metrics.SpottingDamage), ("$spottingAvailability", (int)metrics.SpottingDamageAvailability),
-                ("$durationSource", (int)metrics.BattleDurationSource), ("$survivalSource", (int)metrics.SurvivalTimeSource));
+                ("$durationSource", (int)timing.BattleDurationSource), ("$survivalSource", (int)timing.SurvivalTimeSource),
+                ("$timingHash", timingHash));
         }
 
         private static Task InsertDamageBreakdownAsync(SqliteConnection connection, SqliteTransaction transaction, BattleDamageBreakdown breakdown, CancellationToken cancellationToken) =>
@@ -1040,6 +1079,7 @@ namespace ApeRadar.History
 
         private static BattleAdvancedMetrics ReadAdvancedMetrics(SqliteDataReader reader) => new()
         {
+            TimingReplayHash = reader.GetString(reader.GetOrdinal("TimingReplayHash")),
             BattleId = reader.GetInt64(reader.GetOrdinal("BattleId")),
             BattleDurationSeconds = reader.IsDBNull(reader.GetOrdinal("BattleDurationSeconds")) ? null : reader.GetDouble(reader.GetOrdinal("BattleDurationSeconds")),
             Survived = reader.IsDBNull(reader.GetOrdinal("Survived")) ? null : reader.GetInt32(reader.GetOrdinal("Survived")) != 0,
@@ -1076,7 +1116,7 @@ namespace ApeRadar.History
 
         private static async Task<BattleRecord?> FindReconnectCandidateAsync(SqliteConnection connection, SqliteTransaction transaction, BattleRecord battle, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(battle.RosterSignature)) return null;
+            if (string.IsNullOrWhiteSpace(battle.RosterSignature) && HistoryBattleIdentity.ArenaKey(battle.BattleKey) == null) return null;
             return await FindIdentityMatchAsync(connection, transaction, battle, cancellationToken);
         }
 

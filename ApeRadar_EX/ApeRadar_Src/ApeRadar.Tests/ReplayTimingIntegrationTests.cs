@@ -16,7 +16,7 @@ public sealed class ReplayTimingIntegrationTests
     [Theory]
     [InlineData("15.7.0")]
     [InlineData("15.8.1")]
-    [InlineData("15.10.0")]
+    [InlineData("15.10.1")]
     [InlineData("15.9")]
     public void UncalibratedVersion_PropertyFramesRemainUnwrapped(string version)
     {
@@ -26,6 +26,18 @@ public sealed class ReplayTimingIntegrationTests
         EntityPropertyPacket property = Assert.IsType<EntityPropertyPacket>(packet);
         Assert.Equal(42u, property.EntityId);
         Assert.Equal(new byte[] { 0 }, property.Data);
+    }
+
+    [Fact]
+    public void Version1510_UsesFrameTimeForClockWithoutEnablingUnvalidatedResults()
+    {
+        Version version = new(15, 10, 0);
+        using MemoryStream stream = PropertyFrames((28.3f, (byte)0));
+        using BattleResultsReplayDataParser parser = CreateParser();
+        ReplayTimedPacket frame = Assert.IsType<ReplayTimedPacket>(Assert.Single(parser.ParseNetworkPackets(stream, new(), version)));
+        Assert.Equal(28.3f, frame.PacketTime);
+        Assert.IsType<EntityPropertyPacket>(frame.Packet);
+        Assert.False(BattleResultsReplayDataParser.SupportsResultsPacket(version));
     }
 
     [Fact]

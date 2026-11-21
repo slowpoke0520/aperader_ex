@@ -170,6 +170,47 @@ public sealed class BattleResultsRepositoryTests : IDisposable
         Assert.Null(await ScalarAsync("PRAGMA foreign_key_check"));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SameArena_StoresEachPlayersResultAndRepairsOldFileLinks(bool legacy)
+    {
+        SqliteHistoryRepository repository = new(DatabasePath);
+        const string arena = "arena:905";
+        BattleRecord Draft(string name, string account) => new()
+        {
+            BattleKey = arena, StartedAt = Started, Server = "ASIA", AccountId = account,
+            AccountName = name, ShipId = "101", MapName = "Map", Mode = "pvp"
+        };
+        ReplayParseResult Result(string name, string account, long damage) => new()
+        {
+            BattleKey = arena, StartedAt = Started, Server = "ASIA", AccountId = account, AccountName = name,
+            ShipId = "101", MapName = "Map", FileHash = name, ParserVersion = "fixed", Status = ReplayParseStatus.Parsed,
+            Source = BattleMetricSource.ReplayExact, Result = BattleResult.Win, Damage = damage, Frags = 1
+        };
+        ReplayParseResult alpha = Result("Alpha", "1", 10_000), bravo = Result("Bravo", "2", 20_000);
+        long first = await repository.UpsertDraftAsync(Draft("Alpha", "1"), Array.Empty<BattlePlayerRecord>(), null);
+        await repository.CompleteFromReplayAsync(first, alpha, "alpha.wowsreplay");
+        if (legacy)
+        {
+            await ExecuteAsync($"UPDATE Battles SET BattleKey='{arena}',ReplayHash='Bravo',Damage=20000 WHERE Id={first}");
+            await ExecuteAsync($"INSERT INTO ReplayFiles SELECT 'Bravo',BattleId,'bravo.wowsreplay',GameVersion,'old',ParseStatus,ErrorCode,ErrorMessage,AttemptedAt FROM ReplayFiles WHERE FileHash='Alpha'");
+        }
+        Assert.Null(await repository.FindDraftForReplayAsync(bravo));
+        long second = await repository.UpsertDraftAsync(Draft("Bravo", "2"), Array.Empty<BattlePlayerRecord>(), null);
+        Assert.NotEqual(first, second);
+        await repository.CompleteFromReplayAsync(second, bravo, "bravo.wowsreplay");
+        Assert.Equal(first, (await repository.FindDraftForReplayAsync(alpha))!.Id);
+        await repository.CompleteFromReplayAsync(first, alpha, "alpha.wowsreplay");
+        Assert.Equal(second, (await repository.FindDraftForReplayAsync(bravo))!.Id);
+        Assert.Equal(first, await repository.UpsertDraftAsync(Draft("Alpha", "name:alpha"), Array.Empty<BattlePlayerRecord>(), null));
+        Assert.Equal("1", (await repository.GetBattleAsync(first))!.AccountId);
+        Assert.Equal(10_000, (await repository.GetBattleAsync(first))!.Damage);
+        Assert.Equal(20_000, (await repository.GetBattleAsync(second))!.Damage);
+        Assert.Equal(2, (await repository.GetBattlesAsync(new HistoryQuery())).Count);
+        Assert.Equal(2L, await ScalarAsync("SELECT COUNT(DISTINCT BattleId) FROM ReplayFiles"));
+    }
+
     private static Task<long> CreateBattleAsync(SqliteHistoryRepository repository) => repository.UpsertDraftAsync(new BattleRecord
     {
         BattleKey = "battle", StartedAt = Started, Server = "ASIA", AccountId = "1", AccountName = "Tester",

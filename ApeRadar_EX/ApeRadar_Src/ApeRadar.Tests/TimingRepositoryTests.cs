@@ -41,12 +41,12 @@ public sealed class TimingRepositoryTests : IDisposable
         Assert.Equal("saved", (await migrated.GetBattleReviewAsync(id))!.Note);
         Assert.Equal("draft", (await migrated.GetReviewDraftAsync(id))!.Note);
         Assert.Equal(1L, await ScalarAsync("SELECT COUNT(*) FROM ReplayFiles"));
-        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
         Assert.Equal(900d, await ScalarAsync("SELECT BattleDurationSeconds FROM BattleAdvancedMetrics", backup));
         Assert.Equal(7L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations", backup));
-        Assert.Equal(8L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations"));
+        Assert.Equal(9L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations"));
         await new SqliteHistoryRepository(DatabasePath).InitializeAsync();
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
     }
 
     [Theory]
@@ -100,7 +100,7 @@ public sealed class TimingRepositoryTests : IDisposable
         Assert.Equal(1L, await ScalarAsync("SELECT Survived FROM BattleAdvancedMetrics"));
         Assert.Equal(0L, await ScalarAsync("SELECT COUNT(*) FROM pragma_table_info('BattleAdvancedMetrics') WHERE name='BattleDurationSource'"));
         Assert.Equal(7L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations"));
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
     }
 
     [Theory]
@@ -182,6 +182,96 @@ public sealed class TimingRepositoryTests : IDisposable
         Assert.Equal(ReplayTimingSource.BattleClock, result.SurvivalTimeSource);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PartialReconnect_PreservesTheStrongestClockInEitherOrder(bool timedFirst)
+    {
+        SqliteHistoryRepository repository = new(DatabasePath);
+        long id = await CreateBattleAsync(repository);
+        ReplayParseResult death = Replay("death", "7", false, Metrics("7", false, null, 480, ReplayTimingSource.BattleClock));
+        ReplayParseResult empty = Replay("empty", "7", false, new BattleAdvancedMetrics { ParserSchemaVersion = "7" });
+        foreach (ReplayParseResult piece in timedFirst ? new[] { death, empty, empty } : new[] { empty, death, empty })
+            await repository.CompleteFromReplayAsync(id, piece, piece.FileHash + ".wowsreplay");
+        BattleAdvancedMetrics metrics = (await repository.GetAdvancedMetricsAsync(new[] { id }))[id];
+        Assert.Equal(480, metrics.SurvivalSeconds);
+        Assert.False(metrics.Survived);
+        Assert.Equal(ReplayTimingSource.BattleClock, metrics.SurvivalTimeSource);
+        Assert.Equal(2L, await ScalarAsync("SELECT COUNT(*) FROM ReplayFiles"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReparseDerivedTotals_CorrectsOldCompletenessButPreservesIndependentApi(bool apiConfirmed)
+    {
+        SqliteHistoryRepository repository = new(DatabasePath);
+        long id = await CreateBattleAsync(repository);
+        await repository.CompleteFromReplayAsync(id, new ReplayParseResult
+        {
+            FileHash = "original", ParserVersion = "old/aperadar-4", Status = ReplayParseStatus.Parsed,
+            Source = BattleMetricSource.ReplayDerived, Result = BattleResult.Win, Damage = 60_000, Frags = 1
+        }, "original.wowsreplay");
+        if (apiConfirmed)
+            await repository.ResolveFromApiAsync(id, new ShipStatSnapshot { Battles = 100 },
+                new ShipStatSnapshot { Battles = 101, Wins = 1, Damage = 70_000, Frags = 1 });
+        // A separate, weaker segment can arrive between the original and its reparse.
+        await repository.CompleteFromReplayAsync(id, Replay("fragment", "7", false, new()), "fragment.wowsreplay");
+        ReplayParseResult partial = Replay("original", "7", false, Metrics("7", false, null, 600, ReplayTimingSource.BattleClock));
+        await repository.CompleteFromReplayAsync(id, partial, "original.wowsreplay");
+        BattleRecord stored = (await repository.GetBattleAsync(id))!;
+        BattleAdvancedMetrics metrics = (await repository.GetAdvancedMetricsAsync(new[] { id }))[id];
+        Assert.Equal(apiConfirmed ? BattleCompleteness.Complete : BattleCompleteness.Partial, stored.Completeness);
+        Assert.Equal(apiConfirmed ? BattleMetricSource.ApiExact : BattleMetricSource.ReplayDerived, stored.Source);
+        Assert.Equal(apiConfirmed ? 70_000 : partial.Damage, stored.Damage);
+        Assert.Equal(apiConfirmed ? 7_000d : (double?)null, SessionAnalysisService.MetricValue(stored, metrics, "DamagePerMinute", false));
+    }
+
+    [Fact]
+    public async Task OnlyTheFileSupplyingTheClockCanInvalidateItOnReparse()
+    {
+        SqliteHistoryRepository repository = new(DatabasePath);
+        long id = await CreateBattleAsync(repository);
+        await repository.CompleteFromReplayAsync(id,
+            Replay("death", "7", false, Metrics("7", false, null, 480, ReplayTimingSource.BattleClock)), "death.wowsreplay");
+        foreach (string hash in new[] { "other", "death" })
+        {
+            await repository.CompleteFromReplayAsync(id,
+                Replay(hash, "8", false, new BattleAdvancedMetrics { ParserSchemaVersion = "8" }), hash + ".wowsreplay");
+            var saved = (await repository.GetAdvancedMetricsAsync(new[] { id }))[id];
+            Assert.Equal(hash == "other" ? 480d : (double?)null, saved.SurvivalSeconds);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SchemaEightUpgrade_RecoversUnambiguousTimingAndDemotesDerivedTotals(bool multipleFiles)
+    {
+        SqliteHistoryRepository repository = new(DatabasePath);
+        long id = await CreateBattleAsync(repository);
+        await repository.CompleteFromReplayAsync(id, Replay("one", "7", false,
+            Metrics("7", false, null, 480, ReplayTimingSource.BattleClock)), "one.wowsreplay");
+        if (multipleFiles) await repository.CompleteFromReplayAsync(id,
+            Replay("two", "7", false, new BattleAdvancedMetrics { ParserSchemaVersion = "7" }), "two.wowsreplay");
+        await ExecuteAsync($"""
+            UPDATE Battles SET Completeness={(int)BattleCompleteness.Complete} WHERE Id={id};
+            ALTER TABLE BattleAdvancedMetrics DROP COLUMN TimingReplayHash;
+            DELETE FROM SchemaMigrations WHERE Version=9;
+            """);
+        SqliteHistoryRepository upgraded = new(DatabasePath);
+        BattleRecord battle = (await upgraded.GetBattleAsync(id))!;
+        var timing = (await upgraded.GetAdvancedMetricsAsync(new[] { id }))[id];
+        Assert.Equal(BattleCompleteness.Partial, battle.Completeness);
+        Assert.Equal(123_456, battle.Damage);
+        Assert.Null(SessionAnalysisService.MetricValue(battle, timing, "DamagePerMinute", false));
+        Assert.Equal(multipleFiles ? "" : "one", timing.TimingReplayHash);
+        Assert.Equal(480, timing.SurvivalSeconds);
+        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
+        Assert.Equal(8L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations", backup));
+        Assert.Equal((long)BattleCompleteness.Complete, await ScalarAsync("SELECT Completeness FROM Battles", backup));
+    }
+
     private static Task<long> CreateBattleAsync(SqliteHistoryRepository repository) => repository.UpsertDraftAsync(new BattleRecord
     {
         BattleKey = "timing-battle", StartedAt = Started, Server = "ASIA", AccountId = "1", AccountName = "Tester",
@@ -209,7 +299,7 @@ public sealed class TimingRepositoryTests : IDisposable
     };
 
     private async Task DowngradeToSevenAsync() => await ExecuteAsync("""
-        DELETE FROM SchemaMigrations WHERE Version=8;
+        DELETE FROM SchemaMigrations WHERE Version>=8;
         ALTER TABLE BattleAdvancedMetrics DROP COLUMN BattleDurationSource;
         ALTER TABLE BattleAdvancedMetrics DROP COLUMN SurvivalTimeSource;
         """);

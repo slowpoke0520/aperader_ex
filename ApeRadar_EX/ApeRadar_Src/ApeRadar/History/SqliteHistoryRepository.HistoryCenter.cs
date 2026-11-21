@@ -57,9 +57,9 @@ namespace ApeRadar.History
             await connection.OpenAsync(cancellationToken);
             await using SqliteCommand command = connection.CreateCommand();
             // Time filters select overlapping API capture periods; they do not assign battles to a day.
-            command.CommandText = """
+            command.CommandText = $"""
                 SELECT * FROM ApiBattleIntervals WHERE ($server='' OR Server=$server)
-                    AND ($account='' OR AccountId=$account) AND ($ship='' OR ShipId=$ship)
+                    AND ($account='' OR {FilterAccountId("ApiBattleIntervals")}=$account) AND ($ship='' OR ShipId=$ship)
                     AND ($from='' OR EndedAt>=$from) AND ($to='' OR StartedAt<$to) ORDER BY EndedAt DESC;
                 """;
             command.Parameters.AddWithValue("$server", query.Server ?? "");

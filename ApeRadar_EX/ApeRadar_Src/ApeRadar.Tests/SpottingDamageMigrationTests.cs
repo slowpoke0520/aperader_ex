@@ -39,15 +39,15 @@ public sealed class SpottingDamageMigrationTests : IDisposable
         Assert.True(await migrated.HasReplayAsync("same-replay", "legacy-parser"));
         Assert.Single(await migrated.GetBattlesAsync(new HistoryQuery()));
 
-        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
         Assert.Equal(damage, await ScalarAsync("SELECT DamageTaken FROM BattleAdvancedMetrics", backup));
         Assert.Equal(1L, await ScalarAsync("SELECT COUNT(*) FROM BattleDamageBreakdowns WHERE Direction=1", backup));
         Assert.Equal(6L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations", backup));
-        Assert.Equal(8L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations"));
+        Assert.Equal(9L, await ScalarAsync("SELECT MAX(Version) FROM SchemaMigrations"));
         Assert.Null(await ScalarAsync("PRAGMA foreign_key_check"));
 
         await new SqliteHistoryRepository(DatabasePath).InitializeAsync();
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
         Assert.Equal(damage, (await migrated.GetAdvancedMetricsAsync(new[] { id }))[id].SpottingDamage);
     }
 
@@ -106,7 +106,7 @@ public sealed class SpottingDamageMigrationTests : IDisposable
         SqliteHistoryRepository repository = new(DatabasePath);
         await repository.InitializeAsync();
 
-        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
         Assert.Equal(0L, await ScalarAsync("SELECT COUNT(*) FROM sqlite_master WHERE name='SchemaMigrations'", backup));
         Assert.Equal(25_000L, await ScalarAsync("SELECT DamageTaken FROM BattleAdvancedMetrics", backup));
         Assert.Equal(25_000, (await repository.GetAdvancedMetricsAsync(new[] { id }))[id].SpottingDamage);
@@ -120,7 +120,7 @@ public sealed class SpottingDamageMigrationTests : IDisposable
         await ExecuteAsync("DELETE FROM BattleAdvancedMetrics");
         SqliteHistoryRepository repository = new(DatabasePath);
         Assert.DoesNotContain(await repository.GetDamageBreakdownsAsync(id), x => x.Direction == DamageDirection.Received);
-        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        string backup = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
         Assert.Equal(1L, await ScalarAsync("SELECT COUNT(*) FROM BattleDamageBreakdowns WHERE Direction=1", backup));
     }
 
@@ -139,7 +139,7 @@ public sealed class SpottingDamageMigrationTests : IDisposable
         Assert.Equal(0L, await ScalarAsync("SELECT COUNT(*) FROM pragma_table_info('BattleAdvancedMetrics') WHERE name='SpottingDamage'"));
         Assert.Equal(0L, await ScalarAsync("SELECT COUNT(*) FROM SchemaMigrations WHERE Version=7"));
         Assert.Equal(1L, await ScalarAsync("SELECT COUNT(*) FROM BattleDamageBreakdowns WHERE Direction=1"));
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
     }
 
     [Fact]

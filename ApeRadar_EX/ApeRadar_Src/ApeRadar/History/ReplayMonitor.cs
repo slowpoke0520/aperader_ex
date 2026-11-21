@@ -150,7 +150,8 @@ namespace ApeRadar.History
                 }
 
                 replay.Server = ResolveServer();
-                replay.AccountId = ResolveAccountId(replay.Server, replay.AccountName);
+                if (string.IsNullOrEmpty(replay.AccountId))
+                    replay.AccountId = ResolveAccountId(replay.Server, replay.AccountName);
                 BattleRecord? battle = await repository.FindDraftForReplayAsync(replay, cancellationToken);
                 if (battle == null && replay.StartedAt.HasValue && !string.IsNullOrWhiteSpace(replay.AccountName) && !string.IsNullOrWhiteSpace(replay.ShipId))
                 {

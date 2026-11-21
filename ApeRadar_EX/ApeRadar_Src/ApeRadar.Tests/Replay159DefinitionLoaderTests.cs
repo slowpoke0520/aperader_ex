@@ -19,11 +19,12 @@ public sealed class Replay159DefinitionLoaderTests
         AssemblyDefinitionLoader baseline = new();
         Replay159DefinitionLoader loader = new(baseline);
         Version[] versions = loader.GetSupportedVersions();
-        Assert.Equal(NewVersion, versions[0]);
+        Assert.Contains(NewVersion, versions);
+        Assert.Contains(new Version(15, 10, 0), versions);
         Assert.Contains(OldVersion, versions);
         Assert.Equal(versions.OrderByDescending(version => version).Distinct(), versions);
         versions[0] = new Version(99, 0, 0);
-        Assert.Equal(NewVersion, loader.GetSupportedVersions()[0]);
+        Assert.Equal(baseline.GetSupportedVersions().Max(), loader.GetSupportedVersions()[0]);
         Assert.Equal(baseline.GetFileAsXml(OldVersion, "alias.xml", "entity_defs").OuterXml,
             loader.GetFileAsXml(OldVersion, "alias.xml", "entity_defs").OuterXml);
     }

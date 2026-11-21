@@ -378,7 +378,7 @@ public sealed class HistoryRepositoryTests : IDisposable
         BattleRecord battle = Assert.Single(await repository.GetBattlesAsync(new HistoryQuery()));
         Assert.NotNull(battle.SessionId);
         Assert.Single(await repository.GetSessionsAsync());
-        string backupPath = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        string backupPath = Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
         await using SqliteConnection backupConnection = new($"Data Source={backupPath};Mode=ReadOnly");
         await backupConnection.OpenAsync();
         await using SqliteCommand backupCommand = backupConnection.CreateCommand();
@@ -415,7 +415,7 @@ public sealed class HistoryRepositoryTests : IDisposable
         Assert.Equal("Battleship", stored.ShipType);
         HistoryFilterOption ship = Assert.Single(await migrated.GetShipsAsync("ASIA", "1"));
         Assert.Equal("Battleship", ship.ShipType);
-        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v8-*.bak"));
+        Assert.Single(Directory.GetFiles(directory, "history.db.pre-v9-*.bak"));
     }
 
     [Fact]
@@ -444,6 +444,47 @@ public sealed class HistoryRepositoryTests : IDisposable
         Assert.True(secondPage[0].StartedAt > secondPage[^1].StartedAt);
         Assert.Equal("page-104", secondPage[0].BattleKey);
         Assert.Equal("page-005", secondPage[^1].BattleKey);
+    }
+
+    [Fact]
+    public async Task AccountFilter_IncludesMissingIdsOnlyForOneMatchingAccountOnTheSameServer()
+    {
+        var repo = new SqliteHistoryRepository(DatabasePath);
+        DateTimeOffset start = DateTimeOffset.UtcNow.AddDays(-1);
+        async Task Add(string key, string server, string account, string ship, int hour)
+        {
+            BattleRecord battle = CreateBattle();
+            battle.BattleKey = key;
+            battle.Server = server;
+            battle.AccountId = account;
+            battle.ShipId = ship;
+            battle.StartedAt = start.AddHours(hour);
+            await repo.UpsertDraftAsync(battle, Array.Empty<BattlePlayerRecord>(), null);
+        }
+
+        await Add("legacy", "ASIA", "-1", "101", 0);
+        await Add("name-only", "ASIA", "name:tester", "202", 1);
+        await Add("identified", "ASIA", "1", "303", 2);
+        await Add("other-realm", "EU", "2", "404", 3);
+        var option = Assert.Single(await repo.GetAccountsAsync("ASIA"));
+        Assert.Equal("1", option.Value);
+        var query = new HistoryQuery { AccountId = option.Value };
+        Assert.Equal(3, await repo.CountBattlesAsync(query));
+        Assert.Equal(3, (await repo.GetBattlesAsync(query)).Count);
+        Assert.Equal(3, (await repo.GetShipsAsync(null, option.Value)).Count);
+        Assert.Equal(3, (await repo.GetSessionsAsync(null, option.Value)).Count);
+        Assert.All(await repo.GetSessionsAsync(null, option.Value), s => Assert.Equal(option.Value, s.AccountId));
+
+        // If the same name later belongs to a second known ID, old unknowns
+        // must remain selectable without being attributed to either account.
+        await Add("reused-name", "ASIA", "3", "505", 4);
+        var ambiguous = await repo.GetAccountsAsync("ASIA");
+        Assert.Equal(3, ambiguous.Count);
+        Assert.Single(await repo.GetBattlesAsync(query));
+        var unresolved = Assert.Single(ambiguous, a => a.Value != "1" && a.Value != "3");
+        var last = await repo.GetLatestSessionAsync("ASIA", unresolved.Value);
+        Assert.Equal(unresolved.Value, last!.AccountId);
+        Assert.Equal(2, await repo.CountBattlesAsync(new HistoryQuery {AccountId = unresolved.Value}));
     }
 
     private static BattleRecord CreateBattle() => new()

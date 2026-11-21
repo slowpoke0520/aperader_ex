@@ -55,6 +55,7 @@ namespace ApeRadar.History
 
     internal sealed class BattleAdvancedMetrics
     {
+        internal string TimingReplayHash { get; set; } = "";
         public long BattleId { get; set; }
         public double? BattleDurationSeconds { get; set; }
         public bool? Survived { get; set; }

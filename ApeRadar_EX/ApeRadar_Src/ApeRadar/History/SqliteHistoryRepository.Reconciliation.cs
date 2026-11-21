@@ -28,35 +28,55 @@ namespace ApeRadar.History
             if (!string.IsNullOrWhiteSpace(identity.ReplayHash))
             {
                 // All reconnect segments keep their association when reparsed, even
-                // if only the newest segment is recorded in Battles.ReplayHash.
+                // if another segment supplied the totals in Battles.
                 await using SqliteCommand linked = connection.CreateCommand();
                 linked.Transaction = transaction;
                 linked.CommandText = "SELECT Battles.* FROM Battles JOIN ReplayFiles ON ReplayFiles.BattleId=Battles.Id WHERE ReplayFiles.FileHash=$hash";
                 linked.Parameters.AddWithValue("$hash", identity.ReplayHash);
                 await using SqliteDataReader linkedReader = await linked.ExecuteReaderAsync(cancellationToken);
-                if (await linkedReader.ReadAsync(cancellationToken)) return ReadBattle(linkedReader);
+                if (await linkedReader.ReadAsync(cancellationToken))
+                {
+                    BattleRecord linkedBattle = ReadBattle(linkedReader);
+                    if (HistoryBattleIdentity.CompatiblePlayer(linkedBattle, identity)) return linkedBattle;
+                }
             }
+            string? arena = HistoryBattleIdentity.ArenaKey(identity.BattleKey);
             await using SqliteCommand command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = """
                 SELECT * FROM Battles
-                WHERE ($hash<>'' AND ReplayHash=$hash) OR ($key<>'' AND BattleKey=$key) OR (
+                WHERE ($hash<>'' AND ReplayHash=$hash) OR ($key<>'' AND BattleKey=$key)
+                    OR (BattleKey >= $arenaStart AND BattleKey < $arenaEnd) OR (
                     ShipId=$ship AND AccountName=$account COLLATE NOCASE
                     AND abs(strftime('%s',StartedAt)-strftime('%s',$started)) <= $window
                 ) ORDER BY StartedAt,Id
                 """;
             command.Parameters.AddWithValue("$hash", identity.ReplayHash ?? "");
-            command.Parameters.AddWithValue("$key", identity.BattleKey);
+            command.Parameters.AddWithValue("$key", arena ?? identity.BattleKey);
+            // The binary range includes all personal keys under this exact arena.
+            command.Parameters.AddWithValue("$arenaStart", arena == null ? "" : arena + "|");
+            command.Parameters.AddWithValue("$arenaEnd", arena == null ? "" : arena + "}");
             command.Parameters.AddWithValue("$ship", identity.ShipId);
             command.Parameters.AddWithValue("$account", identity.AccountName);
             command.Parameters.AddWithValue("$started", identity.StartedAt.UtcDateTime.ToString("O"));
             command.Parameters.AddWithValue("$window", (int)HistoryBattleIdentity.ReconnectWindow.TotalSeconds);
             List<BattleRecord> candidates = new();
             await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken)) candidates.Add(ReadBattle(reader));
-            BattleRecord? exact = candidates.FirstOrDefault(x => identity.ReplayHash is { Length: > 0 } && x.ReplayHash == identity.ReplayHash)
-                ?? candidates.FirstOrDefault(x => identity.BattleKey != "" && x.BattleKey == identity.BattleKey);
-            if (exact != null) return exact;
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                BattleRecord candidate = ReadBattle(reader);
+                if (HistoryBattleIdentity.CompatiblePlayer(candidate, identity)) candidates.Add(candidate);
+            }
+            BattleRecord? byHash = candidates.FirstOrDefault(x => identity.ReplayHash is { Length: > 0 } && x.ReplayHash == identity.ReplayHash);
+            if (byHash != null) return byHash;
+            if (arena != null)
+            {
+                if (!HistoryBattleIdentity.KnownAccount(identity.AccountId) && string.IsNullOrWhiteSpace(identity.AccountName)) return null;
+                BattleRecord[] sameArena = candidates.Where(x => HistoryBattleIdentity.ArenaKey(x.BattleKey) == arena).ToArray();
+                if (sameArena.Length != 0) return sameArena.Length == 1 ? sameArena[0] : null;
+            }
+            else if (identity.BattleKey != "" && candidates.FirstOrDefault(x => x.BattleKey == identity.BattleKey) is BattleRecord byKey)
+                return byKey;
             BattleRecord[] matches = candidates.Where(x => HistoryBattleIdentity.SameBattle(x, identity)).ToArray();
             // Conflicting identities are left separate rather than guessed from proximity.
             return matches.Length > 0 && matches.All(x => HistoryBattleIdentity.SameBattle(matches[0], x)) ? matches[0] : null;
@@ -88,19 +108,21 @@ namespace ApeRadar.History
             battle.Completeness == BattleCompleteness.Complete && battle.Damage.HasValue &&
             battle.Frags.HasValue && battle.Result != BattleResult.Unknown;
 
-        private static void MergeBattleValues(BattleRecord target, BattleRecord other)
+        private static void MergeBattleValues(BattleRecord target, BattleRecord other, bool correctDerivedReplay = false)
         {
-            bool preserveExactReplay = HasExactReplayResults(target) && !HasExactReplayResults(other);
+            bool replaceTotals = correctDerivedReplay || MetricPriority(other) >= MetricPriority(target);
+            bool keepReplayHash = !replaceTotals && target.ReplayHash is { Length: > 0 } &&
+                target.Source is BattleMetricSource.ReplayDerived or BattleMetricSource.ReplayExact;
             if (other.StartedAt < target.StartedAt) target.StartedAt = other.StartedAt;
             if (target.Server is "" or "AUTO" && other.Server is not ("" or "AUTO")) target.Server = other.Server;
-            if ((target.AccountId == "" || target.AccountId.StartsWith("name:", StringComparison.OrdinalIgnoreCase)) &&
-                other.AccountId != "" && !other.AccountId.StartsWith("name:", StringComparison.OrdinalIgnoreCase)) target.AccountId = other.AccountId;
+            if (!HistoryBattleIdentity.KnownAccount(target.AccountId) && HistoryBattleIdentity.KnownAccount(other.AccountId))
+                target.AccountId = other.AccountId;
             if (target.MapName == "") target.MapName = other.MapName;
             if (target.ShipName == "" || target.ShipName == target.ShipId) target.ShipName = other.ShipName;
             if (target.ShipType == "") target.ShipType = other.ShipType;
             if (target.RosterSignature == "") target.RosterSignature = other.RosterSignature;
             target.SessionId ??= other.SessionId;
-            if (MetricPriority(other) >= MetricPriority(target))
+            if (replaceTotals)
             {
                 target.Result = other.Result;
                 target.WinCount = other.WinCount;
@@ -111,7 +133,7 @@ namespace ApeRadar.History
                 target.Completeness = other.Completeness;
                 target.StatusMessage = other.StatusMessage;
             }
-            if (!preserveExactReplay && !string.IsNullOrWhiteSpace(other.ReplayHash))
+            if (!keepReplayHash && !string.IsNullOrWhiteSpace(other.ReplayHash))
             {
                 target.ReplayHash = other.ReplayHash;
                 target.ReplayVersion = other.ReplayVersion;
@@ -210,10 +232,10 @@ namespace ApeRadar.History
                 UPDATE ReplayFiles SET BattleId=$keep WHERE BattleId=$remove;
                 INSERT INTO BattleAdvancedMetrics(BattleId,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
                     SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability,
-                    BattleDurationSource,SurvivalTimeSource)
+                    BattleDurationSource,SurvivalTimeSource,TimingReplayHash)
                 SELECT $keep,BattleDurationSeconds,Survived,SurvivalSeconds,PotentialDamage,DamageTaken,
                     SurvivalAvailability,PotentialDamageAvailability,DamageTakenAvailability,ParserSchemaVersion,SpottingDamage,SpottingDamageAvailability,
-                    BattleDurationSource,SurvivalTimeSource
+                    BattleDurationSource,SurvivalTimeSource,TimingReplayHash
                 FROM BattleAdvancedMetrics WHERE BattleId=$remove AND $preserveDetails=0
                 ON CONFLICT(BattleId) DO UPDATE SET
                     BattleDurationSeconds=CASE WHEN $replaceTiming=1 THEN excluded.BattleDurationSeconds ELSE BattleAdvancedMetrics.BattleDurationSeconds END,
@@ -222,6 +244,7 @@ namespace ApeRadar.History
                     SurvivalAvailability=CASE WHEN $replaceTiming=1 THEN excluded.SurvivalAvailability ELSE BattleAdvancedMetrics.SurvivalAvailability END,
                     BattleDurationSource=CASE WHEN $replaceTiming=1 THEN excluded.BattleDurationSource ELSE BattleAdvancedMetrics.BattleDurationSource END,
                     SurvivalTimeSource=CASE WHEN $replaceTiming=1 THEN excluded.SurvivalTimeSource ELSE BattleAdvancedMetrics.SurvivalTimeSource END,
+                    TimingReplayHash=CASE WHEN $replaceTiming=1 THEN excluded.TimingReplayHash ELSE BattleAdvancedMetrics.TimingReplayHash END,
                     PotentialDamageAvailability=CASE WHEN BattleAdvancedMetrics.PotentialDamage IS NULL
                         THEN excluded.PotentialDamageAvailability ELSE BattleAdvancedMetrics.PotentialDamageAvailability END,
                     DamageTakenAvailability=CASE WHEN BattleAdvancedMetrics.DamageTaken IS NULL

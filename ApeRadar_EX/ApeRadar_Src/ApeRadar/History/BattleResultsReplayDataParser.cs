@@ -27,6 +27,11 @@ namespace ApeRadar.History
         internal static bool SupportsResultsPacket(Version version) =>
             version.Build >= 0 && ReplayBattleResultsDecoder.IsSupportedVersion(new Version(version.Major, version.Minor, version.Build));
 
+        // 15.10 has native entity definitions. Only enable the battle clock;
+        // its settlement layout is versioned separately.
+        private static bool SupportsBattleClock(Version version) =>
+            SupportsResultsPacket(version) || (version.Major == 15 && version.Minor == 10 && version.Build == 0);
+
         public IEnumerable<NetworkPacketBase> ParseNetworkPackets(MemoryStream replayDataStream,
             ReplayUnpackerOptions options, Version gameVersion)
         {
@@ -68,7 +73,7 @@ namespace ApeRadar.History
                 if (!packets.MoveNext())
                     throw new InvalidDataException("Replay packet decoder ended before the validated frame.");
                 NetworkPacketBase packet = results ?? packets.Current;
-                if (SupportsResultsPacket(gameVersion) && packet is (EntityCreatePacket or EntityPropertyPacket or
+                if (SupportsBattleClock(gameVersion) && packet is (EntityCreatePacket or EntityPropertyPacket or
                     NestedPropertyPacket or BasePlayerCreatePacket or CellPlayerCreatePacket))
                     packet = new ReplayTimedPacket(packet, time);
                 yield return packet;

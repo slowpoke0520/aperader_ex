@@ -24,7 +24,7 @@ namespace ApeRadar.History
         internal double? DurationSeconds => !Invalid && StartedAt.HasValue && EndedAt.HasValue
             ? ValidElapsed(EndedAt.Value - StartedAt.Value, allowZero: false) : null;
 
-        // 15.8/15.9: 2=initializing, 1=preparation, 0=in battle, 3=ended.
+        // 15.8–15.10: 2=initializing, 1=preparation, 0=in battle, 3=ended.
         // A recording that starts in stage 0 has no observed battle origin.
         // Countdown snapshots are quantized and may be replayed on reconnect;
         // they cannot establish an exact origin for such a fragment.

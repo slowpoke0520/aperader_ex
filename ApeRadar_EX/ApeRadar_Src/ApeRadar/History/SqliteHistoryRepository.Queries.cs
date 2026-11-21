@@ -9,6 +9,20 @@ namespace ApeRadar.History
 {
     internal sealed partial class SqliteHistoryRepository
     {
+        // Resolve missing IDs only for display and filtering. A later import can
+        // reveal a second real account with this name, so keep the recorded IDs.
+        private static string FilterAccountId(string table) => $"""
+            (CASE WHEN {table}.AccountId NOT IN ('','-1') AND {table}.AccountId NOT LIKE 'name:%'
+                THEN {table}.AccountId
+                ELSE COALESCE((
+                    SELECT MIN(known.AccountId) FROM Battles known
+                    WHERE known.Server={table}.Server AND known.Server NOT IN ('','AUTO')
+                      AND known.AccountName={table}.AccountName COLLATE NOCASE AND known.AccountName<>''
+                      AND known.AccountId NOT IN ('','-1') AND known.AccountId NOT LIKE 'name:%'
+                    HAVING MIN(known.AccountId)=MAX(known.AccountId)
+                ), 'unresolved:' || {table}.Server || ':' || lower({table}.AccountName)) END)
+            """;
+
         public async Task<int> CountBattlesAsync(HistoryQuery query, CancellationToken cancellationToken = default)
         {
             await EnsureInitialized(cancellationToken);
@@ -55,7 +69,7 @@ namespace ApeRadar.History
             }
             if (!string.IsNullOrWhiteSpace(query.AccountId))
             {
-                predicates.Add("AccountId=$account");
+                predicates.Add($"{FilterAccountId("Battles")}=$account");
                 command.Parameters.AddWithValue("$account", query.AccountId);
             }
             if (!string.IsNullOrWhiteSpace(query.ShipId))
