@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -57,9 +58,17 @@ namespace ApeRadar.History
             return result;
         }
 
+        private static string ShipCategoryPredicate(SqliteCommand command, IReadOnlyList<string>? ids)
+        {
+            if (ids == null) return "1";
+            command.Parameters.AddWithValue("$matchingShips", JsonSerializer.Serialize(ids));
+            return "ShipId IN (SELECT value FROM json_each($matchingShips))";
+        }
+
         private static void AppendBattleFilters(SqliteCommand command, StringBuilder sql, HistoryQuery query)
         {
             List<string> predicates = new();
+            if (query.MatchingShipIds != null) predicates.Add(ShipCategoryPredicate(command, query.MatchingShipIds));
             if (query.SingleBattlesOnly) predicates.Add("BattleCount=1 AND Source<>3");
             if (query.FavoritesOnly) predicates.Add("EXISTS(SELECT 1 FROM BattleReviews r WHERE r.BattleId=Battles.Id AND r.IsFavorite=1)");
             if (!string.IsNullOrWhiteSpace(query.Server))

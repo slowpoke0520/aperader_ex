@@ -124,7 +124,8 @@ namespace ApeRadar
             {
                 viewModel.ApplyDateRange("week");
                 viewModel.FavoritesOnly = false;
-                viewModel.SelectedShip = viewModel.Ships.FirstOrDefault();
+                recordsShip = null;
+                viewModel.ResetShipFilters();
                 viewModel.ResetPage();
                 await RunSafeAsync(() => viewModel.ReloadAsync());
             }
@@ -183,7 +184,7 @@ namespace ApeRadar
             else if (HistoryTabs.SelectedIndex != 1 && trendOwnsShip)
             {
                 trendOwnsShip = false;
-                viewModel.SelectedShip = recordsShip;
+                viewModel.SelectedShip = viewModel.Ships.FirstOrDefault(x => x.Value == recordsShip?.Value) ?? viewModel.Ships.FirstOrDefault();
             }
         }
 

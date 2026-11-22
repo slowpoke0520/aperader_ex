@@ -33,7 +33,7 @@ namespace ApeRadar.ViewModels
         private AnalysisKey? analysisKey;
         private int snapshotRecordCount;
         private sealed record AnalysisKey(string? Server, string? Account, string? Ship, DateTimeOffset? From,
-            DateTimeOffset? To, string Metric, int Window, bool Experimental);
+            DateTimeOffset? To, string Metric, int Window, bool Experimental, IReadOnlyList<string>? MatchingShipIds, bool FavoritesOnly);
 
         private HistoryFilterOption? selectedServer;
         private HistoryFilterOption? selectedAccount;
@@ -105,7 +105,6 @@ namespace ApeRadar.ViewModels
         public event PropertyChangedEventHandler? PropertyChanged;
         public ObservableCollection<HistoryFilterOption> Servers { get; } = new();
         public ObservableCollection<HistoryFilterOption> Accounts { get; } = new();
-        public ObservableCollection<HistoryFilterOption> Ships { get; } = new();
         public ObservableCollection<HistoryFilterOption> MetricOptions { get; } = new();
         public ObservableCollection<HistoryFilterOption> RollingWindowOptions { get; } = new();
         public ObservableCollection<HistoryRowViewModel> Rows { get; } = new();
@@ -210,8 +209,7 @@ namespace ApeRadar.ViewModels
             }
             if (serverChanged || accountChanged)
             {
-                await LoadOptionsAsync(Ships, await repository.GetShipsAsync(SelectedServer?.Value, SelectedAccount?.Value), Resource("HistoryAllShips", "All ships"));
-                SelectedShip = Ships.FirstOrDefault();
+                await LoadShipFiltersAsync(keepShip: false);
             }
             await ReloadAsync();
             await LoadSessionsAsync();
@@ -239,6 +237,7 @@ namespace ApeRadar.ViewModels
                     Server = EmptyToNull(SelectedServer?.Value),
                     AccountId = EmptyToNull(SelectedAccount?.Value),
                     ShipId = EmptyToNull(SelectedShip?.Value),
+                    MatchingShipIds = matchingShipIds,
                     From = FromDate.HasValue ? new DateTimeOffset(FromDate.Value.Date) : null,
                     To = ToDate.HasValue ? new DateTimeOffset(ToDate.Value.Date.AddDays(1)) : null,
                     SingleBattlesOnly = true,
@@ -250,7 +249,7 @@ namespace ApeRadar.ViewModels
                 if (window == 1 && metricName is "Winrate" or "Survival") window = 5;
                 bool experimental = ShowExperimentalMetrics;
                 AnalysisKey key = new(query.Server, query.AccountId, query.ShipId, query.From, query.To,
-                    metricName, window, experimental);
+                    metricName, window, experimental, query.MatchingShipIds, query.FavoritesOnly);
                 HistoryAnalysisSnapshot? snapshot = reuseAnalysis && key == analysisKey ? analysisSnapshot : null;
                 int recordCount = snapshot != null ? snapshotRecordCount :
                     await Task.Run(() => repository.CountBattlesAsync(query, cancellationToken), cancellationToken);
@@ -258,17 +257,11 @@ namespace ApeRadar.ViewModels
                 if (version != reloadVersion) return;
                 int pageCount = Math.Max(1, (int)Math.Ceiling(recordCount / (double)PageSize));
                 int requestedPage = Math.Min(CurrentPage, pageCount - 1);
-                HistoryQuery pageQuery = new()
+                HistoryQuery pageQuery = query with
                 {
-                    Server = query.Server,
-                    AccountId = query.AccountId,
-                    ShipId = query.ShipId,
-                    From = query.From,
-                    To = query.To,
                     Limit = PageSize,
                     Offset = requestedPage * PageSize,
                     Descending = true
-                    ,SingleBattlesOnly = true, FavoritesOnly = FavoritesOnly
                 };
                 IReadOnlyList<BattleRecord> page = await Task.Run(() => repository.GetBattlesAsync(pageQuery, cancellationToken), cancellationToken);
                 bool analysisChanged = snapshot == null;
@@ -371,6 +364,7 @@ namespace ApeRadar.ViewModels
 
         public async Task RefreshAllAsync()
         {
+            await LoadShipFiltersAsync(keepShip: true);
             await ReloadAsync();
             await LoadSessionsAsync();
         }
@@ -716,8 +710,7 @@ namespace ApeRadar.ViewModels
             SelectedServer = Servers.FirstOrDefault(x => x.Value == preferredServer) ?? Servers.FirstOrDefault(x => x.Value == recent?.Server) ?? Servers.FirstOrDefault();
             await LoadOptionsAsync(Accounts, await repository.GetAccountsAsync(EmptyToNull(SelectedServer?.Value)), Resource("HistoryAllAccounts", "All accounts"));
             SelectedAccount = Accounts.FirstOrDefault(x => x.Value == preferredAccount) ?? Accounts.FirstOrDefault(x => x.Value == recent?.AccountId) ?? Accounts.FirstOrDefault();
-            await LoadOptionsAsync(Ships, await repository.GetShipsAsync(EmptyToNull(SelectedServer?.Value), EmptyToNull(SelectedAccount?.Value)), Resource("HistoryAllShips", "All ships"));
-            SelectedShip = Ships.FirstOrDefault();
+            await LoadShipFiltersAsync(keepShip: false);
         }
 
         private static Task LoadOptionsAsync(ObservableCollection<HistoryFilterOption> target, IReadOnlyList<HistoryFilterOption> values, string allLabel)

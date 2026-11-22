@@ -159,6 +159,15 @@
                 </Grid.RowDefinitions>
                 <WrapPanel x:Name="HistoryFilters" Margin="0,0,0,12">
                     <ComboBox Width="115" ItemsSource="{Binding DateRanges}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedDateRange}" SelectionChanged="Range_SelectionChanged" Margin="0,0,10,0"/>
+                    <ComboBox Width="114" ToolTip="{DynamicResource HistoryShipClass}" AutomationProperties.Name="{DynamicResource HistoryShipClass}"
+                              ItemsSource="{Binding ShipTypes}" DisplayMemberPath="Display" SelectedValuePath="Value" SelectedValue="{Binding SelectedType}"
+                              SelectionChanged="Filter_SelectionChanged" Margin="0,0,10,0"/>
+                    <ComboBox Width="90" ToolTip="{DynamicResource HistoryShipTier}" AutomationProperties.Name="{DynamicResource HistoryShipTier}"
+                              ItemsSource="{Binding ShipTiers}" DisplayMemberPath="Display" SelectedValuePath="Value" SelectedValue="{Binding SelectedTier}"
+                              SelectionChanged="Filter_SelectionChanged" Margin="0,0,10,0"/>
+                    <ComboBox Width="130" ToolTip="{DynamicResource HistoryShipNation}" AutomationProperties.Name="{DynamicResource HistoryShipNation}"
+                              ItemsSource="{Binding ShipNations}" DisplayMemberPath="Display" SelectedValuePath="Value" SelectedValue="{Binding SelectedNation}"
+                              SelectionChanged="Filter_SelectionChanged" Margin="0,0,10,0"/>
                     <ComboBox Width="175" ToolTip="{DynamicResource HistoryShip}" ItemsSource="{Binding Ships}" DisplayMemberPath="Display" SelectedItem="{Binding SelectedShip}" SelectionChanged="Filter_SelectionChanged" Margin="0,0,16,0"/>
                     <CheckBox Content="{DynamicResource HistoryOnlyFavorites}" IsChecked="{Binding FavoritesOnly}" Click="FavoritesFilter_Click" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <WrapPanel>

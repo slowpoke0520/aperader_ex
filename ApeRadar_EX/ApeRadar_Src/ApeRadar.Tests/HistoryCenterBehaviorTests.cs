@@ -1,6 +1,8 @@
 using ApeRadar.History;
+using ApeRadar.Utils;
 using ApeRadar.ViewModels;
 using Microsoft.Data.Sqlite;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace ApeRadar.Tests;
@@ -146,6 +148,68 @@ public sealed class HistoryCenterBehaviorTests : IDisposable
         Assert.Empty(await repository.GetBattlesAsync(new HistoryQuery()));
         Assert.Empty(await repository.GetApiIntervalsAsync(new HistoryQuery()));
         Assert.Null(await repository.GetReviewDraftAsync(id));
+    }
+
+    [Fact]
+    public async Task ShipCategories_CombineForRowsSummaryShipPickerAndIntervals()
+    {
+        var previousCatalog = ShipInfoUtils.ShipInfo;
+        try
+        {
+            ShipInfoUtils.ShipInfo = JObject.Parse("""
+                {"ships":{
+                    "101":{"type":"Cruiser","tier":10,"nation":"italy"},
+                    "102":{"type":"Cruiser","tier":9,"nation":"italy"},
+                    "103":{"type":"Cruiser","tier":10,"nation":"japan"},
+                    "104":{"type":"Battleship","tier":10,"nation":"italy"}
+                }}
+                """);
+            SqliteHistoryRepository repository = new(DatabasePath);
+            for (int i = 0; i < 5; i++)
+            {
+                BattleRecord record = Battle("single-" + i, i);
+                record.ShipId = (101 + i).ToString();
+                record.ShipName = "Ship " + record.ShipId;
+                await repository.UpsertDraftAsync(record, Array.Empty<BattlePlayerRecord>(), null);
+            }
+            foreach (string ship in new[] { "101", "103" })
+            {
+                BattleRecord interval = Battle("interval-" + ship, 8);
+                interval.ShipId = ship;
+                long id = await repository.UpsertDraftAsync(interval, Array.Empty<BattlePlayerRecord>(), null);
+                await repository.ResolveFromApiAsync(id, Snapshot(100), Snapshot(103));
+            }
+            using var vm = CreateViewModel(repository);
+            await vm.InitializeAsync();
+            vm.ApplyDateRange("all");
+            vm.SelectedShip = vm.Ships.Single(s => s.Value == "104");
+            vm.SelectedType = "Cruiser";
+            Assert.Equal("", vm.SelectedShip?.Value);
+            Assert.Equal(new[] { "101", "102", "103" }, vm.Ships.Skip(1).Select(s => s.Value).Order());
+            vm.SelectedTier = "10";
+            Assert.Equal(new[] { "101", "103" }, vm.Ships.Skip(1).Select(s => s.Value).Order());
+            vm.SelectedNation = "italy";
+            await vm.ReloadAsync();
+            Assert.Equal("101", Assert.Single(vm.Rows).Battle.ShipId);
+            Assert.Equal("1", vm.RecordedBattlesText);
+            Assert.Equal("101", Assert.Single(vm.Ships.Skip(1)).Value);
+            Assert.Single(vm.ApiIntervals);
+            vm.SelectedShip = vm.Ships[1];
+            await vm.RefreshAllAsync();
+            Assert.Equal("101", vm.SelectedShip?.Value);
+            vm.SelectedNation = "japan";
+            vm.SelectedTier = "9";
+            await vm.ReloadAsync();
+            Assert.Empty(vm.Rows);
+            Assert.Empty(vm.ApiIntervals);
+            Assert.Equal("0", vm.RecordedBattlesText);
+            vm.ResetShipFilters();
+            await vm.ReloadAsync();
+            Assert.Equal(5, vm.Rows.Count);
+            Assert.Contains(vm.Rows, row => row.Battle.ShipId == "105");
+            Assert.Equal(2, vm.ApiIntervals.Count);
+        }
+        finally { ShipInfoUtils.ShipInfo = previousCatalog; }
     }
 
     private static HistoryViewModel CreateViewModel(IHistoryRepository repository)

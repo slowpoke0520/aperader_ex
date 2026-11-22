@@ -8,7 +8,11 @@ namespace ApeRadar.Utils.Converters
     {
         public object Convert(object value, Type? targetType, object? parameter, CultureInfo? culture)
         {
-            return value switch
+            return value is int tier ? Format(tier) : "??";
+        }
+
+        internal static string Format(int tier) =>
+            tier switch
             {
                 0 => "??",
                 1 => "Ⅰ",
@@ -24,7 +28,6 @@ namespace ApeRadar.Utils.Converters
                 11 => "★",
                 _ => "??",
             };
-        }
         public object ConvertBack(object value, Type? targetType, object? parameter, CultureInfo? culture)
         {
             throw new NotImplementedException();

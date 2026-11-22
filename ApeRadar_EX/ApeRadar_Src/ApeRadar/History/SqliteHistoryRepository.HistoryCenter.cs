@@ -60,6 +60,7 @@ namespace ApeRadar.History
             command.CommandText = $"""
                 SELECT * FROM ApiBattleIntervals WHERE ($server='' OR Server=$server)
                     AND ($account='' OR {FilterAccountId("ApiBattleIntervals")}=$account) AND ($ship='' OR ShipId=$ship)
+                    AND {ShipCategoryPredicate(command, query.MatchingShipIds)}
                     AND ($from='' OR EndedAt>=$from) AND ($to='' OR StartedAt<$to) ORDER BY EndedAt DESC;
                 """;
             command.Parameters.AddWithValue("$server", query.Server ?? "");

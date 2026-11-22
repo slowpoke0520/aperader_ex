@@ -181,11 +181,12 @@ namespace ApeRadar.History
         public bool HasCompleteMetrics => Status == ReplayParseStatus.Parsed && Damage.HasValue && Frags.HasValue && Result != BattleResult.Unknown;
     }
 
-    internal sealed class HistoryQuery
+    internal sealed record HistoryQuery
     {
         public string? Server { get; init; }
         public string? AccountId { get; init; }
         public string? ShipId { get; init; }
+        public IReadOnlyList<string>? MatchingShipIds { get; init; }
         public DateTimeOffset? From { get; init; }
         public DateTimeOffset? To { get; init; }
         public int? Limit { get; init; }

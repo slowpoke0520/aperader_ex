@@ -475,7 +475,15 @@ namespace ApeRadar.History
                 """, new[] { ("$server", (object?)(server ?? "")) }, cancellationToken);
 
         public Task<IReadOnlyList<HistoryFilterOption>> GetShipsAsync(string? server, string? accountId, CancellationToken cancellationToken = default) =>
-            GetOptionsAsync($"SELECT DISTINCT ShipId,ShipName,ShipType FROM Battles WHERE ($server='' OR Server=$server) AND ($account='' OR {FilterAccountId("Battles")}=$account) ORDER BY ShipName", new[] { ("$server", (object?)(server ?? "")), ("$account", (object?)(accountId ?? "")) }, cancellationToken);
+            GetOptionsAsync($"""
+                SELECT ShipId, COALESCE(NULLIF(MAX(ShipName),''), ShipId) AS Display, MAX(ShipType) FROM (
+                    SELECT ShipId,ShipName,ShipType FROM Battles
+                    WHERE ($server='' OR Server=$server) AND ($account='' OR {FilterAccountId("Battles")}=$account)
+                    UNION ALL
+                    SELECT ShipId,ShipName,'' FROM ApiBattleIntervals
+                    WHERE ($server='' OR Server=$server) AND ($account='' OR {FilterAccountId("ApiBattleIntervals")}=$account)
+                ) WHERE ShipId<>'' GROUP BY ShipId ORDER BY Display, ShipId
+                """, new[] { ("$server", (object?)(server ?? "")), ("$account", (object?)(accountId ?? "")) }, cancellationToken);
 
         public async Task<ShipStatSnapshot?> GetPreBattleSnapshotAsync(long battleId, CancellationToken cancellationToken = default)
         {
